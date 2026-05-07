@@ -1,6 +1,8 @@
+"use client";
+
 export default function Header() {
   return (
-    <header className="main-header header-one">
+    <header className="main-header header-one sticky-header-css">
       <div className="header-upper bg-white py-30 rpy-0">
         <div className="container-fluid clearfix">
           <div className="header-inner rel d-flex align-items-center">

@@ -1,6 +1,6 @@
 export default function ContactPage() {
   return (
-    
+
 
     <>
       <section
@@ -15,7 +15,7 @@ export default function ContactPage() {
               data-aos-duration="1500"
               data-aos-offset="50"
             >
-              Lien he
+              Liên hệ
             </h2>
             <nav aria-label="breadcrumb">
               <ol
@@ -26,9 +26,9 @@ export default function ContactPage() {
                 data-aos-offset="50"
               >
                 <li className="breadcrumb-item">
-                  <a href="/">Trang chu</a>
+                  <a href="/">Trang chủ</a>
                 </li>
-                <li className="breadcrumb-item active">Lien he</li>
+                <li className="breadcrumb-item active">Liên hệ</li>
               </ol>
             </nav>
           </div>
@@ -48,11 +48,11 @@ export default function ContactPage() {
                 <div className="section-title mb-30">
                 </div>
                 <p>
-                  Doi ngu ho tro tan tam cua chung toi luon san sang ho tro ban giai dap moi thac mac hoac van de, cung cap
-                  cac giai phap nhanh chong va duoc ca nhan hoa de dap ung nhu cau cua ban.
+                  Đội ngũ hỗ trợ tận tâm của chúng tôi luôn sẵn sàng hỗ trợ bạn giải đáp mọi thắc mắc hoặc vấn đề, cung cấp
+                  các giải pháp nhanh chóng và được cá nhân hóa để đáp ứng nhu cầu của bạn.
                 </p>
                 <div className="features-team-box mt-40">
-                  <h6>85+ Thanh vien nhom chuyen gia</h6>
+                  <h6>85+ Thành viên nhóm chuyên gia</h6>
                   <div className="feature-authors">
                     <img src="/clients/assets/images/features/feature-author1.jpg" alt="Author" />
                     <img src="/clients/assets/images/features/feature-author2.jpg" alt="Author" />
@@ -80,7 +80,7 @@ export default function ContactPage() {
                       <i className="fas fa-envelope"></i>
                     </div>
                     <div className="content">
-                      <h5>Can tro giup va ho tro</h5>
+                      <h5>Cần trợ giúp và hỗ trợ</h5>
                       <div className="text">
                         <i className="far fa-envelope"></i>{" "}
                         <a href="mailto:duchaunguyen131@gmail.com">duchaunguyen131@gmail.com</a>
@@ -100,7 +100,7 @@ export default function ContactPage() {
                       <i className="fas fa-phone"></i>
                     </div>
                     <div className="content">
-                      <h5>Can bat ky viec khan cap nao</h5>
+                      <h5>Cần bất kỳ việc khẩn cấp nào</h5>
                       <div className="text">
                         <i className="far fa-phone"></i>{" "}
                         <a href="callto:+0001234588">+000 (123) 45 88</a>
@@ -122,7 +122,7 @@ export default function ContactPage() {
                     <div className="content">
                       <h5>Gia Lai</h5>
                       <div className="text">
-                        <i className="fal fa-map-marker-alt"></i> Cuu An, An Khe, Gia Lai
+                        <i className="fal fa-map-marker-alt"></i> Cửu An, An Khê, Gia Lai
                       </div>
                     </div>
                   </div>
@@ -139,9 +139,9 @@ export default function ContactPage() {
                       <i className="fas fa-map-marker-alt"></i>
                     </div>
                     <div className="content">
-                      <h5>Ky tuc xa Viet Han</h5>
+                      <h5>Ký túc xá Việt Hàn</h5>
                       <div className="text">
-                        <i className="fal fa-map-marker-alt"></i> 470 Tran Dai Nghia, Ngu Hanh Son, Thanh pho Da Nang
+                        <i className="fal fa-map-marker-alt"></i> 470 Trần Đại Nghĩa, Ngũ Hành Sơn, Thành phố Đà Nẵng
                       </div>
                     </div>
                   </div>
@@ -168,23 +168,23 @@ export default function ContactPage() {
                   data-aos-offset="50"
                 >
                   <div className="section-title">
-                    <h2>Lien he</h2>
+                    <h2>Liên hệ</h2>
                   </div>
                   <p>
-                    Dia chi email cua ban se khong duoc cong bo. Cac truong bat buoc duoc danh dau <span style={{ color: "red" }}>*</span>
+                    Địa chỉ email của bạn sẽ không được công bố. Các trường bắt buộc được đánh dấu <span style={{ color: "red" }}>*</span>
                   </p>
                   <div className="row mt-35">
                     <div className="col-md-6">
                       <div className="form-group">
                         <label htmlFor="name">
-                          Ho va ten <span style={{ color: "red" }}>*</span>
+                          Họ và tên <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
                           type="text"
                           id="name"
                           name="name"
                           className="form-control"
-                          placeholder="Ho va ten"
+                          placeholder="Họ và tên"
                           required
                         />
                       </div>
@@ -192,14 +192,14 @@ export default function ContactPage() {
                     <div className="col-md-6">
                       <div className="form-group">
                         <label htmlFor="phone_number">
-                          So dien thoai <span style={{ color: "red" }}>*</span>
+                          Số điện thoại <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
                           type="text"
                           id="phone_number"
                           name="phone_number"
                           className="form-control"
-                          placeholder="So dien thoai"
+                          placeholder="Số điện thoại"
                           required
                         />
                       </div>
@@ -207,14 +207,14 @@ export default function ContactPage() {
                     <div className="col-md-12">
                       <div className="form-group">
                         <label htmlFor="email">
-                          Dia chi Email <span style={{ color: "red" }}>*</span>
+                          Địa chỉ Email <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
                           type="email"
                           id="email"
                           name="email"
                           className="form-control"
-                          placeholder="Nhap email"
+                          placeholder="Nhập email"
                           required
                         />
                       </div>
@@ -222,14 +222,14 @@ export default function ContactPage() {
                     <div className="col-md-12">
                       <div className="form-group">
                         <label htmlFor="message">
-                          Noi dung <span style={{ color: "red" }}>*</span>
+                          Nội dung <span style={{ color: "red" }}>*</span>
                         </label>
                         <textarea
                           name="message"
                           id="message"
                           className="form-control"
                           rows={5}
-                          placeholder="Noi dung"
+                          placeholder="Nội dung"
                           required
                         ></textarea>
                       </div>
@@ -237,7 +237,7 @@ export default function ContactPage() {
                     <div className="col-md-12">
                       <div className="form-group mb-0">
                         <button type="submit" className="theme-btn style-two">
-                          <span data-hover="Send Comments">Gui</span>
+                          <span data-hover="Send Comments">Gửi</span>
                           <i className="fal fa-arrow-right"></i>
                         </button>
                         <div id="msgSubmit" className="hidden"></div>

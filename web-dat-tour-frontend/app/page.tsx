@@ -79,7 +79,7 @@ export default function Home() {
             data-aos-duration="1500"
             data-aos-offset="50"
           >
-            Tours Du Lich
+            Tours Du Lịch
           </h1>
           <div
             className="main-hero-image bgs-cover"
@@ -100,12 +100,12 @@ export default function Home() {
                 <div className="icon">
                   <i className="fal fa-map-marker-alt"></i>
                 </div>
-                <span className="title">Diem den</span>
+                <span className="title">Điểm đến</span>
                 <select name="destination" id="destination">
-                  <option value="">Chon diem den</option>
-                  <option value="dn">Da Nang</option>
-                  <option value="cd">Con Dao</option>
-                  <option value="hn">Ha Noi</option>
+                  <option value="">Chọn điểm đến</option>
+                  <option value="dn">Đà Nẵng</option>
+                  <option value="cd">Côn Đảo</option>
+                  <option value="hn">Hà Nội</option>
                   <option value="hcm">TP. Ho Chi Minh</option>
                   <option value="hl">Ha Long</option>
                   <option value="nb">Ninh Binh</option>
@@ -124,13 +124,13 @@ export default function Home() {
                 <div className="icon">
                   <i className="fal fa-calendar-alt"></i>
                 </div>
-                <span className="title">Ngay khoi hanh</span>
+                <span className="title">Ngày khởi hành</span>
                 <input
                   type="text"
                   id="start_date"
                   name="start_date"
                   className="datetimepicker datetimepicker-custom"
-                  placeholder="Chon ngay di"
+                  placeholder="Chọn ngày đi"
                   readOnly
                 />
               </div>
@@ -138,19 +138,19 @@ export default function Home() {
                 <div className="icon">
                   <i className="fal fa-calendar-alt"></i>
                 </div>
-                <span className="title">Ngay ket thuc</span>
+                <span className="title">Ngày kết thúc</span>
                 <input
                   type="text"
                   id="end_date"
                   name="end_date"
                   className="datetimepicker datetimepicker-custom"
-                  placeholder="Chon ngay ve"
+                  placeholder="Chọn ngày về"
                   readOnly
                 />
               </div>
               <div className="search-button">
                 <button className="theme-btn" type="submit">
-                  <span data-hover="Tim kiem">Tim kiem</span>
+                  <span data-hover="Tìm kiếm">Tìm kiếm</span>
                   <i className="far fa-search"></i>
                 </button>
               </div>
@@ -171,7 +171,7 @@ export default function Home() {
                 data-aos-duration="1500"
                 data-aos-offset="50"
               >
-                <h2>Kham pha kho bau Viet Nam cung HTravel</h2>
+                <h2>Khám phá kho báu Việt Nam cùng HTravel</h2>
                 <p>
                   Website
                   <span
@@ -181,7 +181,7 @@ export default function Home() {
                   >
                     0
                   </span>
-                  pho bien nhat ma ban se nho
+                  phổ biến nhất mà bạn sẽ nhớ
                 </p>
               </div>
             </div>
@@ -223,7 +223,7 @@ export default function Home() {
                       <span>{tour.price}</span> VND / nguoi
                     </span>
                     <a href={`/tours/${tour.id}`} className="read-more">
-                      Dat ngay <i className="fal fa-angle-right"></i>
+                      Đặt ngay <i className="fal fa-angle-right"></i>
                     </a>
                   </div>
                 </div>
@@ -245,18 +245,18 @@ export default function Home() {
               >
                 <div className="section-title mb-25">
                   <h2>
-                    Du lich voi su tu tin Ly do hang dau de chon cong ty
-                    chung toi
+                    Du lịch với sự tự tin. Lý do hàng đầu để chọn công ty
+                    chúng tôi
                   </h2>
                 </div>
                 <p>
-                  Chung toi se no luc het minh de bien giac mo du lich cua ban
-                  thanh hien thuc nhung vien ngoc an va nhung diem tham quan
-                  khong the bo qua
+                  Chúng tôi sẽ nỗ lực hết mình để biến giấc mơ du lịch của bạn
+                  thành hiện thực, những viên ngọc ẩn và những điểm tham quan
+                  không thể bỏ qua
                 </p>
                 <div className="divider counter-text-wrap mt-45 mb-55">
                   <span>
-                    Chung toi co{" "}
+                    Chúng tôi có{" "}
                     <span>
                       <span
                         className="count-text plus"
@@ -265,9 +265,9 @@ export default function Home() {
                       >
                         0
                       </span>
-                      Nam
+                      Năm
                     </span>
-                    kinh nghiem
+                    kinh nghiệm
                   </span>
                 </div>
                 <div className="row">
@@ -276,7 +276,7 @@ export default function Home() {
                       <span className="count-text k-plus" data-speed="2000" data-stop="1">
                         0
                       </span>
-                      <span className="counter-title">Diem den pho bien</span>
+                      <span className="counter-title">Điểm đến phổ biến</span>
                     </div>
                   </div>
                   <div className="col-6">
@@ -284,12 +284,12 @@ export default function Home() {
                       <span className="count-text m-plus" data-speed="3000" data-stop="8">
                         0
                       </span>
-                      <span className="counter-title">Khach hang hai long</span>
+                      <span className="counter-title">Khách hàng hài lòng</span>
                     </div>
                   </div>
                 </div>
                 <a href="/destination" className="theme-btn mt-10 style-two">
-                  <span data-hover="Kham pha Diem den">Kham pha Diem den</span>
+                  <span data-hover="Khám phá Điểm đến">Khám phá Điểm đến</span>
                   <i className="fal fa-arrow-right"></i>
                 </a>
               </div>
@@ -340,13 +340,13 @@ export default function Home() {
                   data-aos-duration="1500"
                   data-aos-offset="50"
                 >
-                  <h2>Kham pha cac diem den pho bien</h2>
+                  <h2>Khám phá các điểm đến phổ biến</h2>
                   <p>
                     Website{" "}
                     <span className="count-text plus" data-speed="3000" data-stop="24080">
                       0
                     </span>{" "}
-                    trai nghiem pho bien nhat
+                    trải nghiệm phổ biến nhất
                   </p>
                 </div>
               </div>
@@ -395,7 +395,7 @@ export default function Home() {
               >
                 <div className="section-title mb-60">
                   <h2>
-                    Trai nghiem du lich tuyet dinh mang den su khac biet cho cong ty chung toi
+                    Trải nghiệm du lịch tuyệt đỉnh mang đến sự khác biệt cho công ty chúng tôi
                   </h2>
                 </div>
                 <div className="features-customer-box">
@@ -421,16 +421,16 @@ export default function Home() {
                       />
                       <span>4k+</span>
                     </div>
-                    <h6>850K+ Khach hang hai long</h6>
+                    <h6>850K+ Khách hàng hài lòng</h6>
                     <div className="divider style-two counter-text-wrap my-25">
                       <span>
                         <span className="count-text plus" data-speed="3000" data-stop="5">
                           0
                         </span>
-                        Nam
+                        Năm
                       </span>
                     </div>
-                    <p>Chung toi tu hao cung cap cac hanh trinh duoc ca nhan hoa</p>
+                    <p>Chúng tôi tự hào cung cấp các hành trình được cá nhân hóa</p>
                   </div>
                 </div>
               </div>
@@ -449,10 +449,10 @@ export default function Home() {
                     </div>
                     <div className="content">
                       <h5>
-                        <a href="/tours">Chinh Phuc Canh Quan Viet Nam</a>
+                        <a href="/tours">Chinh Phục Cảnh Quan Việt Nam</a>
                       </h5>
                       <p>
-                        Kham pha nhung canh dep hung vi va tuyet voi cua dat nuoc Viet Nam.
+                        Khám phá những cảnh đẹp hùng vĩ và tuyệt vời của đất nước Việt Nam.
                       </p>
                     </div>
                   </div>
@@ -462,10 +462,10 @@ export default function Home() {
                     </div>
                     <div className="content">
                       <h5>
-                        <a href="/tours">Trai Nghiem Dac Sac Viet Nam</a>
+                        <a href="/tours">Trải Nghiệm Đặc Sắc Việt Nam</a>
                       </h5>
                       <p>
-                        Trai nghiem nhung hoat dong va le hoi dac trung cua van hoa Viet.
+                        Trải nghiệm những hoạt động và lễ hội đặc trưng của văn hóa Việt.
                       </p>
                     </div>
                   </div>
@@ -477,10 +477,10 @@ export default function Home() {
                     </div>
                     <div className="content">
                       <h5>
-                        <a href="/tours">Kham Pha Di San Viet Nam</a>
+                        <a href="/tours">Khám Phá Di Sản Việt Nam</a>
                       </h5>
                       <p>
-                        Kham pha cac di san the gioi va nhung ky quan thien nhien noi tieng.
+                        Khám phá các di sản thế giới và những kỳ quan thiên nhiên nổi tiếng.
                       </p>
                     </div>
                   </div>
@@ -490,10 +490,10 @@ export default function Home() {
                     </div>
                     <div className="content">
                       <h5>
-                        <a href="/tours">Ve Dep Thien Nhien Viet</a>
+                        <a href="/tours">Vẻ Đẹp Thiên Nhiên Việt</a>
                       </h5>
                       <p>
-                        Chinh phuc ve dep tu nhien hoang so va ky vi cua Viet Nam.
+                        Chinh phục vẻ đẹp tự nhiên hoang sơ và kỳ vĩ của Việt Nam.
                       </p>
                     </div>
                   </div>
@@ -512,10 +512,10 @@ export default function Home() {
                 className="cta-item"
                 style={{ backgroundImage: "url(/clients/assets/images/cta/cta1.jpg)" }}
               >
-                <span className="category">Kham Pha Ve Dep Van Hoa Viet</span>
-                <h2>Tim hieu nhung gia tri van hoa doc dao cua cac vung mien Viet Nam.</h2>
+                <span className="category">Khám Phá Vẻ Đẹp Văn Hóa Việt</span>
+                <h2>Tìm hiểu những giá trị văn hóa độc đáo của các vùng miền Việt Nam.</h2>
                 <a href="/tours" className="theme-btn style-two bgc-secondary">
-                  <span data-hover="Kham pha">Kham pha</span>
+                  <span data-hover="Khám phá">Khám phá</span>
                   <i className="fal fa-arrow-right"></i>
                 </a>
               </div>
@@ -531,10 +531,10 @@ export default function Home() {
                 className="cta-item"
                 style={{ backgroundImage: "url(/clients/assets/images/cta/cta2.jpg)" }}
               >
-                <span className="category">Bai bien Sea</span>
-                <h2>Bai trong xanh dat dao o Viet Nam</h2>
-                <a href="/tours" className="theme-btn style-two">
-                  <span data-hover="Kham pha">Kham pha</span>
+                <span className="category">Bãi biển Sea</span>
+                <h2>Bãi trong xanh dạt dào ở Việt Nam</h2>
+                <a href="/tours" className="theme-btn style-two bgc-secondary">
+                  <span data-hover="Khám phá">Khám phá</span>
                   <i className="fal fa-arrow-right"></i>
                 </a>
               </div>
@@ -550,10 +550,10 @@ export default function Home() {
                 className="cta-item"
                 style={{ backgroundImage: "url(/clients/assets/images/cta/cta3.jpg)" }}
               >
-                <span className="category">Thac nuoc</span>
-                <h2>Thac nuoc lon nhat Viet Nam</h2>
+                <span className="category">Thác nước</span>
+                <h2>Thác nước lớn nhất Việt Nam</h2>
                 <a href="/tours" className="theme-btn style-two bgc-secondary">
-                  <span data-hover="Kham pha">Kham pha</span>
+                  <span data-hover="Khám phá">Khám phá</span>
                   <i className="fal fa-arrow-right"></i>
                 </a>
               </div>

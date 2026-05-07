@@ -42,14 +42,14 @@ export default function Footer() {
             >
               <div className="footer-widget footer-links ms-sm-5">
                 <div className="footer-title">
-                  <h5>Dich vu</h5>
+                  <h5>Dịch vụ</h5>
                 </div>
                 <ul className="list-style-three">
                   <li>
-                    <a href="/tours">Dat tour</a>
+                    <a href="/tours">Đặt tour</a>
                   </li>
                   <li>
-                    <a href="/tours">Dat ve</a>
+                    <a href="/tours">Đặt vé</a>
                   </li>
                 </ul>
               </div>
@@ -64,17 +64,17 @@ export default function Footer() {
             >
               <div className="footer-widget footer-links ms-md-4">
                 <div className="footer-title">
-                  <h5>Cong ty</h5>
+                  <h5>Công ty</h5>
                 </div>
                 <ul className="list-style-three">
                   <li>
-                    <a href="/about">Gioi thieu ve cong ty</a>
+                    <a href="/about">Giới thiệu về công ty</a>
                   </li>
                   <li>
-                    <a href="/contact">Viec lam va nghe nghiep</a>
+                    <a href="/contact">Việc làm và nghề nghiệp</a>
                   </li>
                   <li>
-                    <a href="/contact">Lien he voi chung toi</a>
+                    <a href="/contact">Liên hệ với chúng tôi</a>
                   </li>
                 </ul>
               </div>
@@ -89,17 +89,17 @@ export default function Footer() {
             >
               <div className="footer-widget footer-links ms-lg-4">
                 <div className="footer-title">
-                  <h5>Diem den</h5>
+                  <h5>Điểm đến</h5>
                 </div>
                 <ul className="list-style-three">
                   <li>
-                    <a href="/destination">Mien Bac</a>
+                    <a href="/destination">Miền Bắc</a>
                   </li>
                   <li>
-                    <a href="/destination">Mien Trung</a>
+                    <a href="/destination">Miền Trung</a>
                   </li>
                   <li>
-                    <a href="/destination">Mien Nam</a>
+                    <a href="/destination">Miền Nam</a>
                   </li>
                 </ul>
               </div>
@@ -114,7 +114,7 @@ export default function Footer() {
             >
               <div className="footer-widget footer-contact">
                 <div className="footer-title">
-                  <h5>Lien he</h5>
+                  <h5>Liên hệ</h5>
                 </div>
                 <ul className="list-style-one">
                   <li>
@@ -151,16 +151,16 @@ export default function Footer() {
             <div className="col-lg-7 text-center text-lg-end">
               <ul className="footer-bottom-nav">
                 <li>
-                  <a href="/about">Dieu khoan</a>
+                  <a href="/about">Điều khoản</a>
                 </li>
                 <li>
-                  <a href="/about">Chinh sach bao mat</a>
+                  <a href="/about">Chính sách bảo mật</a>
                 </li>
                 <li>
-                  <a href="/about">Thong bao phap ly</a>
+                  <a href="/about">Thông báo pháp lý</a>
                 </li>
                 <li>
-                  <a href="/about">Kha nang truy cap</a>
+                  <a href="/about">Khả năng truy cập</a>
                 </li>
               </ul>
             </div>

@@ -44,19 +44,19 @@ export default function Header() {
                 <div className="navbar-collapse collapse clearfix">
                   <ul className="navigation clearfix">
                     <li>
-                      <a href="/">Trang chu</a>
+                      <a href="/">Trang chủ</a>
                     </li>
                     <li>
-                      <a href="/about">Gioi thieu</a>
+                      <a href="/about">Giới thiệu</a>
                     </li>
                     <li>
                       <a href="/tours">Tours</a>
                     </li>
                     <li>
-                      <a href="/destination">Diem den</a>
+                      <a href="/destination">Điểm đến</a>
                     </li>
                     <li>
-                      <a href="/contact">Lien he</a>
+                      <a href="/contact">Liên hệ</a>
                     </li>
                   </ul>
                 </div>
@@ -65,7 +65,7 @@ export default function Header() {
 
             <div className="menu-btns py-10">
               <a href="/tours" className="theme-btn style-two bgc-secondary">
-                <span data-hover="Dat Ngay">Book Now</span>
+                <span data-hover="Đặt Ngay">Book Now</span>
                 <i className="fal fa-arrow-right"></i>
               </a>
               <div className="menu-sidebar">
@@ -82,7 +82,7 @@ export default function Header() {
                   </button>
                   <ul className="dropdown-menu" id="dropdownMenu">
                     <li>
-                      <a href="/login">Dang nhap</a>
+                      <a href="/login">Đăng nhập</a>
                     </li>
                   </ul>
                 </li>

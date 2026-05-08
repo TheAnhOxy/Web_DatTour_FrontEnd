@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
 import { Dashboard } from "./pages/Dashboard";
 import { TourPage } from "./pages/TourPage";
+import { TourDetailPage } from "./pages/TourDetailPage";
 import { PromotionPage } from "./pages/PromotionPage";
 import { TourBookingPage } from "./pages/TourBookingPage";
 import { PaymentPage } from "./pages/PaymentPage";
@@ -43,6 +44,17 @@ const AppContent = () => {
           <ProtectedRoute>
             <MainLayout>
               <TourPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tour/:id"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <TourDetailPage />
             </MainLayout>
           </ProtectedRoute>
         }

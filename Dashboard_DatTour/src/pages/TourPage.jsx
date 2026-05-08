@@ -1,192 +1,350 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { MiniStatSquares } from "../components/MiniStatSquares";
+import { mockTours, mockCategories } from "../data/mockTourData";
 
 export const TourPage = () => {
-  const [tours] = useState([
-    {
-      id: 1,
-      name: "Du lịch Hạ Long Bay",
-      location: "Quảng Ninh",
-      price: "5.0M",
-      days: "3N2D",
-      rating: 4.8,
-      booking: 156,
-      image:
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      id: 2,
-      name: "Tour Phan Thiết - Mũi Né",
-      location: "Bình Thuận",
-      price: "3.5M",
-      days: "2N1D",
-      rating: 4.5,
-      booking: 98,
-      image:
-        "https://images.unsplash.com/photo-1507525428034-2d1a4f4d0f8c?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      id: 3,
-      name: "Du lịch Đà Nẵng",
-      location: "Đà Nẵng",
-      price: "4.2M",
-      days: "3N2D",
-      rating: 4.7,
-      booking: 134,
-      image:
-        "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      id: 4,
-      name: "Tour Nha Trang",
-      location: "Khánh Hòa",
-      price: "2.8M",
-      days: "2N1D",
-      rating: 4.6,
-      booking: 87,
-      image:
-        "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      id: 5,
-      name: "Du lịch Hội An - Huế",
-      location: "Quảng Nam",
-      price: "6.5M",
-      days: "4N3D",
-      rating: 4.9,
-      booking: 203,
-      image:
-        "https://images.unsplash.com/photo-1577717903315-1691ae25ab3e?auto=format&fit=crop&w=1200&q=80",
-    },
-  ]);
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [showHotOnly, setShowHotOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
-  const totalPages = Math.ceil(tours.length / itemsPerPage);
-  const paginatedTours = tours.slice(
+
+  // Filter tours
+  const filteredTours = useMemo(() => {
+    return mockTours.filter((tour) => {
+      const matchSearch =
+        tour.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tour.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchStatus =
+        selectedStatus === "ALL" || tour.status === selectedStatus;
+
+      const matchCategory =
+        selectedCategory === "ALL" || tour.categoryName === selectedCategory;
+
+      const matchHot = !showHotOnly || tour.isHot;
+
+      return matchSearch && matchStatus && matchCategory && matchHot;
+    });
+  }, [searchTerm, selectedStatus, selectedCategory, showHotOnly]);
+
+  const totalPages = Math.ceil(filteredTours.length / itemsPerPage);
+  const paginatedTours = filteredTours.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
+  // Calculate stats
+  const totalHotTours = mockTours.filter((t) => t.isHot).length;
+  const totalInactiveTours = mockTours.filter(
+    (t) => t.status === "INACTIVE"
+  ).length;
+  const totalActiveToursCount = mockTours.filter(
+    (t) => t.status === "ACTIVE"
+  ).length;
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const handleViewDetail = (tourId) => {
+    navigate(`/tour/${tourId}`);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Stats */}
       <MiniStatSquares
         items={[
-          { label: "Tour", value: tours.length, badge: "Live" },
-          {
-            label: "Booking",
-            value: tours.reduce((sum, t) => sum + t.booking, 0),
-            badge: "Total",
-          },
-          {
-            label: "Rating",
-            value: (
-              tours.reduce((sum, t) => sum + t.rating, 0) / tours.length
-            ).toFixed(1),
-            badge: "Score",
-          },
+          { label: "Tổng Tour", value: mockTours.length, badge: "Live" },
+          { label: "Đang hoạt động", value: totalActiveToursCount, badge: "Active" },
+          { label: "Dừng hoạt động", value: totalInactiveTours, badge: "Inactive" },
+          { label: "Tour nổi bật", value: totalHotTours, badge: "Hot" },
         ]}
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {paginatedTours.map((tour) => (
-          <div
-            key={tour.id}
-            className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
+      {/* Header with title */}
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">Quản lý Tour</h2>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="space-y-5 rounded-2xl border border-slate-300 bg-white p-5 shadow-sm">
+        {/* Search Input */}
+        <div className="relative">
+          <svg
+            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <div className="relative h-44 overflow-hidden">
-              <img
-                src={tour.image}
-                alt={tour.name}
-                className="h-full w-full object-cover transition duration-500 hover:scale-105"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent" />
-              <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-800 shadow-sm backdrop-blur">
-                Hot deal
-              </span>
-            </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Tìm kiếm tour, mã đặt chỗ..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="h-14 w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-12 pr-4 text-sm text-slate-700 placeholder-slate-400 focus:border-blue-400 focus:bg-white focus:outline-none"
+          />
+        </div>
 
-            {/* Content */}
-            <div className="p-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <h3 className="text-base font-bold leading-snug text-slate-950">
-                {tour.name}
-                </h3>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
-                  ⭐ {tour.rating}
-                </span>
-              </div>
+        {/* Filter Controls */}
+        <div className="flex flex-wrap items-center gap-5">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-slate-700">Trạng thái:</span>
+            <select
+              value={selectedStatus}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-11 min-w-48 rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm text-slate-700 focus:border-blue-400 focus:outline-none"
+            >
+              <option value="ALL">Tất cả</option>
+              <option value="ACTIVE">Hoạt động</option>
+              <option value="INACTIVE">Tạm dừng</option>
+            </select>
+          </div>
 
-              {/* Details */}
-              <div className="mb-4 space-y-2.5 text-sm text-slate-600">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">📍</span>
-                  <span>{tour.location}, Việt Nam</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">⏱️</span>
-                  <span>{tour.days.replace("N", " Ngày ").replace("D", " Đêm")}</span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-medium text-slate-500">
-                    📅 {tour.booking} booking
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-slate-700">Danh mục:</span>
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-11 min-w-48 rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm text-slate-700 focus:border-blue-400 focus:outline-none"
+            >
+              <option value="ALL">Tất cả danh mục</option>
+              {mockCategories.map((cat) => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <label
+            htmlFor="hotFilter"
+            className="inline-flex h-11 items-center gap-3 rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-700"
+          >
+            <input
+              type="checkbox"
+              id="hotFilter"
+              checked={showHotOnly}
+              onChange={(e) => {
+                setShowHotOnly(e.target.checked);
+                setCurrentPage(1);
+              }}
+              className="h-5 w-5 rounded border-slate-300 accent-blue-700"
+            />
+            Chỉ hiện Tour Nổi bật
+          </label>
+
+          <div className="ml-auto flex gap-3">
+            <button className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800">
+              Áp dụng
+            </button>
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedStatus("ALL");
+                setSelectedCategory("ALL");
+                setShowHotOnly(false);
+                setCurrentPage(1);
+              }}
+              className="h-11 rounded-xl border border-slate-300 bg-slate-50 px-6 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+            >
+              Đặt lại
+            </button>
+          </div>
+        </div>
+
+        <div className="h-px w-full bg-slate-300" />
+
+        {/* Results Info */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700">
+          <div>
+            Hiển thị <span className="font-semibold">{paginatedTours.length}</span> trong <span className="font-semibold">{filteredTours.length}</span> tours
+          </div>
+          <button className="inline-flex items-center gap-2 text-sm">
+            <span className="text-slate-500">Sắp xếp:</span>
+            <span className="font-semibold text-blue-700">Mới nhất</span>
+            <svg className="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Tours Grid */}
+      {paginatedTours.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {paginatedTours.map((tour) => (
+            <div
+              key={tour.id}
+              className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg"
+            >
+              {/* Image Section */}
+              <div className="relative h-40 overflow-hidden bg-slate-100">
+                <img
+                  src={tour.coverImageUrl}
+                  alt={tour.title}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900/20" />
+
+                {/* Hot Badge */}
+                {tour.isHot && (
+                  <div className="absolute left-2.5 top-2.5">
+                    <span className="inline-block rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white shadow-md">
+                      🔥 HOT DEAL
+                    </span>
+                  </div>
+                )}
+
+                {/* Rating */}
+                <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 shadow-md backdrop-blur">
+                  <span>⭐</span>
+                  <span className="text-xs font-bold text-slate-900">
+                    {tour.rating}
                   </span>
                 </div>
               </div>
 
-              {/* Price */}
-              <div className="mb-4 border-b border-slate-100 pb-4">
-                <p className="text-2xl font-black text-blue-700">
-                  {tour.price}
-                </p>
-              </div>
+              {/* Content Section */}
+              <div className="flex flex-col p-3.5">
+                {/* Title and Category */}
+                <h3 className="mb-1 line-clamp-2 text-sm font-bold text-slate-900">
+                  {tour.title}
+                </h3>
+                <p className="mb-2 text-xs text-slate-500">{tour.categoryName}</p>
 
-              {/* Actions */}
-              <div className="flex gap-2">
-                <button className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-                  ✏️ Sửa
-                </button>
-                <button className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600">
-                  🗑️ Xóa
-                </button>
+                {/* Details */}
+                <div className="mb-3 space-y-1.5 text-xs text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400">📍</span>
+                    <span>{tour.pickupName}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400">⏱️</span>
+                    <span>{tour.durationDays} Ngày {tour.durationDays - 1} Đêm</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">📅 {tour.bookingCount} đặt</span>
+                    <span className="text-slate-400">{tour.departureStartDate}</span>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="mb-3 border-t border-slate-100" />
+
+                {/* Price */}
+                <div className="mb-3">
+                  <p className="text-xs text-slate-500">Giá cơ bản</p>
+                  <p className="text-lg font-bold text-blue-600">
+                    {formatPrice(tour.basePrice)}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleViewDetail(tour.id)}
+                    className="flex-1 rounded-lg bg-blue-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                  >
+                    👁️ Xem / ✏️ Sửa
+                  </button>
+                  <button className="flex-1 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600">
+                    🗑️ Xóa
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
 
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <p className="text-sm text-slate-600">
-          Hiển thị {paginatedTours.length} trên tổng số {tours.length} tour
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            disabled={currentPage === 1}
-          >
-            Prev
-          </button>
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-            (page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`min-w-9 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${currentPage === page ? "bg-blue-600 text-white shadow-sm" : "border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-              >
-                {page}
-              </button>
-            ),
-          )}
-          <button
-            onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            disabled={currentPage === totalPages}
-          >
-            Next
+          {/* Add New Tour Card */}
+          <button className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-blue-400 hover:bg-blue-50">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600 transition group-hover:bg-blue-200">
+              +
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">Thêm Tour Mới</p>
+              <p className="text-xs text-slate-500">Bắt đầu tạo lịch tour từ đây</p>
+            </div>
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center">
+          <p className="text-slate-600">Không tìm thấy tour nào phù hợp</p>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {true && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <button
+            onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+            disabled={currentPage === 1}
+          >
+            ← Trước
+          </button>
+
+          <div className="flex gap-1">
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`min-w-9 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                    currentPage === pageNum
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+            disabled={currentPage === totalPages}
+          >
+            Sau →
+          </button>
+        </div>
+      )}
     </div>
   );
 };

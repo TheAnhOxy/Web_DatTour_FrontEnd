@@ -43,10 +43,7 @@ export const Dashboard = () => {
             <p className="mb-3 inline-flex rounded-full border border-blue-400/30 bg-blue-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-100">
               Enterprise tour control center
             </p>
-            <h1
-              className="max-w-2xl text-4xl leading-[1.05] tracking-tight text-white md:text-[52px]"
-              style={{ color: "#ffffff" }}
-            >
+            <h1 className="max-w-2xl text-4xl leading-[1.05] tracking-tight text-white md:text-[52px]">
               Dashboard điều hành tour booking
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-[15px]">

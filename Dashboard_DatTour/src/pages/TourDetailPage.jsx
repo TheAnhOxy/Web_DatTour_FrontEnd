@@ -261,7 +261,7 @@ export const TourDetailPage = () => {
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-900">Chi tiết Tour</h1>
+          <h2 className="text-xl font-bold text-blue-700">Chi tiết Tour</h2>
           <span className="text-slate-400">/</span>
           <p className="border-b-2 border-blue-600 pb-1 text-xs font-semibold text-blue-700">
             {formData.title}
@@ -282,9 +282,9 @@ export const TourDetailPage = () => {
 
       <button
         onClick={() => navigate("/tour")}
-        className="text-sm text-slate-600 transition hover:text-slate-900"
+        className="text-sm text-slate-600 transition hover:text-blue-900 cursor-pointer"
       >
-        ← Back to List
+        ← Quay lại
       </button>
 
       {/* ── Main grid ── */}

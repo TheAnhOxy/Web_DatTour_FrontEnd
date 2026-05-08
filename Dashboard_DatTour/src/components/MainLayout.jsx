@@ -12,7 +12,15 @@ export const MainLayout = ({ children }) => {
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "▣", path: "/dashboard" },
-    { id: "tour", label: "Tour", icon: "✈", path: "/tour" },
+    {
+      id: "tour",
+      label: "Tour",
+      icon: "✈",
+      submenu: [
+        { id: "tour-list", label: "Danh sách tour", path: "/tour" },
+        { id: "tour-categories", label: "Danh mục tour", path: "/tour/categories" },
+      ],
+    },
     { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },
     {
       id: "booking",

@@ -10,6 +10,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { Dashboard } from "./pages/Dashboard";
 import { TourPage } from "./pages/TourPage";
 import { TourDetailPage } from "./pages/TourDetailPage";
+import { TourCategoryPage } from "./pages/TourCategoryPage";
 import { PromotionPage } from "./pages/PromotionPage";
 import { TourBookingPage } from "./pages/TourBookingPage";
 import { PaymentPage } from "./pages/PaymentPage";
@@ -55,6 +56,17 @@ const AppContent = () => {
           <ProtectedRoute>
             <MainLayout>
               <TourDetailPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tour/categories"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <TourCategoryPage />
             </MainLayout>
           </ProtectedRoute>
         }

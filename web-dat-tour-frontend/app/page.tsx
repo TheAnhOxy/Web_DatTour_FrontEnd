@@ -90,12 +90,7 @@ export default function Home() {
         </div>
         <form action="#" method="GET" id="search_form">
           <div className="container container-1400">
-            <div
-              className="search-filter-inner"
-              data-aos="zoom-out-down"
-              data-aos-duration="1500"
-              data-aos-offset="50"
-            >
+            <div className="search-filter-inner">
               <div className="filter-item clearfix">
                 <div className="icon">
                   <i className="fal fa-map-marker-alt"></i>
@@ -355,7 +350,7 @@ export default function Home() {
               <div className="row justify-content-center">
                 {toursPopular.map((tour, index) => (
                   <div
-                    className={index === 2 || index === 3 ? "col-md-6 item" : "col-xl-3 col-md-6 item"}
+                    className="col-xl-3 col-md-6 item"
                     key={tour.id}
                   >
                     <div className="destination-item style-two" data-aos-duration="1500" data-aos-offset="50">
@@ -507,7 +502,7 @@ export default function Home() {
       <section className="cta-area pt-100 rel z-1">
         <div className="container-fluid">
           <div className="row">
-            <div className="col-xl-4 col-md-6" data-aos="zoom-in-down" data-aos-duration="1500" data-aos-offset="50">
+            <div className="col-xl-4 col-md-6">
               <div
                 className="cta-item"
                 style={{ backgroundImage: "url(/clients/assets/images/cta/cta1.jpg)" }}
@@ -520,13 +515,7 @@ export default function Home() {
                 </a>
               </div>
             </div>
-            <div
-              className="col-xl-4 col-md-6"
-              data-aos="zoom-in-down"
-              data-aos-delay="50"
-              data-aos-duration="1500"
-              data-aos-offset="50"
-            >
+            <div className="col-xl-4 col-md-6">
               <div
                 className="cta-item"
                 style={{ backgroundImage: "url(/clients/assets/images/cta/cta2.jpg)" }}
@@ -539,13 +528,7 @@ export default function Home() {
                 </a>
               </div>
             </div>
-            <div
-              className="col-xl-4 col-md-6"
-              data-aos="zoom-in-down"
-              data-aos-delay="100"
-              data-aos-duration="1500"
-              data-aos-offset="50"
-            >
+            <div className="col-xl-4 col-md-6">
               <div
                 className="cta-item"
                 style={{ backgroundImage: "url(/clients/assets/images/cta/cta3.jpg)" }}

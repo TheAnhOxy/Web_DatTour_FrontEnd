@@ -10,9 +10,11 @@ export default function Header() {
               <div className="logo">
                 <a href="/">
                   <img
-                    src="/clients/assets/images/logos/logo-two.png"
+                    src="/clients/assets/images/logos/logo.png"
                     alt="Logo"
                     title="Logo"
+                    width={155}
+                    height={40}
                   />
                 </a>
               </div>
@@ -24,9 +26,11 @@ export default function Header() {
                   <div className="mobile-logo">
                     <a href="/">
                       <img
-                        src="/clients/assets/images/logos/logo-two.png"
+                        src="/clients/assets/images/logos/logo.png"
                         alt="Logo"
                         title="Logo"
+                        width={155}
+                        height={40}
                       />
                     </a>
                   </div>
@@ -67,7 +71,7 @@ export default function Header() {
 
             <div className="menu-btns py-10">
               <a href="/tours" className="theme-btn style-two bgc-secondary">
-                <span data-hover="Đặt Ngay">Book Now</span>
+                <span data-hover="Đặt ngay">Đặt ngay</span>
                 <i className="fal fa-arrow-right"></i>
               </a>
               <div className="menu-sidebar">

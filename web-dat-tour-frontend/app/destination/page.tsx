@@ -1,43 +1,43 @@
 const destinations = [
   {
     id: 1,
-    title: "Ha Long",
-    time: "3 ngay 2 dem",
+    title: "Hạ Long",
+    time: "3 ngày 2 đêm",
     domain: "b",
     image: "/clients/assets/images/gallery-tours/tour-mien-bac-4n3d-ha-noi-ninh-binh-ha-long-yen-tu-1.png",
   },
   {
     id: 2,
-    title: "Ninh Binh",
-    time: "4 ngay 3 dem",
+    title: "Ninh Bình",
+    time: "4 ngày 3 đêm",
     domain: "b",
     image: "/clients/assets/images/gallery-tours/tour-mien-bac-4n3d-ha-noi-ninh-binh-ha-long-yen-tu-2.png",
   },
   {
     id: 3,
-    title: "Da Nang",
-    time: "4 ngay 3 dem",
+    title: "Đà Nẵng",
+    time: "4 ngày 3 đêm",
     domain: "t",
     image: "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-1.png",
   },
   {
     id: 4,
-    title: "Hoi An",
-    time: "3 ngay 2 dem",
+    title: "Hội An",
+    time: "3 ngày 2 đêm",
     domain: "t",
     image: "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-2.png",
   },
   {
     id: 5,
-    title: "Phu Quoc",
-    time: "3 ngay 2 dem",
+    title: "Phú Quốc",
+    time: "3 ngày 2 đêm",
     domain: "n",
     image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-phu-quoc-1.jpg",
   },
   {
     id: 6,
-    title: "Con Dao",
-    time: "3 ngay 2 dem",
+    title: "Côn Đảo",
+    time: "3 ngày 2 đêm",
     domain: "n",
     image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-con-dao-1.jpg",
   },
@@ -60,7 +60,7 @@ export default function DestinationPage() {
               data-aos-duration="1500"
               data-aos-offset="50"
             >
-              Diem den
+              Điểm đến
             </h2>
             <nav aria-label="breadcrumb">
               <ol
@@ -71,9 +71,9 @@ export default function DestinationPage() {
                 data-aos-offset="50"
               >
                 <li className="breadcrumb-item">
-                  <a href="/">Trang chu</a>
+                  <a href="/">Trang chủ</a>
                 </li>
-                <li className="breadcrumb-item active">Diem den</li>
+                <li className="breadcrumb-item active">Điểm đến</li>
               </ol>
             </nav>
           </div>
@@ -90,19 +90,19 @@ export default function DestinationPage() {
                 data-aos-duration="1500"
                 data-aos-offset="50"
               >
-                <h2>Kham pha cac diem den pho bien</h2>
+                <h2>Khám phá các điểm đến phổ biến</h2>
                 <p>
                   Website{" "}
                   <span className="count-text plus" data-speed="3000" data-stop="34500">
                     0
                   </span>{" "}
-                  trai nghiem pho bien nhat ma ban se nho
+                  trải nghiệm phổ biến nhất mà bạn sẽ nhớ
                 </p>
                 <ul className="destinations-nav mt-30">
-                  <li data-filter="*" className="active">Tat ca</li>
-                  <li data-filter=".domain-b">Mien Bac</li>
-                  <li data-filter=".domain-t">Mien Trung</li>
-                  <li data-filter=".domain-n">Mien Nam</li>
+                  <li data-filter="*" className="active">Tất cả</li>
+                  <li data-filter=".domain-b">Miền Bắc</li>
+                  <li data-filter=".domain-t">Miền Trung</li>
+                  <li data-filter=".domain-n">Miền Nam</li>
                 </ul>
               </div>
             </div>
@@ -111,7 +111,7 @@ export default function DestinationPage() {
             <div className="row gap-10 destinations-active justify-content-center">
               {destinations.map((destination, index) => (
                 <div
-                  className={index % 3 === 2 ? `col-md-6 item domain-${destination.domain}` : `col-xl-3 col-md-6 item domain-${destination.domain}`}
+                  className={`col-xl-3 col-md-6 item domain-${destination.domain}`}
                   key={destination.id}
                 >
                   <div className="destination-item style-two" data-aos-duration="1500" data-aos-offset="50">
@@ -152,23 +152,23 @@ export default function DestinationPage() {
                 data-aos-offset="50"
               >
                 <div className="section-title counter-text-wrap mb-45">
-                  <h2>Dang ky nhan ban tin cua chung toi de nhan them nhieu uu dai & meo</h2>
+                  <h2>Đăng ký nhận bản tin của chúng tôi để nhận thêm nhiều ưu đãi & mẹo</h2>
                   <p>
                     Website{" "}
                     <span className="count-text plus" data-speed="3000" data-stop="34500">
                       0
                     </span>{" "}
-                    trai nghiem pho bien nhat ma ban se nho
+                    trải nghiệm phổ biến nhất mà bạn sẽ nhớ
                   </p>
                 </div>
                 <form className="newsletter-form mb-15" action="#">
-                  <input id="news-email" type="email" placeholder="Email Address" required />
+                  <input id="news-email" type="email" placeholder="Địa chỉ email" required />
                   <button type="submit" className="theme-btn bgc-secondary style-two">
-                    <span data-hover="Subscribe">Subscribe</span>
+                    <span data-hover="Đăng ký">Đăng ký</span>
                     <i className="fal fa-arrow-right"></i>
                   </button>
                 </form>
-                <p>Khong yeu cau the tin dung. Khong cam ket</p>
+                <p>Không yêu cầu thẻ tín dụng. Không cam kết</p>
               </div>
               <div
                 className="newsletter-bg-image"

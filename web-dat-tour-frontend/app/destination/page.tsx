@@ -111,7 +111,7 @@ export default function DestinationPage() {
             <div className="row gap-10 destinations-active justify-content-center">
               {destinations.map((destination, index) => (
                 <div
-                  className={index % 3 === 2 ? `col-md-6 item domain-${destination.domain}` : `col-xl-3 col-md-6 item domain-${destination.domain}`}
+                  className={`col-xl-3 col-md-6 item domain-${destination.domain}`}
                   key={destination.id}
                 >
                   <div className="destination-item style-two" data-aos-duration="1500" data-aos-offset="50">

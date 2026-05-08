@@ -43,52 +43,59 @@ export const TourBookingPage = () => {
       phone: "0923456789",
     },
   ]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(bookings.length / itemsPerPage);
+  const paginatedBookings = bookings.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className="flex h-20 flex-col justify-between rounded-2xl border border-blue-100 bg-white p-3 shadow-sm">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <div className="flex h-20 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-800">
             Tổng booking
           </span>
-          <span className="text-lg font-semibold text-blue-700">
+          <span className="text-xl font-black text-slate-950">
             {bookings.length}
           </span>
         </div>
-        <div className="flex h-20 flex-col justify-between rounded-2xl border border-blue-100 bg-white p-3 shadow-sm">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <div className="flex h-20 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-800">
             Xác nhận
           </span>
-          <span className="text-lg font-semibold text-blue-700">
+          <span className="text-xl font-black text-slate-950">
             {bookings.filter((b) => b.status === "Confirmed").length}
           </span>
         </div>
-        <div className="flex h-20 flex-col justify-between rounded-2xl border border-blue-100 bg-white p-3 shadow-sm">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <div className="flex h-20 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-800">
             Chờ xử lý
           </span>
-          <span className="text-lg font-semibold text-blue-700">
+          <span className="text-xl font-black text-slate-950">
             {bookings.filter((b) => b.status === "Pending").length}
           </span>
         </div>
-        <div className="flex h-20 flex-col justify-between rounded-2xl border border-blue-100 bg-white p-3 shadow-sm">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <div className="flex h-20 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-800">
             Đã hủy
           </span>
-          <span className="text-lg font-semibold text-blue-700">
+          <span className="text-xl font-black text-slate-950">
             {bookings.filter((b) => b.status === "Cancelled").length}
           </span>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:flex-row">
+      <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)] md:flex-row">
         <input
           type="text"
           placeholder="🔍 Tìm kiếm khách hàng..."
-          className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+          className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
         />
-        <select className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100">
+        <select className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100">
           <option>Tất cả trạng thái</option>
           <option>Confirmed</option>
           <option>Pending</option>
@@ -97,82 +104,82 @@ export const TourBookingPage = () => {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.16em]">
                   Khách Hàng
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.16em]">
                   Tour
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.16em]">
                   Ngày Đi
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.16em]">
                   Số Người
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.16em]">
                   Tổng Tiền
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.16em]">
                   Trạng Thái
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em]">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-[0.16em]">
                   Hành Động
                 </th>
               </tr>
             </thead>
             <tbody>
-              {bookings.map((booking) => (
+              {paginatedBookings.map((booking) => (
                 <tr
                   key={booking.id}
-                  className="border-t border-slate-100 transition-colors hover:bg-slate-50"
+                  className="border-t border-slate-100 transition-colors hover:bg-slate-50/80"
                 >
                   <td className="px-6 py-4">
                     <div>
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-bold text-slate-950">
                         {booking.customer}
                       </p>
                       <p className="text-xs text-slate-500">{booking.phone}</p>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-500">
+                  <td className="px-5 py-4 text-sm font-medium text-slate-700">
                     {booking.tour}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-500">
+                  <td className="px-5 py-4 text-sm text-slate-600">
                     {booking.date}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-500">
+                  <td className="px-5 py-4 text-sm text-slate-600">
                     {booking.persons} người
                   </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-emerald-600">
+                  <td className="px-5 py-4 text-sm font-black text-blue-700">
                     {booking.total}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
                         booking.status === "Confirmed"
-                          ? "bg-emerald-50 text-emerald-700"
+                          ? "bg-emerald-100 text-emerald-700"
                           : booking.status === "Pending"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-rose-50 text-rose-700"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-rose-100 text-rose-700"
                       }`}
                     >
                       {booking.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <div className="flex items-center gap-2">
-                      <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 transition hover:bg-slate-50">
+                      <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50">
                         📋
                       </button>
-                      <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700">
+                      <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">
                         ✓
                       </button>
-                      <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 transition hover:bg-rose-50 hover:text-rose-600">
+                      <button className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-rose-50 hover:text-rose-600">
                         ✗
                       </button>
                     </div>
@@ -181,6 +188,37 @@ export const TourBookingPage = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <p className="text-sm text-slate-600">
+          Hiển thị {paginatedBookings.length} trên tổng số {bookings.length} bookings
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+            disabled={currentPage === 1}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+          >
+            Prev
+          </button>
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`min-w-9 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${currentPage === page ? "bg-blue-600 text-white shadow-sm" : "border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+            >
+              {page}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>

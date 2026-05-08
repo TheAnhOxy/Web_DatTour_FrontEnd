@@ -35,16 +35,21 @@ const formatMoney = (value) => `${value}M`;
 export const Dashboard = () => {
   return (
     <div className="space-y-4 text-slate-700">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(37,99,235,0.08)]">
+      <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-blue-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-12 right-24 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
-            <p className="mb-3 inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-sky-600">
+            <p className="mb-3 inline-flex rounded-full border border-blue-400/30 bg-blue-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-100">
               Enterprise tour control center
             </p>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
+            <h1
+              className="max-w-2xl text-4xl leading-[1.05] tracking-tight text-white md:text-[52px]"
+              style={{ color: "#ffffff" }}
+            >
               Dashboard điều hành tour booking
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 md:text-[15px]">
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 md:text-[15px]">
               Fake data mô phỏng identity, core, booking, payment, notification
               và support review. Khi backend Spring microservice sẵn sàng, chỉ
               cần đổi nguồn dữ liệu.
@@ -55,12 +60,12 @@ export const Dashboard = () => {
             {liveOperations.map((item) => (
               <div
                 key={item.label}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm"
               >
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200">
                   {item.label}
                 </p>
-                <p className="mt-2 text-base font-bold text-slate-900">
+                <p className="mt-2 text-base font-bold text-white">
                   {item.value}
                 </p>
               </div>
@@ -73,18 +78,18 @@ export const Dashboard = () => {
         {kpiCards.map((card) => (
           <article
             key={card.label}
-            className={`group relative overflow-hidden rounded-3xl border border-slate-200 bg-linear-to-br ${card.gradient} p-5 shadow-[0_16px_40px_rgba(37,99,235,0.12)] transition-transform duration-300 hover:-translate-y-1`}
+            className={`group relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br ${card.gradient} p-5 shadow-[0_16px_40px_rgba(37,99,235,0.12)] transition-transform duration-300 hover:-translate-y-1`}
           >
             <div className="absolute inset-0 bg-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="relative flex items-start justify-between">
               <div>
-                <p className="text-sm text-white/85">{card.label}</p>
+                <p className="text-sm font-medium text-white/85">{card.label}</p>
                 <p className="mt-2 text-3xl font-black text-white">
                   {card.value}
                 </p>
                 <p className="mt-2 text-xs text-white/80">{card.delta}</p>
               </div>
-              <div className="rounded-2xl bg-white/20 p-3 text-2xl shadow-inner shadow-black/10">
+              <div className="rounded-2xl border border-white/20 bg-white/18 p-3 text-2xl shadow-inner shadow-black/10">
                 {card.icon}
               </div>
             </div>
@@ -347,7 +352,7 @@ export const Dashboard = () => {
             ].map((item) => (
               <div
                 key={item.title}
-                className={`rounded-2xl border border-slate-200 bg-linear-to-r ${item.accent} p-px`}
+                className={`rounded-2xl border border-slate-200 bg-gradient-to-r ${item.accent} p-px`}
               >
                 <div className="rounded-2xl bg-white p-4">
                   <p className="font-semibold text-slate-900">{item.title}</p>

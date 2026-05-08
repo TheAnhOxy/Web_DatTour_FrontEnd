@@ -39,19 +39,19 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-
-    setTimeout(() => {
-      if (login(username, password)) {
-        navigate("/dashboard");
-      } else {
-        setError("Tên đăng nhập hoặc mật khẩu không đúng");
-      }
-      setIsLoading(false);
-    }, 600);
+    const result = await login(username, password);
+    setIsLoading(false);
+    if (result.ok) {
+      navigate("/dashboard");
+    } else {
+      const msg =
+        result.res && result.res.message ? result.res.message : "Login failed";
+      setError(msg);
+    }
   };
 
   const handleQuickLogin = (user) => {
@@ -330,11 +330,16 @@ export const LoginPage = () => {
                   marginTop: "-2px",
                 }}
               >
-                <span
-                  style={{ fontSize: "12px", color: "rgba(255,255,255,0.72)" }}
+                <a
+                  href="/forgot-password"
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(255,255,255,0.9)",
+                    textDecoration: "underline",
+                  }}
                 >
-                  Forgot password?
-                </span>
+                  Quên mật khẩu?
+                </a>
               </div>
 
               <button
@@ -432,16 +437,23 @@ export const LoginPage = () => {
 
             <div
               style={{
-                marginTop: "14px",
+                marginTop: 14,
                 textAlign: "center",
-                fontSize: "12px",
+                fontSize: 12,
                 color: "rgba(255,255,255,0.74)",
               }}
             >
-              Don't have an account yet?{" "}
-              <span style={{ color: "white", fontWeight: 700 }}>
-                Register for free
-              </span>
+              Chưa có tài khoản?{" "}
+              <a
+                href="/register"
+                style={{
+                  color: "white",
+                  fontWeight: 700,
+                  textDecoration: "underline",
+                }}
+              >
+                Đăng ký
+              </a>
             </div>
 
             <div style={{ display: "flex", gap: "12px", marginTop: "14px" }}>

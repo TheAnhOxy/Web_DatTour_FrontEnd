@@ -7,12 +7,16 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { Dashboard } from "./pages/Dashboard";
 import { TourPage } from "./pages/TourPage";
 import { PromotionPage } from "./pages/PromotionPage";
 import { TourBookingPage } from "./pages/TourBookingPage";
 import { PaymentPage } from "./pages/PaymentPage";
 import { MessagesPage } from "./pages/MessagesPage";
+import { UsersPage } from "./pages/UsersPage";
+import BookingsPage from "./pages/BookingsPage";
 import { PassengersPage } from "./pages/PassengersPage";
 import { MainLayout } from "./components/MainLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -24,6 +28,8 @@ const AppContent = () => {
     <Routes>
       {/* Login Page */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       {/* Dashboard Pages */}
       <Route
@@ -98,6 +104,39 @@ const AppContent = () => {
           <ProtectedRoute>
             <MainLayout>
               <PassengersPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/passengers"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <PassengersPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/bookings"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <BookingsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <UsersPage />
             </MainLayout>
           </ProtectedRoute>
         }

@@ -10,7 +10,7 @@ export const MainLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const menuItems = [
+    const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "▣", path: "/dashboard" },
     { id: "tour", label: "Tour", icon: "✈", path: "/tour" },
     { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },
@@ -21,17 +21,12 @@ export const MainLayout = ({ children }) => {
       submenu: [
         { id: "tour-booking", label: "Tour Booking", path: "/booking/tour" },
         { id: "payment", label: "Payment", path: "/booking/payment" },
+        { id: "bookings-list", label: "Bookings", path: "/bookings" },
       ],
     },
     { id: "messages", label: "Tin nhắn", icon: "✉", path: "/messages" },
-    {
-      id: "users",
-      label: "User",
-      icon: "◉",
-      submenu: [
-        { id: "passengers", label: "Hành khách", path: "/users/passengers" },
-      ],
-    },
+    { id: "passengers", label: "Passengers", icon: "👥", path: "/passengers" },
+    { id: "users", label: "User", icon: "◉", path: "/admin/users" },
   ];
 
   const handleLogout = () => {

@@ -3268,6 +3268,11 @@ h6, .h6, blockquote {
     z-index: 9;
     padding: 2px 0;
     position: relative; }
+  .main-header .logo img,
+  .main-menu .mobile-logo img {
+    width: 155px;
+    height: 40px;
+    object-fit: contain; }
   .main-header.menu-absolute .header-upper {
     position: absolute; }
   .main-header.fixed-header .header-upper {

@@ -1,8 +1,15 @@
-import client from './client';
+import client from "./client";
 
 const wrap = (res) => {
   // If backend already returns ApiResponse {status,message,data}, forward it.
-  if (res && res.data && typeof res.data === 'object' && (res.data.status !== undefined || res.data.message !== undefined || res.data.data !== undefined)) {
+  if (
+    res &&
+    res.data &&
+    typeof res.data === "object" &&
+    (res.data.status !== undefined ||
+      res.data.message !== undefined ||
+      res.data.data !== undefined)
+  ) {
     return res.data;
   }
   // Otherwise normalize to ApiResponse shape
@@ -11,7 +18,7 @@ const wrap = (res) => {
 
 export const getAllBookings = async () => {
   try {
-    const res = await client.get('/bookings/all');
+    const res = await client.get("/bookings/all");
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);
@@ -51,7 +58,9 @@ export const getPassengerById = async (id) => {
 
 export const getPassengerHistoryByIdCard = async (idCardNumber) => {
   try {
-    const res = await client.get(`/bookings/passenger/history/${encodeURIComponent(idCardNumber)}`);
+    const res = await client.get(
+      `/bookings/passenger/history/${encodeURIComponent(idCardNumber)}`,
+    );
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);
@@ -71,8 +80,10 @@ export const getAllPassengers = async () => {
 
 export const getBookingsByUsers = async (userIds) => {
   try {
-    const q = Array.isArray(userIds) ? userIds.join(',') : String(userIds);
-    const res = await client.get(`/bookings/by-users?userIds=${encodeURIComponent(q)}`);
+    const q = Array.isArray(userIds) ? userIds.join(",") : String(userIds);
+    const res = await client.get(
+      `/bookings/by-users?userIds=${encodeURIComponent(q)}`,
+    );
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);

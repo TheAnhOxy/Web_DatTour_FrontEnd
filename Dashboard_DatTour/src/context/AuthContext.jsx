@@ -39,7 +39,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     // call backend to blacklist token
-    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
     if (token) {
       setAuthToken(token);
       authApi.logout().catch(() => {});
@@ -73,7 +74,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout, register, forgotPassword, verifyOtp, resetPassword }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        user,
+        login,
+        logout,
+        register,
+        forgotPassword,
+        verifyOtp,
+        resetPassword,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

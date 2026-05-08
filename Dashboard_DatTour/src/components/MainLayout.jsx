@@ -10,7 +10,7 @@ export const MainLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-    const menuItems = [
+  const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "▣", path: "/dashboard" },
     { id: "tour", label: "Tour", icon: "✈", path: "/tour" },
     { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },
@@ -63,7 +63,7 @@ export const MainLayout = ({ children }) => {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-blue-600">
                   DatTour
                 </p>
-                  <h1 className="text-xl font-black tracking-tight text-slate-900">
+                <h1 className="text-xl font-black tracking-tight text-slate-900">
                   Admin
                 </h1>
               </div>
@@ -91,7 +91,9 @@ export const MainLayout = ({ children }) => {
                     className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition ${isSubActive(item.submenu.map((sub) => sub.path)) ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
                   >
                     <span className="flex items-center gap-3">
-                      <span className={`grid h-9 w-9 place-items-center rounded-xl text-base ${isSubActive(item.submenu.map((sub) => sub.path)) ? "bg-white/15 text-white" : "bg-blue-50 text-blue-600"}`}>
+                      <span
+                        className={`grid h-9 w-9 place-items-center rounded-xl text-base ${isSubActive(item.submenu.map((sub) => sub.path)) ? "bg-white/15 text-white" : "bg-blue-50 text-blue-600"}`}
+                      >
                         {item.icon}
                       </span>
                       {sidebarOpen && (
@@ -114,7 +116,15 @@ export const MainLayout = ({ children }) => {
                           onClick={() => handleNavigate(subitem.path)}
                           className={`flex w-full items-center gap-3 rounded-xl px-4 py-2 text-sm transition ${isActive(subitem.path) ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}
                         >
-                          <span className={isActive(subitem.path) ? "text-blue-600" : "text-slate-400"}>•</span>
+                          <span
+                            className={
+                              isActive(subitem.path)
+                                ? "text-blue-600"
+                                : "text-slate-400"
+                            }
+                          >
+                            •
+                          </span>
                           {sidebarOpen && <span>{subitem.label}</span>}
                         </button>
                       ))}
@@ -126,7 +136,9 @@ export const MainLayout = ({ children }) => {
                   onClick={() => handleNavigate(item.path)}
                   className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${isActive(item.path) ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
                 >
-                  <span className={`grid h-9 w-9 place-items-center rounded-xl text-base ${isActive(item.path) ? "bg-white/15 text-white" : "bg-blue-50 text-blue-600"}`}>
+                  <span
+                    className={`grid h-9 w-9 place-items-center rounded-xl text-base ${isActive(item.path) ? "bg-white/15 text-white" : "bg-blue-50 text-blue-600"}`}
+                  >
                     {item.icon}
                   </span>
                   {sidebarOpen && (
@@ -180,7 +192,9 @@ export const MainLayout = ({ children }) => {
                   <p className="text-sm font-bold text-slate-950">
                     {user?.name}
                   </p>
-                  <p className="text-xs font-medium text-slate-500">{user?.role}</p>
+                  <p className="text-xs font-medium text-slate-500">
+                    {user?.role}
+                  </p>
                 </div>
               </button>
 
@@ -199,7 +213,9 @@ export const MainLayout = ({ children }) => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-[#f3f6fb] p-5">{children}</main>
+        <main className="flex-1 overflow-auto bg-[#f3f6fb] p-5">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -113,18 +113,23 @@ export const updateUserAdmin = async (id, payload) => {
   try {
     // Only send fields that the backend UpdateProfileRequest supports.
     const allowed = [
-      'fullName',
-      'phone',
-      'address',
-      'dob',
-      'gender',
-      'avatarUrl',
+      "fullName",
+      "phone",
+      "address",
+      "dob",
+      "gender",
+      "avatarUrl",
       // Uncomment if backend accepts status from admin
       // 'status',
     ];
     const body = {};
     allowed.forEach((k) => {
-      if (payload && Object.prototype.hasOwnProperty.call(payload, k) && payload[k] !== null && payload[k] !== undefined) {
+      if (
+        payload &&
+        Object.prototype.hasOwnProperty.call(payload, k) &&
+        payload[k] !== null &&
+        payload[k] !== undefined
+      ) {
         body[k] = payload[k];
       }
     });

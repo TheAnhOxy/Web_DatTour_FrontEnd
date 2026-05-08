@@ -1,12 +1,14 @@
-import client from './client';
+import client from "./client";
 
 const wrap = (res) => {
   // If backend already returns ApiResponse {status,message,data}, forward it.
   if (
     res &&
     res.data &&
-    typeof res.data === 'object' &&
-    (res.data.status !== undefined || res.data.message !== undefined || res.data.data !== undefined)
+    typeof res.data === "object" &&
+    (res.data.status !== undefined ||
+      res.data.message !== undefined ||
+      res.data.data !== undefined)
   ) {
     return res.data;
   }
@@ -16,7 +18,7 @@ const wrap = (res) => {
 
 export const getPaymentReport = async () => {
   try {
-    const res = await client.get('/auth/admin/payment-report');
+    const res = await client.get("/auth/admin/payment-report");
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);
@@ -27,7 +29,9 @@ export const getPaymentReport = async () => {
 // Payment-service endpoints
 export const getPaymentByBookingId = async (bookingId) => {
   try {
-    const res = await client.get(`/payments/booking/${encodeURIComponent(String(bookingId))}`);
+    const res = await client.get(
+      `/payments/booking/${encodeURIComponent(String(bookingId))}`,
+    );
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);
@@ -37,7 +41,9 @@ export const getPaymentByBookingId = async (bookingId) => {
 
 export const getPaymentByTransactionId = async (transactionId) => {
   try {
-    const res = await client.get(`/payments/transaction/${encodeURIComponent(String(transactionId))}`);
+    const res = await client.get(
+      `/payments/transaction/${encodeURIComponent(String(transactionId))}`,
+    );
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);

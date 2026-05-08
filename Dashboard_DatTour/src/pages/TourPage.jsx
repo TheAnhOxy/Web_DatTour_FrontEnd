@@ -284,7 +284,7 @@ export const TourPage = () => {
           ))}
 
           {/* Add New Tour Card */}
-          <button className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-blue-400 hover:bg-blue-50">
+          <button onClick={() => navigate('/tour/new')} className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-blue-400 hover:bg-blue-50">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600 transition group-hover:bg-blue-200">
               +
             </div>

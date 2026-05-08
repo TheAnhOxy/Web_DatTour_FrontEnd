@@ -72,7 +72,9 @@ export const TourPage = () => {
 
       {/* Header with title */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Quản lý Tour</h2>
+        <h2 className="text-xs font-bold uppercase tracking-[0.34em] text-blue-600">
+            Quản lý Tour / Danh sách Tour
+          </h2>
       </div>
 
       {/* Search and Filter Bar */}

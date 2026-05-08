@@ -175,12 +175,13 @@ export const TourDestinationPage = () => {
   return (
     <div className="space-y-5 text-slate-700">
       <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-6 text-white">
-          <p className="text-xs font-bold uppercase tracking-[0.34em] text-cyan-200">Tour Management / Điểm đến</p>
+        <div className="border-b border-slate-200 bg-white px-6 py-6">
+          <h2 className="text-3xl uppercase font-black tracking-tight text-blue-600 md:text-[42px]">
+                Quản lý Tour / Điểm đến
+          </h2>
           <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-3xl font-black tracking-tight text-white md:text-[42px]">Quản lý Điểm đến</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">Cập nhật và điều chỉnh các địa danh trong hệ thống tour.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">Cập nhật và điều chỉnh các địa danh trong hệ thống tour.</p>
             </div>
           </div>
         </div>

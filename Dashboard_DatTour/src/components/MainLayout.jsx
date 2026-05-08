@@ -1,6 +1,19 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import {
+  FiGrid,
+  FiMap,
+  FiMapPin,
+  FiTag,
+  FiBook,
+  FiCreditCard,
+  FiMessageCircle,
+  FiUsers,
+  FiHeart,
+} from "react-icons/fi";
+
+import { MdTravelExplore } from "react-icons/md";
 
 export const MainLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -11,37 +24,82 @@ export const MainLayout = ({ children }) => {
   const location = useLocation();
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: "▣", path: "/dashboard" },
-    {
-      id: "tour",
-      label: "Tour",
-      icon: "✈",
-      submenu: [
-        { id: "tour-list", label: "Danh sách tour", path: "/tour" },
-        { id: "tour-categories", label: "Danh mục tour", path: "/tour/categories" },
-        { id: "tour-destinations", label: "Điểm đến", path: "/tour/destinations" },
-      ],
-    },
-    { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },
-    {
-      id: "booking",
-      label: "Booking",
-      icon: "⌁",
-      submenu: [
-        { id: "tour-booking", label: "Tour Booking", path: "/booking/tour" },
-        { id: "payment", label: "Payment", path: "/booking/payment" },
-      ],
-    },
-    { id: "messages", label: "Tin nhắn", icon: "✉", path: "/messages" },
-    {
-      id: "users",
-      label: "User",
-      icon: "◉",
-      submenu: [
-        { id: "passengers", label: "Hành khách", path: "/users/passengers" },
-      ],
-    },
-  ];
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: <FiGrid />,
+    path: "/dashboard",
+  },
+  {
+    id: "tour",
+    label: "Tour",
+    icon: <MdTravelExplore />,
+    submenu: [
+      {
+        id: "tour-list",
+        label: "Danh sách tour",
+        path: "/tour",
+        icon: <FiMap />,
+      },
+      {
+        id: "tour-categories",
+        label: "Danh mục tour",
+        path: "/tour/categories",
+        icon: "⌘",
+      },
+      {
+        id: "tour-destinations",
+        label: "Điểm đến",
+        path: "/tour/destinations",
+        icon: <FiMapPin />,
+      },
+    ],
+  },
+  {
+    id: "promotion",
+    label: "Promotion",
+    icon: <FiTag />,
+    path: "/promotion",
+  },
+  {
+    id: "booking",
+    label: "Booking",
+    icon: <FiBook />,
+    submenu: [
+      {
+        id: "tour-booking",
+        label: "Tour Booking",
+        path: "/booking/tour",
+        icon: <FiBook />,
+      },
+      {
+        id: "payment",
+        label: "Payment",
+        path: "/booking/payment",
+        icon: <FiCreditCard />,
+      },
+    ],
+  },
+  {
+    id: "messages",
+    label: "Tin nhắn",
+    icon: <FiMessageCircle />,
+    path: "/messages",
+  },
+  {
+    id: "users",
+    label: "User",
+    icon: <FiUsers />,
+    submenu: [
+      {
+        id: "passengers",
+        label: "Hành khách",
+        path: "/users/passengers",
+        icon: <FiHeart />,
+      },
+    ],
+  },
+];
 
   const handleLogout = () => {
     logout();
@@ -128,7 +186,9 @@ export const MainLayout = ({ children }) => {
                           onClick={() => handleNavigate(subitem.path)}
                           className={`flex w-full items-center gap-3 rounded-xl px-4 py-2 text-sm transition ${isActive(subitem.path) ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}
                         >
-                          <span className={isActive(subitem.path) ? "text-blue-600" : "text-slate-400"}>•</span>
+                          <span className={isActive(subitem.path) ? "text-blue-600" : "text-slate-400"}>
+                            {subitem.icon || "•"}
+                          </span>
                           {sidebarOpen && <span>{subitem.label}</span>}
                         </button>
                       ))}

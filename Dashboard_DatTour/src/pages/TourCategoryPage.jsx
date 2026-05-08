@@ -35,14 +35,17 @@ const statusTone = (tourCount) => {
 
 export const TourCategoryPage = () => {
   const [categories, setCategories] = useState(initialCategories);
-  const [selectedId, setSelectedId] = useState(initialCategories[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState(
+    initialCategories[0]?.id ?? null,
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [formName, setFormName] = useState(initialCategories[0]?.name ?? "");
 
   const tourCounts = useMemo(() => {
     return mockTours.reduce((accumulator, tour) => {
-      accumulator[tour.categoryName] = (accumulator[tour.categoryName] || 0) + 1;
+      accumulator[tour.categoryName] =
+        (accumulator[tour.categoryName] || 0) + 1;
       return accumulator;
     }, {});
   }, []);
@@ -68,7 +71,10 @@ export const TourCategoryPage = () => {
     );
   }, [enrichedCategories, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredCategories.length / pageSize));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredCategories.length / pageSize),
+  );
   const safePage = Math.min(currentPage, totalPages);
   const paginatedCategories = filteredCategories.slice(
     (safePage - 1) * pageSize,
@@ -84,7 +90,8 @@ export const TourCategoryPage = () => {
     0,
   );
 
-  const selectedCategory = enrichedCategories.find((category) => category.id === selectedId) || null;
+  const selectedCategory =
+    enrichedCategories.find((category) => category.id === selectedId) || null;
 
   const startCreate = () => {
     setSelectedId(null);
@@ -102,14 +109,19 @@ export const TourCategoryPage = () => {
     if (!nextName) return;
 
     setCategories((currentCategories) => {
-      const exists = currentCategories.some((category) => category.id === selectedId);
+      const exists = currentCategories.some(
+        (category) => category.id === selectedId,
+      );
       if (exists) {
         return currentCategories.map((category) =>
-          category.id === selectedId ? { ...category, name: nextName } : category,
+          category.id === selectedId
+            ? { ...category, name: nextName }
+            : category,
         );
       }
 
-      const nextId = Math.max(0, ...currentCategories.map((category) => category.id)) + 1;
+      const nextId =
+        Math.max(0, ...currentCategories.map((category) => category.id)) + 1;
       setSelectedId(nextId);
       return [...currentCategories, { id: nextId, name: nextName }];
     });
@@ -127,7 +139,9 @@ export const TourCategoryPage = () => {
 
   const handleDelete = (categoryId) => {
     setCategories((currentCategories) => {
-      const nextCategories = currentCategories.filter((category) => category.id !== categoryId);
+      const nextCategories = currentCategories.filter(
+        (category) => category.id !== categoryId,
+      );
       const fallback = nextCategories[0] || null;
       if (selectedId === categoryId) {
         setSelectedId(fallback?.id ?? null);
@@ -145,76 +159,23 @@ export const TourCategoryPage = () => {
   return (
     <div className="space-y-5 text-slate-700">
       <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-6 text-white">
-          <p className="text-xs font-bold uppercase tracking-[0.34em] text-cyan-200">
-            Tour Management / Danh mục Tour
-          </p>
+        <div className="border-b border-slate-200 bg-white px-6 py-6">
           <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-3xl font-black tracking-tight text-white md:text-[42px]">
-                Quản lý Danh mục Tour
-              </h1>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:w-[520px]">
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-200">
-                  Tổng danh mục
-                </p>
-                <p className="mt-2 text-3xl font-black text-white">
-                  {totalCategories}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-200">
-                  Đang hoạt động
-                </p>
-                <p className="mt-2 text-3xl font-black text-white">
-                  {activeCategories}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-200">
-                  Tour gắn danh mục
-                </p>
-                <p className="mt-2 text-3xl font-black text-white">
-                  {totalAssignedTours}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-200">
-                  Trang hiện tại
-                </p>
-                <p className="mt-2 text-3xl font-black text-white">
-                  {safePage}/{totalPages}
-                </p>
-              </div>
+              <h2 className="text-3xl uppercase font-black tracking-tight text-blue-600 md:text-[42px]">
+                Quản lý Tour / Danh mục Tour
+              </h2>
             </div>
           </div>
         </div>
 
         <div className="grid gap-5 p-6 xl:grid-cols-[minmax(0,1.4fr)_420px]">
           <div className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.05)] lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">
-                  Danh sách Danh mục
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Hiển thị số tour theo từng danh mục.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={startCreate}
-                  className="rounded-2xl border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
-                >
-                  Thêm mới
-                </button>
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2">
+            <div className="flex gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.05)] lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 items-center gap-3">
+                <div className="flex flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2">
                   <span className="text-slate-500">⌕</span>
+
                   <input
                     value={searchTerm}
                     onChange={(event) => {
@@ -222,9 +183,10 @@ export const TourCategoryPage = () => {
                       setCurrentPage(1);
                     }}
                     placeholder="Tìm danh mục..."
-                    className="w-48 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
+                    className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
                   />
                 </div>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -252,7 +214,10 @@ export const TourCategoryPage = () => {
                   <tbody>
                     {paginatedCategories.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-5 py-10 text-center text-sm text-slate-500">
+                        <td
+                          colSpan={4}
+                          className="px-5 py-10 text-center text-sm text-slate-500"
+                        >
                           Không tìm thấy danh mục phù hợp.
                         </td>
                       </tr>
@@ -270,9 +235,6 @@ export const TourCategoryPage = () => {
                               <div>
                                 <p className="font-bold text-slate-950">
                                   {category.name}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  ID #{category.id}
                                 </p>
                               </div>
                             </div>
@@ -314,7 +276,13 @@ export const TourCategoryPage = () => {
 
               <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
                 <p>
-                  Hiển thị {Math.min((safePage - 1) * pageSize + 1, filteredCategories.length)} - {Math.min(safePage * pageSize, filteredCategories.length)} / {filteredCategories.length || 0}
+                  Hiển thị{" "}
+                  {Math.min(
+                    (safePage - 1) * pageSize + 1,
+                    filteredCategories.length,
+                  )}{" "}
+                  - {Math.min(safePage * pageSize, filteredCategories.length)} /{" "}
+                  {filteredCategories.length || 0}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -325,7 +293,10 @@ export const TourCategoryPage = () => {
                   >
                     ←
                   </button>
-                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                  {Array.from(
+                    { length: totalPages },
+                    (_, index) => index + 1,
+                  ).map((page) => (
                     <button
                       key={page}
                       type="button"
@@ -348,17 +319,36 @@ export const TourCategoryPage = () => {
             </div>
           </div>
 
-          <aside className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-            <div>
-              <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-blue-700">
+          <aside className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/80 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
+            <div className="rounded-3xl border border-blue-100 bg-white px-4 py-4 shadow-sm">
+              <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-blue-700">
                 Quản lý thông tin danh mục
               </div>
-              <h2 className="mt-3 text-xl font-extrabold tracking-tight text-slate-950">
+              <h2 className="mt-3 text-lg font-extrabold tracking-tight text-slate-950">
                 Danh mục Tour
               </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Nhập tên danh mục rồi lưu.
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Nhập tên danh mục rồi lưu để thêm danh mục.
               </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+                  Tổng danh mục
+                </p>
+                <p className="mt-2 text-2xl font-black leading-none text-slate-900">
+                  {totalCategories}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+                  Đang hoạt động
+                </p>
+                <p className="mt-2 text-2xl font-black leading-none text-slate-900">
+                  {activeCategories}
+                </p>
+              </div>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -386,7 +376,7 @@ export const TourCategoryPage = () => {
                   type="submit"
                   className="flex-1 rounded-2xl border border-slate-950 bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800"
                 >
-                  {selectedCategory ? "Lưu" : "Lưu"}
+                  Lưu
                 </button>
               </div>
             </form>

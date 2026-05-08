@@ -71,7 +71,7 @@ export default function Header() {
 
             <div className="menu-btns py-10">
               <a href="/tours" className="theme-btn style-two bgc-secondary">
-                <span data-hover="Đặt Ngay">Book Now</span>
+                <span data-hover="Đặt ngay">Đặt ngay</span>
                 <i className="fal fa-arrow-right"></i>
               </a>
               <div className="menu-sidebar">

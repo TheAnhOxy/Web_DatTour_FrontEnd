@@ -29,12 +29,12 @@ export default function LoginPage() {
                     id="sign-up"
                     onClick={(e) => { e.preventDefault(); setActiveTab("signup"); }}
                   >
-                    T?o t�i kho?n
+                    Tạo tài khoản
                   </a>
                 </div>
 
                 <div className="signin-form">
-                  <h2 className="form-title">�ang nh?p</h2>
+                  <h2 className="form-title">Đăng nhập</h2>
                   <form
                     action="http://localhost:8000/login"
                     method="POST"
@@ -51,7 +51,7 @@ export default function LoginPage() {
                         type="text"
                         name="username_login"
                         id="username_login"
-                        placeholder="T�n dang nh?p"
+                        placeholder="Tên đăng nhập"
                         required
                       />
                     </div>
@@ -68,7 +68,7 @@ export default function LoginPage() {
                         type="password"
                         name="password_login"
                         id="password_login"
-                        placeholder="M?t kh?u"
+                        placeholder="Mật khẩu"
                         required
                       />
                     </div>
@@ -83,12 +83,12 @@ export default function LoginPage() {
                         name="signin"
                         id="signin"
                         className="form-submit"
-                        value="�ang nh?p"
+                        value="Đăng nhập"
                       />
                     </div>
                   </form>
                   <div className="social-login">
-                    <span className="social-label">Ho?c dang nh?p b?ng</span>
+                    <span className="social-label">Hoặc đăng nhập bằng</span>
                     <ul className="socials">
                       <li>
                         <a href="#">
@@ -113,7 +113,7 @@ export default function LoginPage() {
             <div className="container">
               <div className="signup-content">
                 <div className="signup-form">
-                  <h2 className="form-title">�ang k�</h2>
+                  <h2 className="form-title">Đăng ký</h2>
                   <div className="loader"></div>
                   <form
                     action="http://localhost:8000/register"
@@ -131,7 +131,7 @@ export default function LoginPage() {
                         type="text"
                         name="username_register"
                         id="username_register"
-                        placeholder="T�n t�i kho?n"
+                        placeholder="Tên tài khoản"
                         required
                       />
                     </div>
@@ -165,7 +165,7 @@ export default function LoginPage() {
                         type="password"
                         name="password_register"
                         id="password_register"
-                        placeholder="M?t kh?u"
+                        placeholder="Mật khẩu"
                         required
                       />
                     </div>
@@ -182,7 +182,7 @@ export default function LoginPage() {
                         type="password"
                         name="re_pass"
                         id="re_pass"
-                        placeholder="Nh?p l?i m?t kh?u"
+                        placeholder="Nhập lại mật khẩu"
                         required
                       />
                     </div>
@@ -197,7 +197,7 @@ export default function LoginPage() {
                         name="signup"
                         id="signup"
                         className="form-submit"
-                        value="�ang k�"
+                        value="Đăng ký"
                       />
                     </div>
                   </form>
@@ -215,7 +215,7 @@ export default function LoginPage() {
                     id="sign-in"
                     onClick={(e) => { e.preventDefault(); setActiveTab("signin"); }}
                   >
-                    T�i d� c� t�i kho?n r?i
+                    Tôi đã có tài khoản rồi
                   </a>
                 </div>
               </div>

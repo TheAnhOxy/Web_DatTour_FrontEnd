@@ -1,6 +1,19 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import {
+  FiGrid,
+  FiMap,
+  FiMapPin,
+  FiTag,
+  FiBook,
+  FiCreditCard,
+  FiMessageCircle,
+  FiUsers,
+  FiHeart,
+} from "react-icons/fi";
+
+import { MdTravelExplore } from "react-icons/md";
 
 export const MainLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -11,28 +24,82 @@ export const MainLayout = ({ children }) => {
   const location = useLocation();
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: "▣", path: "/dashboard" },
-    { id: "tour", label: "Tour", icon: "✈", path: "/tour" },
-    { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },
-    {
-      id: "booking",
-      label: "Booking",
-      icon: "⌁",
-      submenu: [
-        { id: "tour-booking", label: "Tour Booking", path: "/booking/tour" },
-        { id: "payment", label: "Payment", path: "/booking/payment" },
-      ],
-    },
-    { id: "messages", label: "Tin nhắn", icon: "✉", path: "/messages" },
-    {
-      id: "users",
-      label: "User",
-      icon: "◉",
-      submenu: [
-        { id: "passengers", label: "Hành khách", path: "/users/passengers" },
-      ],
-    },
-  ];
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: <FiGrid />,
+    path: "/dashboard",
+  },
+  {
+    id: "tour",
+    label: "Tour",
+    icon: <MdTravelExplore />,
+    submenu: [
+      {
+        id: "tour-list",
+        label: "Danh sách tour",
+        path: "/tour",
+        icon: <FiMap />,
+      },
+      {
+        id: "tour-categories",
+        label: "Danh mục tour",
+        path: "/tour/categories",
+        icon: "⌘",
+      },
+      {
+        id: "tour-destinations",
+        label: "Điểm đến",
+        path: "/tour/destinations",
+        icon: <FiMapPin />,
+      },
+    ],
+  },
+  {
+    id: "promotion",
+    label: "Promotion",
+    icon: <FiTag />,
+    path: "/promotion",
+  },
+  {
+    id: "booking",
+    label: "Booking",
+    icon: <FiBook />,
+    submenu: [
+      {
+        id: "tour-booking",
+        label: "Tour Booking",
+        path: "/booking/tour",
+        icon: <FiBook />,
+      },
+      {
+        id: "payment",
+        label: "Payment",
+        path: "/booking/payment",
+        icon: <FiCreditCard />,
+      },
+    ],
+  },
+  {
+    id: "messages",
+    label: "Tin nhắn",
+    icon: <FiMessageCircle />,
+    path: "/messages",
+  },
+  {
+    id: "users",
+    label: "User",
+    icon: <FiUsers />,
+    submenu: [
+      {
+        id: "passengers",
+        label: "Hành khách",
+        path: "/users/passengers",
+        icon: <FiHeart />,
+      },
+    ],
+  },
+];
 
   const handleLogout = () => {
     logout();
@@ -56,34 +123,36 @@ export const MainLayout = ({ children }) => {
   return (
     <div className="flex min-h-screen w-full overflow-hidden bg-[#f3f6fb] text-slate-700">
       <aside
-        className={`${sidebarOpen ? "w-60" : "w-20"} flex-none border-r border-slate-200 bg-white shadow-[10px_0_40px_rgba(15,23,42,0.05)] transition-all duration-300`}
+        className={`${sidebarOpen ? "w-60" : "w-20"} flex flex-none flex-col border-r border-slate-200 bg-white shadow-[10px_0_40px_rgba(15,23,42,0.05)] transition-all duration-300`}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+        <div className="flex items-center border-b border-slate-200 px-4 py-4">
           {sidebarOpen ? (
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-600 text-sm font-black text-white shadow-lg shadow-blue-600/25">
-                DT
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 p-1 shadow-md shadow-blue-100/60">
+                <img
+                  src="/images/logo.png"
+                  alt="CatTour logo"
+                  className="h-12 w-12 rounded-xl border border-white bg-white object-cover"
+                />
               </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-blue-600">
-                  DatTour
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-bold uppercase tracking-[0.34em] text-blue-600">
+                  CatTour
                 </p>
-                  <h1 className="text-xl font-black tracking-tight text-slate-900">
-                  Admin
-                </h1>
+                <p className="truncate text-[12px] font-medium text-slate-500">
+                  Tour Management
+                </p>
               </div>
             </div>
           ) : (
-            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-600 text-sm font-black text-white shadow-lg shadow-blue-600/25">
-              DT
+            <div className="rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 p-0.5 shadow-sm">
+              <img
+                src="/images/logo.png"
+                alt="CatTour logo"
+                className="h-10 w-10 rounded-lg border border-white bg-white object-cover"
+              />
             </div>
           )}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-          >
-            {sidebarOpen ? "←" : "→"}
-          </button>
         </div>
 
         <nav className="space-y-1 px-3 py-4">
@@ -119,7 +188,9 @@ export const MainLayout = ({ children }) => {
                           onClick={() => handleNavigate(subitem.path)}
                           className={`flex w-full items-center gap-3 rounded-xl px-4 py-2 text-sm transition ${isActive(subitem.path) ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}
                         >
-                          <span className={isActive(subitem.path) ? "text-blue-600" : "text-slate-400"}>•</span>
+                          <span className={isActive(subitem.path) ? "text-blue-600" : "text-slate-400"}>
+                            {subitem.icon || "•"}
+                          </span>
                           {sidebarOpen && <span>{subitem.label}</span>}
                         </button>
                       ))}
@@ -142,6 +213,16 @@ export const MainLayout = ({ children }) => {
             </div>
           ))}
         </nav>
+
+        <div className="px-3 pb-4">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+          >
+            <span>{sidebarOpen ? "←" : "→"}</span>
+            {sidebarOpen && <span className="text-sm font-semibold">Thu gọn</span>}
+          </button>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

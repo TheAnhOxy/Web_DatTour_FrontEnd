@@ -11,6 +11,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { TourPage } from "./pages/TourPage";
 import { TourDetailPage } from "./pages/TourDetailPage";
 import { TourCategoryPage } from "./pages/TourCategoryPage";
+import { TourDestinationPage } from "./pages/TourDestinationPage";
 import { PromotionPage } from "./pages/PromotionPage";
 import { TourBookingPage } from "./pages/TourBookingPage";
 import { PaymentPage } from "./pages/PaymentPage";
@@ -67,6 +68,17 @@ const AppContent = () => {
           <ProtectedRoute>
             <MainLayout>
               <TourCategoryPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tour/destinations"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <TourDestinationPage />
             </MainLayout>
           </ProtectedRoute>
         }

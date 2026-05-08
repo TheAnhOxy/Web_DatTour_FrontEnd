@@ -19,6 +19,7 @@ export const MainLayout = ({ children }) => {
       submenu: [
         { id: "tour-list", label: "Danh sách tour", path: "/tour" },
         { id: "tour-categories", label: "Danh mục tour", path: "/tour/categories" },
+        { id: "tour-destinations", label: "Điểm đến", path: "/tour/destinations" },
       ],
     },
     { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },

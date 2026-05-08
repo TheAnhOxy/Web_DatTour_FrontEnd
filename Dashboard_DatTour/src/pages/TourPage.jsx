@@ -72,10 +72,18 @@ export const TourPage = () => {
       />
 
       {/* Header with title */}
-      <div>
-        <h2 className="text-xs font-bold uppercase tracking-[0.34em] text-blue-600">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-[0.34em] text-blue-600">
             Quản lý Tour / Danh sách Tour
           </h2>
+        </div>
+        <button
+          onClick={() => navigate('/tour/new')}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-500 cursor-pointer px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+        >
+          + Thêm Tour Mới
+        </button>
       </div>
 
       {/* Search and Filter Bar */}

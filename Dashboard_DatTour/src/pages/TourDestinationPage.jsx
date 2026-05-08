@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 
 const initialDestinations = [
   { id: 1, cityName: "Bà Nà Hills", region: "Đà Nẵng", country: "Việt Nam" },
@@ -289,15 +290,17 @@ export const TourDestinationPage = () => {
                                 <button
                                   type="button"
                                   onClick={() => startInlineEdit(destination)}
-                                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                                 >
+                                  <FiEdit2 />
                                   {expandedEditId === destination.id ? "Đóng" : "Sửa"}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDelete(destination.id)}
-                                  className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
                                 >
+                                  <FiTrash2 />
                                   Xóa
                                 </button>
                               </div>
@@ -368,7 +371,7 @@ export const TourDestinationPage = () => {
               </div>
 
               <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-                <p>Đang hiển thị {Math.min((safePage - 1) * pageSize + 1, filteredDestinations.length)} - {Math.min(safePage * pageSize, filteredDestinations.length)} trong tổng số {filteredDestinations.length}</p>
+                <p>Hiển thị {Math.min((safePage - 1) * pageSize + 1, filteredDestinations.length)} - {Math.min(safePage * pageSize, filteredDestinations.length)} / trong tổng số {filteredDestinations.length}</p>
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => goToPage(safePage - 1)} disabled={safePage <= 1} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">←</button>
                   {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (

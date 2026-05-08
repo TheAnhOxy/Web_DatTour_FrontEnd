@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiCalendar, FiChevronLeft, FiChevronRight, FiEdit2, FiFilter, FiMoreVertical, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import { FiCalendar, FiEdit2, FiFilter, FiMoreVertical, FiRefreshCw, FiTrash2 } from "react-icons/fi";
 
 const mockPromotionResponses = [
   {
@@ -213,23 +213,23 @@ export const PromotionPage = () => {
             </table>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-200 px-5 py-4 text-sm text-slate-500">
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
             <p>
-              Hiển thị {Math.min((currentPage - 1) * itemsPerPage + 1, promotions.length)}-{Math.min(currentPage * itemsPerPage, promotions.length)} trên {promotions.length} khuyến mãi
+              Hiển thị {Math.min((currentPage - 1) * itemsPerPage + 1, promotions.length)} - {Math.min(currentPage * itemsPerPage, promotions.length)} / trong tổng số {promotions.length}
             </p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 disabled={currentPage === 1}
-                className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <FiChevronLeft />
+                ←
               </button>
               {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
-                  className={`h-8 min-w-8 rounded-lg px-2 text-sm font-semibold ${currentPage === page ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${currentPage === page ? "bg-blue-600 text-white shadow-md shadow-blue-600/20" : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"}`}
                 >
                   {page}
                 </button>
@@ -237,9 +237,9 @@ export const PromotionPage = () => {
               <button
                 onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                 disabled={currentPage === totalPages}
-                className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <FiChevronRight />
+                →
               </button>
             </div>
           </div>

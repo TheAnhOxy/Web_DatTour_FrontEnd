@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { mockTours } from "../data/mockTourData";
 
 const initialCategories = [
@@ -254,15 +255,17 @@ export const TourCategoryPage = () => {
                               <button
                                 type="button"
                                 onClick={() => syncFormToCategory(category)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                               >
+                                <FiEdit2 />
                                 Sửa
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDelete(category.id)}
-                                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
                               >
+                                <FiTrash2 />
                                 Xóa
                               </button>
                             </div>
@@ -281,7 +284,7 @@ export const TourCategoryPage = () => {
                     (safePage - 1) * pageSize + 1,
                     filteredCategories.length,
                   )}{" "}
-                  - {Math.min(safePage * pageSize, filteredCategories.length)} /{" "}
+                  - {Math.min(safePage * pageSize, filteredCategories.length)} / trong tổng số{" "}
                   {filteredCategories.length || 0}
                 </p>
                 <div className="flex items-center gap-2">

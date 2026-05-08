@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { MiniStatSquares } from "../components/MiniStatSquares";
 import { mockTours, mockCategories } from "../data/mockTourData";
 
@@ -31,7 +32,7 @@ export const TourPage = () => {
     });
   }, [searchTerm, selectedStatus, selectedCategory, showHotOnly]);
 
-  const totalPages = Math.ceil(filteredTours.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredTours.length / itemsPerPage));
   const paginatedTours = filteredTours.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -270,12 +271,12 @@ export const TourPage = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleViewDetail(tour.id)}
-                    className="flex-1 rounded-lg bg-blue-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
                   >
-                    👁️ Xem / ✏️ Sửa
+                    <FiEdit2 /> Xem / Sửa
                   </button>
-                  <button className="flex-1 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600">
-                    🗑️ Xóa
+                  <button className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600">
+                    <FiTrash2 /> Xóa
                   </button>
                 </div>
               </div>
@@ -301,16 +302,20 @@ export const TourPage = () => {
 
       {/* Pagination */}
       {true && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <button
-            onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            disabled={currentPage === 1}
-          >
-            ← Trước
-          </button>
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-slate-500">
+            Hiển thị {Math.min((currentPage - 1) * itemsPerPage + 1, filteredTours.length)} - {Math.min(currentPage * itemsPerPage, filteredTours.length)} / trong tổng số {filteredTours.length}
+          </p>
 
-          <div className="flex gap-1">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={currentPage === 1}
+            >
+              ←
+            </button>
+
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
               let pageNum;
               if (totalPages <= 5) {
@@ -326,25 +331,25 @@ export const TourPage = () => {
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`min-w-9 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
                     currentPage === pageNum
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                      : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
                   }`}
                 >
                   {pageNum}
                 </button>
               );
             })}
-          </div>
 
-          <button
-            onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-            disabled={currentPage === totalPages}
-          >
-            Sau →
-          </button>
+            <button
+              onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={currentPage === totalPages}
+            >
+              →
+            </button>
+          </div>
         </div>
       )}
     </div>

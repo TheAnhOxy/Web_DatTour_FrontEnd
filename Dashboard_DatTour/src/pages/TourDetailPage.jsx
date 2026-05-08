@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { mockTourDetails } from "../data/mockTourData";
 
 const categoryOptions = [
@@ -464,7 +465,11 @@ export const TourDetailPage = () => {
                       : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {isEditingDest ? "✓ Xong" : "✎ Sửa"}
+                  {isEditingDest ? "✓ Xong" : (
+                    <span className="inline-flex items-center gap-1.5">
+                      <FiEdit2 /> Sửa
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -488,10 +493,10 @@ export const TourDetailPage = () => {
                   {isEditingDest && (
                     <button
                       onClick={() => onRemoveDestination(dest.id)}
-                      className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-200 text-[10px] font-bold text-blue-700 transition hover:bg-red-200 hover:text-red-600"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-[10px] font-bold text-blue-700 transition hover:bg-red-200 hover:text-red-600"
                       title="Xóa"
                     >
-                      ×
+                      <FiTrash2 />
                     </button>
                   )}
                 </span>
@@ -580,7 +585,7 @@ export const TourDetailPage = () => {
                   {/* Edit mode badge + action buttons */}
                   <div className="mb-3 flex items-center justify-between">
                     <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">
-                      ✏️ Đang chỉnh sửa lịch khởi hành
+                      <span className="inline-flex items-center gap-1"><FiEdit2 /> Đang chỉnh sửa lịch khởi hành</span>
                     </span>
                     <div className="flex gap-2">
                       <button
@@ -605,9 +610,9 @@ export const TourDetailPage = () => {
                       </button>
                       <button
                         onClick={() => onDeleteDeparture(departure.id)}
-                        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
                       >
-                        🗑 Xóa
+                        <FiTrash2 /> Xóa
                       </button>
                     </div>
                   </div>
@@ -754,14 +759,14 @@ export const TourDetailPage = () => {
                         className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-50"
                         title="Sửa"
                       >
-                        ✎
+                        <FiEdit2 />
                       </button>
                       <button
                         onClick={() => onDeleteDeparture(departure.id)}
                         className="rounded border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50"
                         title="Xóa"
                       >
-                        🗑
+                        <FiTrash2 />
                       </button>
                     </div>
                   </div>
@@ -952,7 +957,7 @@ export const TourDetailPage = () => {
                                     onClick={(e) => { e.stopPropagation(); removeRule(); }}
                                     className="shrink-0 rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-500"
                                   >
-                                    ×
+                                    <FiTrash2 />
                                   </button>
                                 </div>
 

@@ -22,6 +22,19 @@ export default function BookingDetailPage() {
   const [numBabies, setNumBabies] = useState(0);
   const [visibleRows, setVisibleRows] = useState(10);
   const [activePolicyTab, setActivePolicyTab] = useState("inclusions");
+  const [isCheckoutMode, setIsCheckoutMode] = useState(false);
+
+  // --- CHECKOUT FORM STATES ---
+  const [pickupPoint, setPickupPoint] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactNotes, setContactNotes] = useState("");
+  const [paymentRatio, setPaymentRatio] = useState(100); // 100 or 50
+  const [voucherCode, setVoucherCode] = useState("");
+  const [appliedVouchers, setAppliedVouchers] = useState<any[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState("bank"); // bank or cash
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // --- FETCH DATA ---
   useEffect(() => {
@@ -43,7 +56,7 @@ export default function BookingDetailPage() {
         if (detailRes.data.tourId) {
             const tourPoliciesRes = await getTourDetails(detailRes.data.tourId);
             if (tourPoliciesRes.data) {
-                setTourDetail(prev => ({
+                setTourDetail((prev: any) => ({
                     ...prev,
                     ...tourPoliciesRes.data
                 }));
@@ -115,19 +128,63 @@ export default function BookingDetailPage() {
 
   const totalAmount = numAdults * adultPrice + numChildren * childPrice;
 
+  const totalDiscount = appliedVouchers.reduce((acc, v) => acc + v.value, 0);
+  const finalTotal = Math.max(0, totalAmount - totalDiscount);
+  const depositAmount = paymentRatio === 50 ? finalTotal * 0.5 : finalTotal;
+
+  const applyVoucher = () => {
+    if (!voucherCode) return;
+    const code = voucherCode.toUpperCase();
+    if (code === "GIAM50K") {
+      if (appliedVouchers.some(v => v.code === "GIAM50K")) {
+        alert("Mã này đã được áp dụng!");
+        return;
+      }
+      setAppliedVouchers([...appliedVouchers, { code: "GIAM50K", value: 50000 }]);
+      setVoucherCode("");
+    } else if (code === "GIAM100K") {
+      if (appliedVouchers.some(v => v.code === "GIAM100K")) {
+        alert("Mã này đã được áp dụng!");
+        return;
+      }
+      setAppliedVouchers([...appliedVouchers, { code: "GIAM100K", value: 100000 }]);
+      setVoucherCode("");
+    } else {
+      alert("Mã giảm giá không hợp lệ!");
+    }
+  };
+
   const handleBooking = async () => {
     if (!tourDetail) return;
+    
+    if (!isCheckoutMode) {
+      setIsCheckoutMode(true);
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    if (!contactName || !contactPhone || !contactEmail) {
+      alert("Vui lòng điền đầy đủ thông tin liên hệ bắt buộc!");
+      return;
+    }
+
+    if (!agreedToTerms) {
+      alert("Vui lòng đồng ý điều khoản và chính sách bảo mật để tiếp tục.");
+      return;
+    }
+
     const requestData = {
       userId: 1, 
       departureId: Number(id),
-      note: `Gói: ${selectedPackage} | NL: ${numAdults}, TE: ${numChildren}, EB: ${numBabies}`,
+      note: `Gói: ${selectedPackage} | NL: ${numAdults}, TE: ${numChildren}, EB: ${numBabies} | Cọc: ${paymentRatio}% | KM: ${appliedVouchers.map(v => v.code).join(", ")} | Ghi chú: ${contactNotes}`,
       passengers: []
     };
 
     try {
       const res = await createBooking(requestData);
       if (res.status === 201 || res.status === 200) {
-        alert("Giữ chỗ thành công! Mã đơn hàng: " + (res.data?.bookingCode || "N/A"));
+        alert("Đặt tour thành công! Mã đơn hàng: " + (res.data?.bookingCode || "N/A"));
+        // Redirect to success page or reset
       } else {
         alert("Lỗi khi đặt tour: " + res.message);
       }
@@ -357,6 +414,74 @@ export default function BookingDetailPage() {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Checkout Styles */
+        .checkout-section-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          margin-bottom: 20px;
+          color: #333;
+          border-left: 4px solid #FF6B00;
+          padding-left: 12px;
+        }
+        .form-group label {
+          font-weight: 600;
+          font-size: 0.9rem;
+          color: #555;
+          margin-bottom: 8px;
+        }
+        .form-control {
+          border-radius: 8px;
+          border: 1px solid #DDD;
+          padding: 12px;
+        }
+        .form-control:focus {
+          border-color: #FF6B00;
+          box-shadow: 0 0 0 0.2rem rgba(255, 107, 0, 0.25);
+        }
+        .payment-option {
+          border: 1px solid #DDD;
+          border-radius: 10px;
+          padding: 16px;
+          margin-bottom: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .payment-option.active {
+          border-color: #FF6B00;
+          background-color: #FFF9F5;
+        }
+        .summary-item {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 12px;
+          font-size: 0.95rem;
+        }
+        .summary-total {
+          border-top: 1px solid #EEE;
+          padding-top: 12px;
+          margin-top: 12px;
+          display: flex;
+          justify-content: space-between;
+          font-weight: 700;
+          font-size: 1.2rem;
+          color: #D32F2F;
+        }
+        .voucher-input-group {
+          display: flex;
+          gap: 10px;
+        }
+        .bank-info {
+          background: #F8F9FA;
+          padding: 15px;
+          border-radius: 8px;
+          margin-top: 10px;
+          font-size: 0.9rem;
+        }
+        .checkout-sidebar {
+          position: sticky;
+          top: 100px;
+        }
       `}</style>
 
       <div className="booking-container">
@@ -378,10 +503,230 @@ export default function BookingDetailPage() {
             </div>
           </div>
 
-          <div className="row">
-            
-            {/* LỊCH KHỞI HÀNH & HÌNH ẢNH - MAIN CONTENT */}
-            <div className="col-lg-7 mb-4">
+          {isCheckoutMode ?
+            <div className="row">
+              <div className="col-lg-8">
+                <div className="booking-card p-4 mb-4">
+                  <h3 className="checkout-section-title">1. Thông tin tour</h3>
+                  <div className="d-flex align-items-center mb-4">
+                    <img src={tourDetail.image} alt="" style={{width: 120, height: 85, objectFit: "cover", borderRadius: 8, marginRight: 20}} />
+                    <div>
+                      <h5 className="font-weight-bold mb-1">{tourDetail.title}</h5>
+                      <div className="text-muted small mb-1">
+                        <i className="far fa-calendar-alt mr-2"></i>
+                        Ngày đi: {formatFullDate(activeTab === 'all' ? (schedules[0]?.date || new Date()) : activeTab)}
+                      </div>
+                      <div className="text-muted small">
+                        <i className="fas fa-box mr-2"></i>
+                        Gói: {tourDetail.packages?.find((p: any) => p.id === selectedPackage)?.name}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Điểm đón khách *</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="Nhập điểm đón (vd: Sân bay Tân Sơn Nhất, Văn phòng công ty...)" 
+                      value={pickupPoint} 
+                      onChange={(e) => setPickupPoint(e.target.value)} 
+                    />
+                  </div>
+                </div>
+
+                <div className="booking-card p-4 mb-4">
+                  <h3 className="checkout-section-title">2. Thông tin liên hệ</h3>
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <div className="form-group">
+                        <label>Họ và tên *</label>
+                        <input type="text" className="form-control" value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Nguyễn Văn A" />
+                      </div>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <div className="form-group">
+                        <label>Số điện thoại *</label>
+                        <input type="text" className="form-control" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="090xxxxxxx" />
+                      </div>
+                    </div>
+                    <div className="col-md-12 mb-3">
+                      <div className="form-group">
+                        <label>Email *</label>
+                        <input type="email" className="form-control" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@example.com" />
+                      </div>
+                    </div>
+                    <div className="col-md-12">
+                      <div className="form-group">
+                        <label>Ghi chú</label>
+                        <textarea 
+                          className="form-control" 
+                          rows={3} 
+                          value={contactNotes} 
+                          onChange={(e) => setContactNotes(e.target.value)}
+                          placeholder="Yêu cầu đặc biệt về ăn uống, chỗ ngồi..."
+                        ></textarea>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="booking-card p-4 mb-4">
+                  <h3 className="checkout-section-title">3. Tỷ lệ thanh toán</h3>
+                  <div className="row">
+                    <div className="col-md-6 mb-3 mb-md-0">
+                      <div className={`payment-option h-100 ${paymentRatio === 100 ? 'active' : ''}`} onClick={() => setPaymentRatio(100)}>
+                        <div className="font-weight-bold mb-1">Thanh toán 100%</div>
+                        <div className="small text-muted">Thanh toán toàn bộ số tiền tour để nhận xác nhận tức thì.</div>
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <div className={`payment-option h-100 ${paymentRatio === 50 ? 'active' : ''}`} onClick={() => setPaymentRatio(50)}>
+                        <div className="font-weight-bold mb-1">Thanh toán 50%</div>
+                        <div className="small text-muted">Đặt cọc trước 50%, số tiền còn lại sẽ thanh toán sau.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="booking-card p-4 mb-4">
+                  <h3 className="checkout-section-title">4. Mã giảm giá / Voucher</h3>
+                  <div className="voucher-input-group mb-3">
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="Nhập mã giảm giá (GIAM50K, GIAM100K...)" 
+                      value={voucherCode} 
+                      onChange={(e) => setVoucherCode(e.target.value)} 
+                    />
+                    <button className="btn btn-primary" style={{borderRadius: 8, padding: "0 24px", background: "#FF6B00", border: "none"}} onClick={applyVoucher}>Áp dụng</button>
+                  </div>
+                  {appliedVouchers.length > 0 && (
+                    <div className="applied-vouchers d-flex flex-wrap" style={{gap: "8px"}}>
+                      {appliedVouchers.map((v, i) => (
+                        <div key={i} className="badge badge-success p-2 d-flex align-items-center" style={{fontSize: "0.9rem", background: "#E8F5E9", color: "#2E7D32", borderRadius: "6px"}}>
+                          {v.code} (-{formatPrice(v.value)})
+                          <i className="fas fa-times ml-2 cursor-pointer" onClick={() => setAppliedVouchers(appliedVouchers.filter((_, idx) => idx !== i))}></i>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="text-muted small mt-2">
+                    * Voucher có thể cộng dồn (nếu còn hiệu lực). Không vượt quá tổng tiền tạm tính.
+                  </div>
+                </div>
+
+                <div className="booking-card p-4 mb-4">
+                  <h3 className="checkout-section-title">5. Phương thức thanh toán</h3>
+                  <div 
+                    className={`payment-option ${paymentMethod === 'bank' ? 'active' : ''}`} 
+                    onClick={() => setPaymentMethod('bank')}
+                  >
+                    <div className="d-flex align-items-center">
+                      <i className="fas fa-university mr-3 text-primary" style={{fontSize: "1.2rem"}}></i>
+                      <div className="font-weight-bold">Chuyển khoản ngân hàng</div>
+                    </div>
+                    {paymentMethod === 'bank' && (
+                      <div className="bank-info mt-3" style={{border: "1px dashed #FF6B00"}}>
+                        <div className="mb-1">Ngân hàng: <strong>Vietcombank</strong></div>
+                        <div className="mb-1">Chủ tài khoản: <strong>CÔNG TY TNHH TOURISM</strong></div>
+                        <div className="mb-1">Số tài khoản: <strong>012345678910</strong></div>
+                        <div>Chi nhánh: <strong>Bến Thành</strong></div>
+                        <div className="mt-2 text-warning font-weight-bold small">Giữ chỗ tức thì, xác nhận sau khi nhận được chuyển khoản.</div>
+                      </div>
+                    )}
+                  </div>
+                  <div 
+                    className={`payment-option ${paymentMethod === 'cash' ? 'active' : ''}`} 
+                    onClick={() => setPaymentMethod('cash')}
+                  >
+                    <div className="d-flex align-items-center">
+                      <i className="fas fa-money-bill-wave mr-3 text-success" style={{fontSize: "1.2rem"}}></i>
+                      <div className="font-weight-bold">Thanh toán tiền mặt tại văn phòng</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-lg-4">
+                <div className="booking-card p-4 checkout-sidebar">
+                  <h5 className="font-weight-bold mb-4">Chi tiết thanh toán</h5>
+                  <div className="summary-item">
+                    <span className="text-muted">Người lớn ({numAdults})</span>
+                    <span className="font-weight-bold">{formatPrice(numAdults * adultPrice)}</span>
+                  </div>
+                  {numChildren > 0 && (
+                    <div className="summary-item">
+                      <span className="text-muted">Trẻ em ({numChildren})</span>
+                      <span className="font-weight-bold">{formatPrice(numChildren * childPrice)}</span>
+                    </div>
+                  )}
+                  {numBabies > 0 && (
+                    <div className="summary-item">
+                      <span className="text-muted">Em bé ({numBabies})</span>
+                      <span className="font-weight-bold">0đ</span>
+                    </div>
+                  )}
+                  <div className="summary-item pt-2">
+                    <span>Tạm tính</span>
+                    <span className="font-weight-bold">{formatPrice(totalAmount)}</span>
+                  </div>
+                  <div className="summary-item text-success">
+                    <span>Giảm giá</span>
+                    <span>-{formatPrice(totalDiscount)}</span>
+                  </div>
+                  <div className="summary-total">
+                    <span>Tổng cộng</span>
+                    <span>{formatPrice(finalTotal)}</span>
+                  </div>
+                  
+                  <div className="mt-4 pt-3 border-top">
+                    <div className="summary-item">
+                      <span className="font-weight-bold">Hình thức</span>
+                      <span className="badge badge-info" style={{background: "#E1F5FE", color: "#01579B"}}>
+                        {paymentRatio === 100 ? "Thanh toán 100%" : "Thanh toán 50%"}
+                      </span>
+                    </div>
+                    {paymentRatio === 50 && (
+                      <div className="summary-item">
+                        <span className="font-weight-bold">Số tiền cọc</span>
+                        <span className="text-primary font-weight-bold">{formatPrice(depositAmount)}</span>
+                      </div>
+                    )}
+                    <div className="summary-total" style={{fontSize: "1.5rem", borderTop: "none", marginTop: 0}}>
+                      <span>Thanh toán</span>
+                      <span>{formatPrice(depositAmount)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 mb-4">
+                    <label className="d-flex align-items-start cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="mt-1 mr-2" 
+                        checked={agreedToTerms} 
+                        onChange={(e) => setAgreedToTerms(e.target.checked)} 
+                      />
+                      <span className="small text-muted">Tôi đồng ý với <strong>Điều khoản và Chính sách bảo mật</strong> của công ty.</span>
+                    </label>
+                  </div>
+
+                  <button className="cta-btn" onClick={handleBooking}>
+                    Xác nhận thanh toán {formatPrice(depositAmount)}
+                  </button>
+                  
+                  <div className="text-center mt-3">
+                    <button className="btn btn-link text-muted small" onClick={() => setIsCheckoutMode(false)}>
+                      <i className="fas fa-chevron-left mr-2"></i> Quay lại chỉnh sửa
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          :
+            <div className="row">
+              
+              {/* LỊCH KHỞI HÀNH & HÌNH ẢNH - MAIN CONTENT */}
+              <div className="col-lg-7 mb-4">
               
               {/* THƯ VIỆN HÌNH ẢNH */}
               <div className="mb-4">
@@ -537,6 +882,7 @@ export default function BookingDetailPage() {
               </div>
             </div>
 
+
             {/* WIDGET BÊN PHẢI - STICKY CARD */}
             <div className="col-lg-5">
               <div className="booking-card p-4 sticky-card">
@@ -639,8 +985,8 @@ export default function BookingDetailPage() {
 
               </div>
             </div>
-
           </div>
+          }
         </div>
       </div>
     </>

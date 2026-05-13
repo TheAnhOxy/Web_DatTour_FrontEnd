@@ -25,16 +25,55 @@ export const MainLayout = ({ children }) => {
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "▣", path: "/dashboard" },
-    { id: "tour", label: "Tour", icon: "✈", path: "/tour" },
+    {
+      id: "tour",
+      label: "Tour",
+      icon: "✈",
+      submenu: [
+        {
+          id: "tour-list",
+          label: "Danh sách Tour",
+          path: "/tour",
+          icon: FiGrid,
+        },
+        {
+          id: "tour-categories",
+          label: "Danh mục",
+          path: "/tour/categories",
+          icon: FiTag,
+        },
+        {
+          id: "tour-destinations",
+          label: "Điểm đến",
+          path: "/tour/destinations",
+          icon: FiMapPin,
+        },
+      ],
+    },
     { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },
     {
       id: "booking",
       label: "Booking",
       icon: "⌁",
       submenu: [
-        { id: "tour-booking", label: "Tour Booking", path: "/booking/tour" },
-        { id: "payment", label: "Payment", path: "/booking/payment" },
-        { id: "bookings-list", label: "Bookings", path: "/bookings" },
+        {
+          id: "tour-booking",
+          label: "Tour Booking",
+          path: "/booking/tour",
+          icon: FiBook,
+        },
+        {
+          id: "payment",
+          label: "Payment",
+          path: "/booking/payment",
+          icon: FiCreditCard,
+        },
+        {
+          id: "bookings-list",
+          label: "Bookings",
+          path: "/bookings",
+          icon: FiGrid,
+        },
       ],
     },
     { id: "messages", label: "Tin nhắn", icon: "✉", path: "/messages" },
@@ -83,9 +122,6 @@ export const MainLayout = ({ children }) => {
                 <p className="truncate text-[12px] font-medium text-slate-500">
                   Tour Management
                 </p>
-                <h1 className="text-xl font-black tracking-tight text-slate-900">
-                  Admin
-                </h1>
               </div>
             </div>
           ) : (
@@ -141,7 +177,7 @@ export const MainLayout = ({ children }) => {
                                 : "text-slate-400"
                             }
                           >
-                            •
+                            <subitem.icon className="text-sm" />
                           </span>
                           {sidebarOpen && <span>{subitem.label}</span>}
                         </button>

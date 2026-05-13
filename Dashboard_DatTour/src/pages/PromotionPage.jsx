@@ -1,118 +1,27 @@
-import React, { useMemo, useState } from "react";
-import { FiCalendar, FiEdit2, FiFilter, FiMoreVertical, FiRefreshCw, FiTrash2 } from "react-icons/fi";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  useCreatePromotionMutation,
+  useDeletePromotionMutation,
+  usePromotionsQuery,
+  useTogglePromotionMutation,
+  useUpdatePromotionMutation,
+  useValidatePromotionQuery,
+} from "../api/hooks/promotionHooks";
+import { PromotionSidebar } from "../components/promotion/PromotionSidebar";
+import { PromotionTable } from "../components/promotion/PromotionTable";
+import { FiActivity, FiAlertCircle, FiCheckCircle, FiHash, FiSearch } from "react-icons/fi";
 
-const mockPromotionResponses = [
-  {
-    id: 1,
-    code: "SUMMER24",
-    discountPercent: 15,
-    maxDiscount: 500000,
-    usageLimit: 1000,
-    usedCount: 624,
-    validFrom: "2026-05-01T00:00:00",
-    validTo: "2026-08-31T23:59:59",
-    isActive: true,
-  },
-  {
-    id: 2,
-    code: "LOYALTY500",
-    discountPercent: 10,
-    maxDiscount: 500000,
-    usageLimit: 300,
-    usedCount: 300,
-    validFrom: "2026-01-01T00:00:00",
-    validTo: "2026-12-31T23:59:59",
-    isActive: false,
-  },
-  {
-    id: 3,
-    code: "WEEKEND30",
-    discountPercent: 30,
-    maxDiscount: 350000,
-    usageLimit: 120,
-    usedCount: 118,
-    validFrom: "2026-04-05T00:00:00",
-    validTo: "2026-04-07T23:59:59",
-    isActive: true,
-  },
-  {
-    id: 4,
-    code: "FLASH50",
-    discountPercent: 50,
-    maxDiscount: 1000000,
-    usageLimit: 80,
-    usedCount: 23,
-    validFrom: "2026-06-01T00:00:00",
-    validTo: "2026-06-10T23:59:59",
-    isActive: true,
-  },
-  {
-    id: 5,
-    code: "WELCOME10",
-    discountPercent: 10,
-    maxDiscount: 200000,
-    usageLimit: 2000,
-    usedCount: 1540,
-    validFrom: "2026-01-01T00:00:00",
-    validTo: "2026-12-31T23:59:59",
-    isActive: true,
-  },
-];
+const pageSize = 10;
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-};
-
-const formatCurrency = (value) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
-
-const getPromotionState = (promotion) => {
-  const now = Date.now();
-  const from = new Date(promotion.validFrom).getTime();
-  const to = new Date(promotion.validTo).getTime();
-
-  if (!promotion.isActive) {
-    return {
-      label: "Tạm dừng",
-      className: "bg-amber-100 text-amber-700",
-      note: "Đã tắt",
-    };
-  }
-
-  if (now < from) {
-    return {
-      label: "Lưu trữ",
-      className: "bg-slate-100 text-slate-600",
-      note: "Chưa bắt đầu",
-    };
-  }
-
-  if (now > to) {
-    return {
-      label: "Lưu trữ",
-      className: "bg-slate-100 text-slate-600",
-      note: "Đã hết hạn",
-    };
-  }
-
-  const diffDays = Math.ceil((to - now) / (1000 * 60 * 60 * 24));
-  return {
-    label: "Đang chạy",
-    className: "bg-emerald-100 text-emerald-700",
-    note: diffDays > 0 ? `Còn ${diffDays} ngày` : "Hết hôm nay",
-  };
-};
+const toDateTimeLocal = (value) => (value ? value.slice(0, 16) : "");
 
 export const PromotionPage = () => {
-  const [promotions] = useState(mockPromotionResponses);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [page, setPage] = useState(0);
+  const [selectedPromotion, setSelectedPromotion] = useState(null);
+  const [promotionToDelete, setPromotionToDelete] = useState(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [validateCode, setValidateCode] = useState("");
+  const [validateEnabled, setValidateEnabled] = useState(false);
   const [formData, setFormData] = useState({
     code: "",
     discountPercent: "",
@@ -123,234 +32,304 @@ export const PromotionPage = () => {
     isActive: true,
   });
 
-  const itemsPerPage = 6;
-  const totalPages = Math.max(1, Math.ceil(promotions.length / itemsPerPage));
-  const paginatedPromotions = promotions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const { data: pageData, isLoading } = usePromotionsQuery({ page, size: pageSize });
+  const promotions = pageData?.content ?? [];
+  const totalPages = pageData?.totalPages ?? 0;
+  const totalElements = pageData?.totalElements ?? 0;
 
-  const usageRate = useMemo(() => {
-    const totalLimit = promotions.reduce((sum, item) => sum + (item.usageLimit || 0), 0);
-    const totalUsed = promotions.reduce((sum, item) => sum + (item.usedCount || 0), 0);
-    if (!totalLimit) return 0;
-    return Math.round((totalUsed / totalLimit) * 100);
-  }, [promotions]);
+  const { data: validateResult, isFetching: isValidating } = useValidatePromotionQuery(validateCode, validateEnabled);
 
-  const totalPotentialDiscount = useMemo(
-    () => promotions.reduce((sum, item) => sum + Number(item.maxDiscount || 0), 0),
+  const createMutation = useCreatePromotionMutation({
+    onSuccess: () => {
+      setSelectedPromotion(null);
+      setFormData({
+        code: "",
+        discountPercent: "",
+        maxDiscount: "",
+        usageLimit: "",
+        validFrom: "",
+        validTo: "",
+        isActive: true,
+      });
+      setValidateCode("");
+      setValidateEnabled(false);
+    },
+  });
+
+  const updateMutation = useUpdatePromotionMutation({
+    onSuccess: () => {
+      setSelectedPromotion(null);
+      setFormData({
+        code: "",
+        discountPercent: "",
+        maxDiscount: "",
+        usageLimit: "",
+        validFrom: "",
+        validTo: "",
+        isActive: true,
+      });
+      setValidateCode("");
+      setValidateEnabled(false);
+    },
+  });
+
+  const deleteMutation = useDeletePromotionMutation({
+    onSuccess: () => {
+      setPromotionToDelete(null);
+      setDeleteConfirmInput("");
+      if (selectedPromotion?.id === promotionToDelete?.id) {
+        setSelectedPromotion(null);
+        setFormData({
+          code: "",
+          discountPercent: "",
+          maxDiscount: "",
+          usageLimit: "",
+          validFrom: "",
+          validTo: "",
+          isActive: true,
+        });
+      }
+    },
+  });
+
+  const toggleMutation = useTogglePromotionMutation();
+
+  useEffect(() => {
+    if (totalPages > 0 && page >= totalPages) {
+      setPage(totalPages - 1);
+    }
+  }, [page, totalPages]);
+
+  const activeCount = useMemo(
+    () => promotions.filter((promotion) => promotion.isActive && new Date(promotion.validTo) > new Date()).length,
     [promotions],
   );
 
+  const expiredCount = useMemo(
+    () => promotions.filter((promotion) => new Date(promotion.validTo) < new Date()).length,
+    [promotions],
+  );
+
+  const fullCount = useMemo(
+    () => promotions.filter((promotion) => Number(promotion.usedCount || 0) >= Number(promotion.usageLimit || 0)).length,
+    [promotions],
+  );
+
+  const handleEdit = (promotion) => {
+    setSelectedPromotion(promotion);
+    setFormData({
+      code: promotion.code || "",
+      discountPercent: String(promotion.discountPercent ?? ""),
+      maxDiscount: String(promotion.maxDiscount ?? ""),
+      usageLimit: String(promotion.usageLimit ?? ""),
+      validFrom: toDateTimeLocal(promotion.validFrom),
+      validTo: toDateTimeLocal(promotion.validTo),
+      isActive: Boolean(promotion.isActive),
+    });
+    setValidateCode(promotion.code || "");
+    setValidateEnabled(false);
+  };
+
+  const handleStartCreate = () => {
+    setSelectedPromotion(null);
+    setFormData({
+      code: "",
+      discountPercent: "",
+      maxDiscount: "",
+      usageLimit: "",
+      validFrom: "",
+      validTo: "",
+      isActive: true,
+    });
+    setValidateCode("");
+    setValidateEnabled(false);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    const payload = {
+      code: formData.code.trim().toUpperCase(),
+      discountPercent: Number(formData.discountPercent),
+      maxDiscount: Number(formData.maxDiscount),
+      usageLimit: Number(formData.usageLimit),
+      validFrom: formData.validFrom ? `${formData.validFrom}:00` : null,
+      validTo: formData.validTo ? `${formData.validTo}:00` : null,
+      isActive: Boolean(formData.isActive),
+    };
+
+    if (selectedPromotion) {
+      updateMutation.mutate({ id: selectedPromotion.id, ...payload });
+      return;
+    }
+
+    createMutation.mutate(payload);
+  };
+
+  const handleDelete = (promotion) => {
+    setPromotionToDelete(promotion);
+    setDeleteConfirmInput("");
+  };
+
+  const handleConfirmDelete = () => {
+    if (!promotionToDelete) return;
+    if (deleteConfirmInput.trim() !== promotionToDelete.code) return;
+    deleteMutation.mutate(promotionToDelete.id);
+  };
+
+  const handleValidate = () => {
+    setValidateEnabled(true);
+  };
+
+  const cardStyle = (tone) => `rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] ${tone || ""}`;
+
+  const statCards = [
+    { label: "Tổng mã", value: totalElements, icon: FiHash, accent: "text-blue-600 bg-blue-50 border-blue-200" },
+    { label: "Đang chạy", value: activeCount, icon: FiActivity, accent: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+    { label: "Hết hạn", value: expiredCount, icon: FiAlertCircle, accent: "text-rose-600 bg-rose-50 border-rose-200" },
+    { label: "Dùng hết", value: fullCount, icon: FiCheckCircle, accent: "text-amber-600 bg-amber-50 border-amber-200" },
+  ];
+
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-3xl uppercase font-black tracking-tight text-blue-600 md:text-[42px]">
+    <div className="space-y-5 text-slate-700">
+      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
+        <div className="border-b border-slate-200 bg-white px-6 py-6">
+          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-3xl font-black uppercase tracking-tight text-blue-600 md:text-[42px]">
                 Quản lý Khuyến mãi
-          </h2>
-        </div>
-        <div className="flex gap-2">
-          <button className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-            Export CSV
-          </button>
-          <button className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900">
-            + Tạo khuyến mãi mới
-          </button>
-        </div>
-      </div>
-
-      <section className="grid gap-4 xl:grid-cols-[1.55fr_0.85fr]">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-            <h2 className="text-2xl font-black tracking-tight text-slate-900">Danh sách khuyến mãi</h2>
-            <div className="flex items-center gap-2 text-slate-500">
-              <button className="rounded-lg p-2 transition hover:bg-slate-100"><FiFilter /></button>
-              <button className="rounded-lg p-2 transition hover:bg-slate-100"><FiMoreVertical /></button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.16em] text-slate-500">
-                <tr>
-                  <th className="px-5 py-3">Tên & Mã code</th>
-                  <th className="px-5 py-3">Loại & Giá trị</th>
-                  <th className="px-5 py-3">Thời hạn</th>
-                  <th className="px-5 py-3">Trạng thái</th>
-                  <th className="px-5 py-3 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedPromotions.map((promotion) => {
-                  const status = getPromotionState(promotion);
-                  return (
-                    <tr key={promotion.id} className="border-t border-slate-100 align-top hover:bg-slate-50/70">
-                      <td className="px-5 py-4">
-                        <p className="text-lg font-semibold leading-tight text-slate-900">Ưu đãi mã {promotion.code}</p>
-                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-blue-600">{promotion.code}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="text-sm text-slate-500">Phần trăm (%)</p>
-                        <p className="mt-1 text-base font-black text-blue-700">{promotion.discountPercent}% OFF</p>
-                        <p className="mt-1 text-xs text-slate-500">Tối đa {formatCurrency(promotion.maxDiscount)}</p>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        <p>{formatDate(promotion.validFrom)} - {formatDate(promotion.validTo)}</p>
-                        <p className="mt-1 text-xs font-medium text-rose-500">{status.note}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${status.className}`}>{status.label}</span>
-                        <p className="mt-2 text-xs text-slate-500">{promotion.usedCount}/{promotion.usageLimit} lượt</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
-                          <button className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"><FiEdit2 /></button>
-                          <button className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50"><FiTrash2 /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-            <p>
-              Hiển thị {Math.min((currentPage - 1) * itemsPerPage + 1, promotions.length)} - {Math.min(currentPage * itemsPerPage, promotions.length)} / trong tổng số {promotions.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                disabled={currentPage === 1}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ←
-              </button>
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${currentPage === page ? "bg-blue-600 text-white shadow-md shadow-blue-600/20" : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"}`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                disabled={currentPage === totalPages}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                →
-              </button>
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">
+                Tạo, cập nhật và theo dõi các mã khuyến mãi trong hệ thống.
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-3xl font-black tracking-tight text-slate-900">Tạo Khuyến mãi</h2>
-              <span className="text-blue-600">✦</span>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Mã code</label>
-                <div className="flex gap-2">
-                  <input
-                    value={formData.code}
-                    onChange={(event) => setFormData((prev) => ({ ...prev, code: event.target.value.toUpperCase() }))}
-                    placeholder="VD: DISCOUNT10"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-blue-400 focus:bg-white"
-                  />
-                  <button className="rounded-xl border border-slate-300 bg-slate-50 px-3 text-slate-600 hover:bg-slate-100">
-                    <FiRefreshCw />
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Phần trăm (%)</label>
-                  <input
-                    type="number"
-                    value={formData.discountPercent}
-                    onChange={(event) => setFormData((prev) => ({ ...prev, discountPercent: event.target.value }))}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-400 focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Giảm tối đa</label>
-                  <input
-                    type="number"
-                    value={formData.maxDiscount}
-                    onChange={(event) => setFormData((prev) => ({ ...prev, maxDiscount: event.target.value }))}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-400 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Giới hạn sử dụng</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.usageLimit}
-                  onChange={(event) => setFormData((prev) => ({ ...prev, usageLimit: event.target.value }))}
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-400 focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Thời hạn áp dụng</label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="relative">
-                    <input
-                      type="datetime-local"
-                      value={formData.validFrom}
-                      onChange={(event) => setFormData((prev) => ({ ...prev, validFrom: event.target.value }))}
-                      className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 pr-9 text-sm text-slate-900 outline-none focus:border-blue-400 focus:bg-white"
-                    />
-                    <FiCalendar className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+        <div className="grid gap-4 px-6 py-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.35fr)]">
+          {statCards.map((card) => {
+            const IconComponent = card.icon;
+            const labelClass = card.accent.split(" ")[0];
+            return (
+              <div key={card.label} className={cardStyle()}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${labelClass}`}>{card.label}</p>
+                    <p className="mt-1.5 text-3xl font-black tracking-tight text-slate-950">{card.value}</p>
                   </div>
-                  <div className="relative">
-                    <input
-                      type="datetime-local"
-                      value={formData.validTo}
-                      onChange={(event) => setFormData((prev) => ({ ...prev, validTo: event.target.value }))}
-                      className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 pr-9 text-sm text-slate-900 outline-none focus:border-blue-400 focus:bg-white"
-                    />
-                    <FiCalendar className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <div className={`grid h-10 w-10 place-items-center rounded-2xl border ${card.accent}`}>
+                    <IconComponent className="text-base" />
                   </div>
                 </div>
               </div>
+            );
+          })}
 
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
-                <span className="text-sm font-semibold text-slate-700">Kích hoạt ngay</span>
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, isActive: !prev.isActive }))}
-                  className={`h-6 w-11 rounded-full p-0.5 transition ${formData.isActive ? "bg-blue-600" : "bg-slate-300"}`}
-                >
-                  <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${formData.isActive ? "translate-x-5" : "translate-x-0"}`} />
-                </button>
-              </div>
-
-              <button className="mt-2 w-full rounded-xl bg-black py-3 text-sm font-bold text-white transition hover:bg-slate-900">
-                Lưu & Xuất bản
-              </button>
-              <button className="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
-                Hủy bỏ
+          <div className={cardStyle()}>
+            <div className="flex items-center gap-3">
+              <input
+                value={validateCode}
+                onChange={(event) => setValidateCode(event.target.value.toUpperCase())}
+                placeholder="Nhập mã để kiểm tra"
+                className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white"
+              />
+              <button
+                type="button"
+                onClick={handleValidate}
+                disabled={isValidating || !validateCode.trim()}
+                aria-label="Kiểm tra mã"
+                className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FiSearch className="text-lg" />
               </button>
             </div>
           </div>
+        </div>
 
-          <div className="rounded-2xl bg-gradient-to-r from-slate-950 to-blue-950 p-5 text-white shadow-[0_12px_30px_rgba(15,23,42,0.2)]">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-300">Hiệu suất mã khuyến mãi</p>
-            <p className="mt-2 text-4xl font-black">{usageRate}%</p>
-            <p className="mt-1 text-sm text-emerald-300">Tổng mức giảm tối đa: {formatCurrency(totalPotentialDiscount)}</p>
+        <div className="grid gap-5 px-6 pb-6 xl:grid-cols-[minmax(0,1.7fr)_320px] xl:items-start">
+          <PromotionTable
+            promotions={promotions}
+            isLoading={isLoading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onToggle={(promotion) => toggleMutation.mutate(promotion.id)}
+            togglePending={toggleMutation.isPending}
+            deletePending={deleteMutation.isPending}
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={setPage}
+          />
+
+          <div className="w-full xl:sticky xl:top-6">
+            <PromotionSidebar
+              isEditing={Boolean(selectedPromotion)}
+              editingPromotion={selectedPromotion}
+              formData={formData}
+              onFormChange={(field, value) => setFormData((prev) => ({ ...prev, [field]: value }))}
+              onSubmit={handleSubmit}
+              onStartCreate={handleStartCreate}
+              isSaving={createMutation.isPending || updateMutation.isPending}
+            />
           </div>
         </div>
       </section>
+
+      {promotionToDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[28px] border border-white/10 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.24)]">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-rose-700">
+                Xác nhận xóa
+              </div>
+              <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950">
+                Xóa mã {promotionToDelete.code}?
+              </h3>
+            </div>
+
+            <div className="space-y-4 px-6 py-5 text-sm text-slate-600">
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                Chỉ xóa được mã chưa có lượt dùng.
+              </p>
+
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.22em] text-slate-600">
+                  Nhập đúng mã để xác nhận
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmInput}
+                  onChange={(event) => setDeleteConfirmInput(event.target.value.toUpperCase())}
+                  placeholder={promotionToDelete.code}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-rose-300 focus:bg-white focus:ring-1 focus:ring-rose-200"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setPromotionToDelete(null);
+                  setDeleteConfirmInput("");
+                }}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleteMutation.isPending || deleteConfirmInput.trim() !== promotionToDelete.code}
+                className="rounded-2xl border border-rose-500 bg-rose-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-rose-500/20 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deleteMutation.isPending ? "Đang xóa..." : "Xóa khuyến mãi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

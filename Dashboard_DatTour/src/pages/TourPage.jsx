@@ -1,51 +1,79 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { MiniStatSquares } from "../components/MiniStatSquares";
-import { mockTours, mockCategories } from "../data/mockTourData";
+import { useTourListQuery, useTourCategoriesQuery, useDeleteTourMutation, useToggleHotMutation } from "../api/hooks/tourHooks";
+
+const useDebounce = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return "—";
+  try {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateStr;
+  }
+};
 
 export const TourPage = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [showHotOnly, setShowHotOnly] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 9;
+  const [page, setPage] = useState(0);
+  const [tourToDelete, setTourToDelete] = useState(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
 
-  // Filter tours
-  const filteredTours = useMemo(() => {
-    return mockTours.filter((tour) => {
-      const matchSearch =
-        tour.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tour.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+  const SIZE = 9;
+  const debouncedSearchTerm = useDebounce(searchTerm);
 
-      const matchStatus =
-        selectedStatus === "ALL" || tour.status === selectedStatus;
+  // Filters
+  const filters = {
+    status: selectedStatus || undefined,
+    categoryId: selectedCategoryId ? Number(selectedCategoryId) : undefined,
+    isHot: showHotOnly ? true : undefined,
+    page,
+    size: SIZE,
+  };
 
-      const matchCategory =
-        selectedCategory === "ALL" || tour.categoryName === selectedCategory;
+  // Queries
+  const { data, isLoading, isFetching } = useTourListQuery(filters);
+  const { data: categories = [] } = useTourCategoriesQuery();
 
-      const matchHot = !showHotOnly || tour.isHot;
+  // Mutations
+  const deleteMutation = useDeleteTourMutation({
+    onSuccess: () => {
+      setTourToDelete(null);
+      setDeleteConfirmInput("");
+    },
+  });
+  const toggleHotMutation = useToggleHotMutation();
 
-      return matchSearch && matchStatus && matchCategory && matchHot;
-    });
-  }, [searchTerm, selectedStatus, selectedCategory, showHotOnly]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredTours.length / itemsPerPage));
-  const paginatedTours = filteredTours.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const tours = data?.content ?? [];
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
 
   // Calculate stats
-  const totalHotTours = mockTours.filter((t) => t.isHot).length;
-  const totalInactiveTours = mockTours.filter(
-    (t) => t.status === "INACTIVE"
-  ).length;
-  const totalActiveToursCount = mockTours.filter(
-    (t) => t.status === "ACTIVE"
-  ).length;
+  const activeCount = tours.filter((t) => t.status === "ACTIVE").length;
+  const inactiveCount = tours.filter((t) => t.status === "INACTIVE").length;
+  const hotCount = tours.filter((t) => t.isHot).length;
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -59,15 +87,38 @@ export const TourPage = () => {
     navigate(`/tour/${tourId}`);
   };
 
+  const handleResetFilter = () => {
+    setSearchTerm("");
+    setSelectedStatus("");
+    setSelectedCategoryId("");
+    setShowHotOnly(false);
+    setPage(0);
+  };
+
+  const handleDeleteClick = (tour) => {
+    setTourToDelete(tour);
+    setDeleteConfirmInput("");
+  };
+
+  const handleConfirmDelete = () => {
+    if (tourToDelete && deleteConfirmInput.trim() === tourToDelete.title) {
+      deleteMutation.mutate(tourToDelete.id);
+    }
+  };
+
+  const handleToggleHot = (tourId) => {
+    toggleHotMutation.mutate(tourId);
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats */}
       <MiniStatSquares
         items={[
-          { label: "Tổng Tour", value: mockTours.length, badge: "Live" },
-          { label: "Đang hoạt động", value: totalActiveToursCount, badge: "Active" },
-          { label: "Dừng hoạt động", value: totalInactiveTours, badge: "Inactive" },
-          { label: "Tour nổi bật", value: totalHotTours, badge: "Hot" },
+          { label: "Tổng Tour", value: totalElements, badge: "Live" },
+          { label: "Đang hoạt động", value: activeCount, badge: "Active" },
+          { label: "Dừng hoạt động", value: inactiveCount, badge: "Inactive" },
+          { label: "Tour nổi bật", value: hotCount, badge: "Hot" },
         ]}
       />
 
@@ -79,7 +130,7 @@ export const TourPage = () => {
           </h2>
         </div>
         <button
-          onClick={() => navigate('/tour/new')}
+          onClick={() => navigate("/tour/new")}
           className="inline-flex items-center gap-2 rounded-xl bg-blue-500 cursor-pointer px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
           + Thêm Tour Mới
@@ -109,7 +160,7 @@ export const TourPage = () => {
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              setCurrentPage(1);
+              setPage(0);
             }}
             className="h-14 w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-12 pr-4 text-sm text-slate-700 placeholder-slate-400 focus:border-blue-400 focus:bg-white focus:outline-none"
           />
@@ -123,11 +174,11 @@ export const TourPage = () => {
               value={selectedStatus}
               onChange={(e) => {
                 setSelectedStatus(e.target.value);
-                setCurrentPage(1);
+                setPage(0);
               }}
               className="h-11 min-w-48 rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm text-slate-700 focus:border-blue-400 focus:outline-none"
             >
-              <option value="ALL">Tất cả</option>
+              <option value="">Tất cả</option>
               <option value="ACTIVE">Hoạt động</option>
               <option value="INACTIVE">Tạm dừng</option>
             </select>
@@ -136,16 +187,16 @@ export const TourPage = () => {
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-slate-700">Danh mục:</span>
             <select
-              value={selectedCategory}
+              value={selectedCategoryId}
               onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setCurrentPage(1);
+                setSelectedCategoryId(e.target.value);
+                setPage(0);
               }}
               className="h-11 min-w-48 rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm text-slate-700 focus:border-blue-400 focus:outline-none"
             >
-              <option value="ALL">Tất cả danh mục</option>
-              {mockCategories.map((cat) => (
-                <option key={cat.id} value={cat.name}>
+              <option value="">Tất cả danh mục</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
                   {cat.name}
                 </option>
               ))}
@@ -162,7 +213,7 @@ export const TourPage = () => {
               checked={showHotOnly}
               onChange={(e) => {
                 setShowHotOnly(e.target.checked);
-                setCurrentPage(1);
+                setPage(0);
               }}
               className="h-5 w-5 rounded border-slate-300 accent-blue-700"
             />
@@ -174,13 +225,7 @@ export const TourPage = () => {
               Áp dụng
             </button>
             <button
-              onClick={() => {
-                setSearchTerm("");
-                setSelectedStatus("ALL");
-                setSelectedCategory("ALL");
-                setShowHotOnly(false);
-                setCurrentPage(1);
-              }}
+              onClick={handleResetFilter}
               className="h-11 rounded-xl border border-slate-300 bg-slate-50 px-6 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
             >
               Đặt lại
@@ -193,7 +238,9 @@ export const TourPage = () => {
         {/* Results Info */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700">
           <div>
-            Hiển thị <span className="font-semibold">{paginatedTours.length}</span> trong <span className="font-semibold">{filteredTours.length}</span> tours
+            Hiển thị <span className="font-semibold">{tours.length}</span> trong{" "}
+            <span className="font-semibold">{totalElements}</span> tours
+            {isFetching && <span className="ml-2 text-xs text-slate-500">Đang tải...</span>}
           </div>
           <button className="inline-flex items-center gap-2 text-sm">
             <span className="text-slate-500">Sắp xếp:</span>
@@ -206,9 +253,18 @@ export const TourPage = () => {
       </div>
 
       {/* Tours Grid */}
-      {paginatedTours.length > 0 ? (
+      {isLoading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {paginatedTours.map((tour) => (
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-72 rounded-2xl bg-slate-200 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : tours.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {tours.map((tour) => (
             <div
               key={tour.id}
               className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg"
@@ -235,7 +291,7 @@ export const TourPage = () => {
                 <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 shadow-md backdrop-blur">
                   <span>⭐</span>
                   <span className="text-xs font-bold text-slate-900">
-                    {tour.rating}
+                    {tour.rating ? tour.rating.toFixed(1) : "0.0"}
                   </span>
                 </div>
               </div>
@@ -252,15 +308,15 @@ export const TourPage = () => {
                 <div className="mb-3 space-y-1.5 text-xs text-slate-600">
                   <div className="flex items-center gap-1.5">
                     <span className="text-slate-400">📍</span>
-                    <span>{tour.pickupName}</span>
+                    <span>{tour.pickupName || tour.region || "—"}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-slate-400">⏱️</span>
                     <span>{tour.durationDays} Ngày {tour.durationDays - 1} Đêm</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">📅 {tour.bookingCount} đặt</span>
-                    <span className="text-slate-400">{tour.departureStartDate}</span>
+                    <span className="text-slate-400">📅 Khởi hành</span>
+                    <span className="text-slate-400">{formatDate(tour.departureStartDate)}</span>
                   </div>
                 </div>
 
@@ -283,7 +339,17 @@ export const TourPage = () => {
                   >
                     <FiEdit2 /> Xem / Sửa
                   </button>
-                  <button className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600">
+                  <button
+                    onClick={() => handleToggleHot(tour.id)}
+                    disabled={toggleHotMutation.isPending}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-amber-50 hover:text-amber-600"
+                  >
+                    ⚡ Hot
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(tour)}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600"
+                  >
                     <FiTrash2 /> Xóa
                   </button>
                 </div>
@@ -292,7 +358,10 @@ export const TourPage = () => {
           ))}
 
           {/* Add New Tour Card */}
-          <button onClick={() => navigate('/tour/new')} className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-blue-400 hover:bg-blue-50">
+          <button
+            onClick={() => navigate("/tour/new")}
+            className="group flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-blue-400 hover:bg-blue-50"
+          >
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-2xl text-blue-600 transition group-hover:bg-blue-200">
               +
             </div>
@@ -309,17 +378,18 @@ export const TourPage = () => {
       )}
 
       {/* Pagination */}
-      {true && (
+      {totalPages > 0 && (
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
           <p className="text-sm text-slate-500">
-            Hiển thị {Math.min((currentPage - 1) * itemsPerPage + 1, filteredTours.length)} - {Math.min(currentPage * itemsPerPage, filteredTours.length)} / trong tổng số {filteredTours.length}
+            Hiển thị {Math.min(page * SIZE + 1, totalElements)} -{" "}
+            {Math.min((page + 1) * SIZE, totalElements)} / trong tổng số {totalElements}
           </p>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+              onClick={() => setPage((p) => Math.max(p - 1, 0))}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={currentPage === 1}
+              disabled={page === 0}
             >
               ←
             </button>
@@ -327,36 +397,75 @@ export const TourPage = () => {
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
               let pageNum;
               if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
+                pageNum = i;
+              } else if (page <= 2) {
+                pageNum = i;
+              } else if (page >= totalPages - 3) {
+                pageNum = totalPages - 5 + i;
               } else {
-                pageNum = currentPage - 2 + i;
+                pageNum = page - 2 + i;
               }
               return (
                 <button
                   key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
+                  onClick={() => setPage(pageNum)}
                   className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                    currentPage === pageNum
+                    page === pageNum
                       ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
                       : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
                   }`}
                 >
-                  {pageNum}
+                  {pageNum + 1}
                 </button>
               );
             })}
 
             <button
-              onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={currentPage === totalPages}
+              disabled={page === totalPages - 1}
             >
               →
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {tourToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-bold text-slate-900">Xóa tour này?</h3>
+            <p className="mb-4 text-sm text-slate-600">
+              Để xác nhận, vui lòng nhập tên tour: <span className="font-semibold">{tourToDelete.title}</span>
+            </p>
+            <input
+              type="text"
+              placeholder="Nhập tên tour..."
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              className="mb-4 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-red-400 focus:outline-none"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setTourToDelete(null);
+                  setDeleteConfirmInput("");
+                }}
+                className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={
+                  deleteConfirmInput.trim() !== tourToDelete.title || deleteMutation.isPending
+                }
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Xóa
+              </button>
+            </div>
           </div>
         </div>
       )}

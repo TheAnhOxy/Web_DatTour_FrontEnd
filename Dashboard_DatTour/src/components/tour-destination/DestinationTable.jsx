@@ -33,23 +33,23 @@ export const DestinationTable = ({
 }) => {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.05)] lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2">
+      <div className="w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
+        <div className="grid w-full gap-3 lg:grid-cols-[minmax(0,1fr)_240px_140px] lg:items-center">
+          <div className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2">
             <FiSearch className="h-5 w-5 flex-shrink-0 text-slate-600" />
 
             <input
               value={searchTerm}
               onChange={(event) => onSearchTermChange(event.target.value)}
               placeholder="Tìm tên điểm đến..."
-              className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
+              className="w-full min-w-0 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
             />
           </div>
 
           <select
             value={regionFilter}
             onChange={(event) => onRegionFilterChange(event.target.value)}
-            className="rounded-2xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white"
+            className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white"
           >
             <option value="ALL">Tất cả Tỉnh/Thành</option>
             {uniqueRegions.map((regionItem) => (
@@ -62,7 +62,7 @@ export const DestinationTable = ({
           <button
             type="button"
             onClick={onResetSearch}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+            className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
           >
             <FiRefreshCw className={`${isRefreshingSearch ? "animate-spin" : ""}`} />
             Làm mới

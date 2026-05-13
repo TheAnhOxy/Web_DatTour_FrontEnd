@@ -33,7 +33,7 @@ export const TourCategorySidebar = ({
         </h2>
         <p className="mt-1 text-sm leading-6 text-slate-500">
           {isEditing
-            ? `Đang sửa danh mục: ${editingCategoryName || "--"}. Nhấn ${submitLabel.toLowerCase()} để cập nhật.`
+            ? `Đang sửa danh mục: ${editingCategoryName || "--"}.`
             : "Nhập tên danh mục rồi lưu để thêm danh mục."}
         </p>
       </div>

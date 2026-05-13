@@ -44,7 +44,7 @@ export const DestinationSidebar = ({
           {isEditing ? "Đang chỉnh sửa" : "Quản lý thông tin điểm đến"}
         </div>
         <h2 className="mt-3 text-lg font-extrabold tracking-tight text-slate-950">
-          {isEditing ? "Cập nhật điểm đến" : "Điểm đến"}
+          {isEditing ? "Cập nhật điểm đến" : "Thêm điểm đến"}
         </h2>
         <p className="mt-1 text-sm leading-6 text-slate-500">
           {isEditing

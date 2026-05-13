@@ -1,19 +1,110 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuthStore } from "../../store/authStore";
+
+interface LoginForm {
+  email: string;
+  password: string;
+}
+
+interface RegisterForm {
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+  rePassword: string;
+}
 
 export default function LoginPage() {
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(
+    () => searchParams.get("tab") === "signup" ? "signup" : "signin"
+  );
+
+  const [loginForm, setLoginForm] = useState<LoginForm>({ email: "", password: "" });
+  const [registerForm, setRegisterForm] = useState<RegisterForm>({
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
+    rePassword: "",
+  });
+
+  const [loginError, setLoginError] = useState("");
+  const [registerError, setRegisterError] = useState("");
+  const [registerSuccess, setRegisterSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const { login, register, isLoggedIn } = useAuthStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoggedIn) router.replace("/");
+  }, [isLoggedIn, router]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setLoading(true);
+    const result = await login(loginForm.email, loginForm.password);
+    setLoading(false);
+    if (result.success) {
+      router.push("/");
+    } else {
+      setLoginError(result.message);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegisterError("");
+    setRegisterSuccess("");
+
+    if (registerForm.password !== registerForm.rePassword) {
+      setRegisterError("Mật khẩu nhập lại không khớp!");
+      return;
+    }
+    if (registerForm.password.length < 8) {
+      setRegisterError("Mật khẩu phải có ít nhất 8 ký tự!");
+      return;
+    }
+    if (!/^\d{10}$/.test(registerForm.phone)) {
+      setRegisterError("Số điện thoại phải có đúng 10 chữ số!");
+      return;
+    }
+
+    setLoading(true);
+    const result = await register({
+      email: registerForm.email,
+      password: registerForm.password,
+      fullName: registerForm.fullName,
+      phone: registerForm.phone,
+    });
+    setLoading(false);
+
+    if (result.success) {
+      setRegisterSuccess(result.message);
+      setTimeout(() => {
+        setActiveTab("signin");
+        setRegisterSuccess("");
+        setRegisterForm({ fullName: "", email: "", phone: "", password: "", rePassword: "" });
+      }, 2500);
+    } else {
+      setRegisterError(result.message);
+    }
+  };
 
   return (
-    
-
     <>
       <div className="login-template">
         <div className="main">
-          {/* Sign In Form */}
-          <section className={`sign-in${activeTab === "signin" ? " show" : ""}`}
-            style={{ display: activeTab === "signin" ? "block" : "none" }}>
+          {/* ===== SIGN IN ===== */}
+          <section
+            className={`sign-in${activeTab === "signin" ? " show" : ""}`}
+            style={{ display: activeTab === "signin" ? "block" : "none" }}
+          >
             <div className="container">
               <div className="signin-content">
                 <div className="signin-image">
@@ -26,8 +117,11 @@ export default function LoginPage() {
                   <a
                     href="#"
                     className="signup-image-link"
-                    id="sign-up"
-                    onClick={(e) => { e.preventDefault(); setActiveTab("signup"); }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab("signup");
+                      setLoginError("");
+                    }}
                   >
                     Tạo tài khoản
                   </a>
@@ -36,57 +130,69 @@ export default function LoginPage() {
                 <div className="signin-form">
                   <h2 className="form-title">Đăng nhập</h2>
                   <form
-                    action="http://localhost:8000/login"
-                    method="POST"
                     className="login-form"
                     id="login-form"
                     style={{ marginTop: 15 }}
+                    onSubmit={handleLogin}
                   >
-                    <input type="hidden" name="_token" value="" />
+                    {loginError && (
+                      <div
+                        className="invalid-feedback"
+                        style={{ display: "block", marginBottom: 10, color: "#dc3545" }}
+                      >
+                        {loginError}
+                      </div>
+                    )}
+
                     <div className="form-group">
-                      <label htmlFor="username_login">
-                        <i className="zmdi zmdi-account material-icons-name"></i>
+                      <label htmlFor="email_login">
+                        <i className="zmdi zmdi-email"></i>
                       </label>
                       <input
-                        type="text"
-                        name="username_login"
-                        id="username_login"
-                        placeholder="Tên đăng nhập"
+                        type="email"
+                        name="email"
+                        id="email_login"
+                        placeholder="Email"
                         required
+                        value={loginForm.email}
+                        onChange={(e) =>
+                          setLoginForm({ ...loginForm, email: e.target.value })
+                        }
                       />
                     </div>
-                    <div
-                      className="invalid-feedback"
-                      style={{ marginTop: -15 }}
-                      id="validate_username"
-                    ></div>
+
                     <div className="form-group">
                       <label htmlFor="password_login">
                         <i className="zmdi zmdi-lock"></i>
                       </label>
                       <input
                         type="password"
-                        name="password_login"
+                        name="password"
                         id="password_login"
                         placeholder="Mật khẩu"
                         required
+                        value={loginForm.password}
+                        onChange={(e) =>
+                          setLoginForm({ ...loginForm, password: e.target.value })
+                        }
                       />
                     </div>
-                    <div
-                      className="invalid-feedback"
-                      style={{ marginTop: -15 }}
-                      id="validate_password"
-                    ></div>
+
                     <div className="form-group form-button">
-                      <input
+                      <button
                         type="submit"
-                        name="signin"
-                        id="signin"
                         className="form-submit"
-                        value="Đăng nhập"
-                      />
+                        disabled={loading}
+                        style={{
+                          cursor: loading ? "not-allowed" : "pointer",
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                      >
+                        {loading ? "Đang xử lý..." : "Đăng nhập"}
+                      </button>
                     </div>
                   </form>
+
                   <div className="social-login">
                     <span className="social-label">Hoặc đăng nhập bằng</span>
                     <ul className="socials">
@@ -96,7 +202,7 @@ export default function LoginPage() {
                         </a>
                       </li>
                       <li>
-                        <a href="http://localhost:8000/auth/google">
+                        <a href="#">
                           <i className="display-flex-center zmdi zmdi-google"></i>
                         </a>
                       </li>
@@ -107,73 +213,113 @@ export default function LoginPage() {
             </div>
           </section>
 
-          {/* Sign Up Form */}
-          <section className="signup"
-            style={{ display: activeTab === "signup" ? "block" : "none" }}>
+          {/* ===== SIGN UP ===== */}
+          <section
+            className="signup"
+            style={{ display: activeTab === "signup" ? "block" : "none" }}
+          >
             <div className="container">
               <div className="signup-content">
                 <div className="signup-form">
                   <h2 className="form-title">Đăng ký</h2>
-                  <div className="loader"></div>
                   <form
-                    action="http://localhost:8000/register"
-                    method="POST"
                     className="register-form"
                     id="register-form"
                     style={{ marginTop: 15 }}
+                    onSubmit={handleRegister}
                   >
-                    <input type="hidden" name="_token" value="" />
+                    {registerError && (
+                      <div
+                        className="invalid-feedback"
+                        style={{ display: "block", marginBottom: 10, color: "#dc3545" }}
+                      >
+                        {registerError}
+                      </div>
+                    )}
+                    {registerSuccess && (
+                      <div
+                        style={{
+                          marginBottom: 10,
+                          color: "#28a745",
+                          background: "#d4edda",
+                          border: "1px solid #c3e6cb",
+                          borderRadius: 4,
+                          padding: "8px 12px",
+                          fontSize: 14,
+                        }}
+                      >
+                        {registerSuccess}
+                      </div>
+                    )}
+
                     <div className="form-group">
-                      <label htmlFor="username_register">
+                      <label htmlFor="fullName_register">
                         <i className="zmdi zmdi-account material-icons-name"></i>
                       </label>
                       <input
                         type="text"
-                        name="username_register"
-                        id="username_register"
-                        placeholder="Tên tài khoản"
+                        name="fullName"
+                        id="fullName_register"
+                        placeholder="Họ và tên"
                         required
+                        value={registerForm.fullName}
+                        onChange={(e) =>
+                          setRegisterForm({ ...registerForm, fullName: e.target.value })
+                        }
                       />
                     </div>
-                    <div
-                      className="invalid-feedback"
-                      style={{ marginTop: -15 }}
-                      id="validate_username_regis"
-                    ></div>
+
                     <div className="form-group">
                       <label htmlFor="email_register">
                         <i className="zmdi zmdi-email"></i>
                       </label>
                       <input
                         type="email"
-                        name="email_register"
+                        name="email"
                         id="email_register"
                         placeholder="Email"
                         required
+                        value={registerForm.email}
+                        onChange={(e) =>
+                          setRegisterForm({ ...registerForm, email: e.target.value })
+                        }
                       />
                     </div>
-                    <div
-                      className="invalid-feedback"
-                      style={{ marginTop: -15 }}
-                      id="validate_email_regis"
-                    ></div>
+
+                    <div className="form-group">
+                      <label htmlFor="phone_register">
+                        <i className="zmdi zmdi-phone"></i>
+                      </label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        id="phone_register"
+                        placeholder="Số điện thoại (10 chữ số)"
+                        required
+                        value={registerForm.phone}
+                        onChange={(e) =>
+                          setRegisterForm({ ...registerForm, phone: e.target.value })
+                        }
+                      />
+                    </div>
+
                     <div className="form-group">
                       <label htmlFor="password_register">
                         <i className="zmdi zmdi-lock"></i>
                       </label>
                       <input
                         type="password"
-                        name="password_register"
+                        name="password"
                         id="password_register"
-                        placeholder="Mật khẩu"
+                        placeholder="Mật khẩu (ít nhất 8 ký tự)"
                         required
+                        value={registerForm.password}
+                        onChange={(e) =>
+                          setRegisterForm({ ...registerForm, password: e.target.value })
+                        }
                       />
                     </div>
-                    <div
-                      className="invalid-feedback"
-                      style={{ marginTop: -15 }}
-                      id="validate_password_regis"
-                    ></div>
+
                     <div className="form-group">
                       <label htmlFor="re_pass">
                         <i className="zmdi zmdi-lock-outline"></i>
@@ -184,24 +330,29 @@ export default function LoginPage() {
                         id="re_pass"
                         placeholder="Nhập lại mật khẩu"
                         required
+                        value={registerForm.rePassword}
+                        onChange={(e) =>
+                          setRegisterForm({ ...registerForm, rePassword: e.target.value })
+                        }
                       />
                     </div>
-                    <div
-                      className="invalid-feedback"
-                      style={{ marginTop: -15 }}
-                      id="validate_repass"
-                    ></div>
+
                     <div className="form-group form-button">
-                      <input
+                      <button
                         type="submit"
-                        name="signup"
-                        id="signup"
                         className="form-submit"
-                        value="Đăng ký"
-                      />
+                        disabled={loading}
+                        style={{
+                          cursor: loading ? "not-allowed" : "pointer",
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                      >
+                        {loading ? "Đang xử lý..." : "Đăng ký"}
+                      </button>
                     </div>
                   </form>
                 </div>
+
                 <div className="signup-image">
                   <figure>
                     <img
@@ -212,8 +363,12 @@ export default function LoginPage() {
                   <a
                     href="#"
                     className="signup-image-link"
-                    id="sign-in"
-                    onClick={(e) => { e.preventDefault(); setActiveTab("signin"); }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setActiveTab("signin");
+                      setRegisterError("");
+                      setRegisterSuccess("");
+                    }}
                   >
                     Tôi đã có tài khoản rồi
                   </a>

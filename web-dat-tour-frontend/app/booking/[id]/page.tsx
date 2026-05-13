@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getDepartureDetails, getTourSchedules, getTourDetails } from "../../../api/coreApi_new";
-import { createBooking } from "../../../api/bookingApi";
+import { createBooking, getBookingByCode } from "../../../api/bookingApi";
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -11,8 +11,11 @@ export default function BookingDetailPage() {
   const id = params?.id as string;
 
   const [tourDetail, setTourDetail] = useState<any>(null);
+  const [bookingData, setBookingData] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<any>(null);
+  const [selectedDepId, setSelectedDepId] = useState<string | number>(id);
 
   // --- STATES ---
   const [activeTab, setActiveTab] = useState("all");
@@ -37,64 +40,127 @@ export default function BookingDetailPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // --- FETCH DATA ---
+    // --- FETCH DATA THẬT TỪ BACKEND ---
   useEffect(() => {
     if (!id) return;
+    
+    const isBookingCode = id.startsWith("BK-") || isNaN(Number(id));
+
     const fetchData = async () => {
       setLoading(true);
-      const [detailRes, schedulesRes] = await Promise.all([
-        getDepartureDetails(id),
-        getTourSchedules(id)
-      ]);
-      
-      if (detailRes.data) {
-        setTourDetail(detailRes.data);
-        if (detailRes.data.packages && detailRes.data.packages.length > 0) {
-            setSelectedPackage(detailRes.data.packages[0].id);
-        }
-        
-        // --- FETCH TOUR POLICIES DYNAMICALLY ---
-        if (detailRes.data.tourId) {
-            const tourPoliciesRes = await getTourDetails(detailRes.data.tourId);
-            if (tourPoliciesRes.data) {
-                setTourDetail((prev: any) => ({
-                    ...prev,
-                    ...tourPoliciesRes.data
-                }));
+      try {
+        if (isBookingCode) {
+          // TRƯỜNG HỢP 1: XEM CHI TIẾT ĐƠN HÀNG ĐÃ ĐẶT
+          const res = await getBookingByCode(id);
+          if (res.status === 200 && res.data) {
+            setBookingData(res.data);
+          } else {
+            console.error("Không tìm thấy đơn hàng:", res.message);
+          }
+        } else {
+          // TRƯỜNG HỢP 2: TRANG CHECKOUT (ĐẶT MỚI)
+          // Bước 1: Lấy thông tin Lịch khởi hành (Giá, Ngày, TourId)
+          const detailRes = await getDepartureDetails(id);
+          
+          if (detailRes && detailRes.data) {
+            const depData = detailRes.data;
+            
+            // Bước 2: Lấy thông tin Lịch trình chung của cả tour
+            const schedulesRes = await getTourSchedules(depData.tourId);
+            
+            // Bước 3: Lấy thông tin Chi tiết Tour (Ảnh, Overview, Lịch trình, Chính sách)
+            const tourDetailRes = await getTourDetails(depData.tourId);
+            
+            // Bước 4: GHÉP DỮ LIỆU (Mapping BE fields sang FE fields)
+            const mergedData = {
+              ...tourDetailRes.data,      // Lấy images, overview, itinerary, policies
+              ...depData,                 // Lấy startDate, endDate, maxSlots
+              id: depData.id,
+              title: depData.tourTitle,   // BE trả về tourTitle -> FE dùng title
+              image: tourDetailRes.data?.image || tourDetailRes.data?.images?.[0], // Lấy ảnh đầu tiên
+              // Map lại cấu hình giá
+              priceConfig: {
+                  adultPrice: depData.priceConfig?.adultPrice || 0,
+                  child1014Price: depData.priceConfig?.child1014Price || 0,
+                  child49Price: depData.priceConfig?.child49Price || 0,
+                  babyPrice: depData.priceConfig?.babyPrice || 0,
+              }
+            };
+
+            setTourDetail(mergedData);
+            setSelectedDate(mergedData.startDate);
+            setSelectedDepId(depData.id);
+            
+            // Cài đặt gói mặc định nếu có
+            if (mergedData.packages && mergedData.packages.length > 0) {
+              setSelectedPackage(mergedData.packages[0].id);
             }
+
+            // Cập nhật danh sách các ngày khởi hành khác (Schedules)
+            if (schedulesRes && schedulesRes.data) {
+              setSchedules(schedulesRes.data.map((s: any) => {
+                const dateStr = s.startDate || s.date || s.departureDate;
+                return {
+                  ...s,
+                  date: dateStr ? new Date(dateStr) : null
+                };
+              }).filter((s: any) => s.date !== null));
+            }
+          }
         }
+      } catch (error) {
+        console.error("Lỗi khi fetch dữ liệu từ Backend:", error);
+      } finally {
+        setLoading(false);
       }
-      
-      if (schedulesRes.data) {
-        setSchedules(schedulesRes.data.map((s: any) => ({
-          ...s,
-          date: new Date(s.date)
-        })));
-      }
-      
-      setLoading(false);
     };
+    
     fetchData();
   }, [id]);
 
+
   // --- MOCK DATA BASED ON API ---
+    // --- MOCK DATA BASED ON API ---
+    // --- MOCK DATA BASED ON API ---
   const dateTabs = useMemo(() => {
-    if (schedules.length === 0) return [{ label: "Tất cả", value: "all" }];
+    // Nếu chưa có dữ liệu, trả về tab mặc định
+    if (!schedules || schedules.length === 0) {
+        return [{ label: "Tất cả", value: "all" }];
+    }
     
-    // Lấy 3 ngày đầu tiên có lịch
-    const tabs = schedules.slice(0, 3).map((s: any) => {
-      const dd = String(s.date.getDate()).padStart(2, '0');
-      const mm = String(s.date.getMonth() + 1).padStart(2, '0');
-      return { label: `${dd}/${mm}`, value: `${dd}/${mm}` };
-    });
+    const tabs = schedules
+      .slice(0, 3) // Lấy 3 lịch trình đầu tiên
+      .map((s: any) => {
+        // Kiểm tra an toàn: Nếu s.date không phải là object Date hợp lệ
+        if (!(s.date instanceof Date) || isNaN(s.date.getTime())) {
+          return null;
+        }
+
+        const dd = String(s.date.getDate()).padStart(2, '0');
+        const mm = String(s.date.getMonth() + 1).padStart(2, '0');
+        
+        return { 
+          label: `${dd}/${mm}`, 
+          value: `${dd}/${mm}`, 
+          id: s.id // Lưu lại ID để làm Key nếu cần
+        };
+      })
+      .filter((tab): tab is any => tab !== null); // Loại bỏ các tab lỗi
     
+    // Luôn thêm tab "Tất cả" vào cuối
     tabs.push({ label: "Tất cả", value: "all" });
+    
     return tabs;
   }, [schedules]);
+
+
 
   // --- HELPERS ---
   const formatPrice = (price: number) => new Intl.NumberFormat("vi-VN").format(price) + "đ";
 
-  const formatFullDate = (d: Date) => {
+  const formatFullDate = (dateInput: any) => {
+    const d = (dateInput instanceof Date) ? dateInput : new Date(dateInput);
+    if (!d || isNaN(d.getTime())) return "Ngày chưa xác định";
     const days = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
     const dayName = days[d.getDay()];
     const dd = String(d.getDate()).padStart(2, '0');
@@ -103,7 +169,9 @@ export default function BookingDetailPage() {
     return `${dayName}, ${dd}/${mm}/${yyyy}`;
   };
 
-  const formatDateShort = (d: Date) => {
+  const formatDateShort = (dateInput: any) => {
+    const d = (dateInput instanceof Date) ? dateInput : new Date(dateInput);
+    if (!d || isNaN(d.getTime())) return "--/--";
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     return `${dd}/${mm}`;
@@ -173,23 +241,61 @@ export default function BookingDetailPage() {
       return;
     }
 
+    // --- PREPARE DATA FOR BACKEND (Based on PassengerDTO & BookingRequest) ---
+    const passengerList: any[] = [];
+    
+    // 1. Map Adults
+    for (let i = 0; i < numAdults; i++) {
+      passengerList.push({
+        fullName: i === 0 ? contactName : `Người lớn ${i + 1}`,
+        ageGroup: "ADULT",
+        gender: "MALE",
+        dob: "1990-01-01"
+      });
+    }
+
+    // 2. Map Children
+    for (let i = 0; i < numChildren; i++) {
+      passengerList.push({
+        fullName: `Trẻ em ${i + 1}`,
+        ageGroup: "CHILD", 
+        gender: "FEMALE",
+        dob: "2015-01-01"
+      });
+    }
+
+    // 3. Map Babies
+    for (let i = 0; i < numBabies; i++) {
+      passengerList.push({
+        fullName: `Em bé ${i + 1}`,
+        ageGroup: "BABY",
+        gender: "MALE",
+        dob: "2024-01-01"
+      });
+    }
+
     const requestData = {
       userId: 1, 
-      departureId: Number(id),
-      note: `Gói: ${selectedPackage} | NL: ${numAdults}, TE: ${numChildren}, EB: ${numBabies} | Cọc: ${paymentRatio}% | KM: ${appliedVouchers.map(v => v.code).join(", ")} | Ghi chú: ${contactNotes}`,
-      passengers: []
+      departureId: Number(selectedDepId || id),
+      note: contactNotes,
+      passengers: passengerList
     };
 
     try {
+      setLoading(true);
       const res = await createBooking(requestData);
+      
       if (res.status === 201 || res.status === 200) {
-        alert("Đặt tour thành công! Mã đơn hàng: " + (res.data?.bookingCode || "N/A"));
-        // Redirect to success page or reset
+        alert(`Đặt tour thành công!\nMã đơn hàng: ${res.data?.bookingCode}`);
+        router.push("/booking/success?code=" + (res.data?.bookingCode || ""));
       } else {
-        alert("Lỗi khi đặt tour: " + res.message);
+        alert("Lỗi khi đặt tour: " + (res.message || "Không xác định"));
       }
     } catch (error) {
-      alert("Có lỗi xảy ra khi kết nối server!");
+      console.error("Booking Error:", error);
+      alert("Đã xảy ra lỗi khi gửi yêu cầu đặt tour.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -200,11 +306,108 @@ export default function BookingDetailPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-5" style={{marginTop: "100px", fontFamily: "system-ui"}}>Đang tải thông tin chuyến đi...</div>;
+    return <div className="text-center py-5" style={{marginTop: "100px", fontFamily: "system-ui"}}>Đang tải thông tin...</div>;
+  }
+
+  // --- TRƯỜNG HỢP HIỂN THỊ CHI TIẾT ĐƠN HÀNG ĐÃ ĐẶT ---
+  if (bookingData) {
+    const { priceSnapshot, promotionSnapshot, passengers, status, totalAmount, paidAmount, bookingCode, createdAt } = bookingData;
+    
+    return (
+      <div className="booking-container" style={{minHeight: "100vh"}}>
+        <style>{`
+            .status-confirmed { background: #E8F5E9; color: #2E7D32; }
+            .status-pending { background: #FFF3E0; color: #E65100; }
+            .status-cancelled { background: #FFEBEE; color: #D32F2F; }
+        `}</style>
+        <div className="container" style={{marginTop: "80px"}}>
+          <div className="booking-card p-5">
+            <div className="text-center mb-5">
+              <div className="display-4 text-success mb-3">
+                <i className="fas fa-check-circle"></i>
+              </div>
+              <h2 className="font-weight-bold">Chi tiết đơn hàng</h2>
+              <p className="text-muted">Mã đặt chỗ: <span className="text-primary font-weight-bold">{bookingCode}</span></p>
+              <div className={`badge p-2 px-3 mt-2 status-${status.toLowerCase()}`}>
+                Trạng thái: {status}
+              </div>
+            </div>
+
+            <div className="row">
+              <div className="col-md-7">
+                <h5 className="font-weight-bold border-bottom pb-2 mb-3">Thông tin chuyến đi</h5>
+                <div className="mb-4">
+                  <h4 className="text-primary mb-1">{priceSnapshot?.tourTitle}</h4>
+                  <p className="mb-1"><strong>Khởi hành:</strong> {formatFullDate(priceSnapshot?.startDate)}</p>
+                  <p className="mb-1"><strong>Điểm đón:</strong> {priceSnapshot?.pickupAddress || "Tại văn phòng"}</p>
+                </div>
+
+                <h5 className="font-weight-bold border-bottom pb-2 mb-3">Danh sách hành khách</h5>
+                <table className="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Họ tên</th>
+                      <th>Đối tượng</th>
+                      <th>Giới tính</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {passengers?.map((p: any, i: number) => (
+                      <tr key={i}>
+                        <td>{p.fullName}</td>
+                        <td>{p.ageGroup === 'ADULT' ? 'Người lớn' : p.ageGroup === 'CHILD' ? 'Trẻ em' : 'Em bé'}</td>
+                        <td>{p.gender === 'MALE' ? 'Nam' : 'Nữ'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="col-md-5">
+                <div className="bg-light p-4 rounded">
+                  <h5 className="font-weight-bold mb-4">Chi tiết thanh toán</h5>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span>Tổng tiền:</span>
+                    <span className="font-weight-bold">{formatPrice(totalAmount)}</span>
+                  </div>
+                  {promotionSnapshot && (
+                    <div className="d-flex justify-content-between mb-2 text-success">
+                      <span>Giảm giá ({promotionSnapshot.code}):</span>
+                      <span>-{formatPrice(promotionSnapshot.discountValue || 0)}</span>
+                    </div>
+                  )}
+                  <div className="d-flex justify-content-between mb-2 pt-2 border-top">
+                    <span>Đã thanh toán:</span>
+                    <span className="text-primary font-weight-bold">{formatPrice(paidAmount || 0)}</span>
+                  </div>
+                  <div className="d-flex justify-content-between pt-2 border-top" style={{fontSize: "1.2rem"}}>
+                    <span className="font-weight-bold">Còn lại:</span>
+                    <span className="text-danger font-weight-bold">{formatPrice(Math.max(0, totalAmount - (paidAmount || 0)))}</span>
+                  </div>
+                  
+                  <div className="mt-4 small text-muted">
+                    Ngày đặt: {new Date(createdAt).toLocaleString('vi-VN')}
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                    <button className="btn btn-outline-primary w-100" onClick={() => window.print()}>
+                        <i className="fas fa-print mr-2"></i> In hóa đơn
+                    </button>
+                    <button className="btn btn-primary w-100 mt-2" style={{background: "#FF6B00", border: "none"}} onClick={() => router.push('/')}>
+                        Quay lại trang chủ
+                    </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!tourDetail) {
-    return <div className="text-center py-5" style={{marginTop: "100px", fontFamily: "system-ui"}}>Không tìm thấy thông tin chuyến đi.</div>;
+    return <div className="text-center py-5" style={{marginTop: "100px", fontFamily: "system-ui"}}>Không tìm thấy thông tin.</div>;
   }
 
   return (
@@ -514,7 +717,7 @@ export default function BookingDetailPage() {
                       <h5 className="font-weight-bold mb-1">{tourDetail.title}</h5>
                       <div className="text-muted small mb-1">
                         <i className="far fa-calendar-alt mr-2"></i>
-                        Ngày đi: {formatFullDate(activeTab === 'all' ? (schedules[0]?.date || new Date()) : activeTab)}
+                        Ngày đi: {formatFullDate(selectedDate || tourDetail.startDate)}
                       </div>
                       <div className="text-muted small">
                         <i className="fas fa-box mr-2"></i>
@@ -855,11 +1058,19 @@ export default function BookingDetailPage() {
                             <td className="font-weight-bold">{formatFullDate(item.date)}</td>
                             <td>{getStatusBadge(item.status)}</td>
                             <td className="font-weight-bold" style={{color: "#FF6B00"}}>{formatPrice(item.price || adultPrice)}</td>
-                            <td className="text-right">
-                              <button className="select-btn" disabled={item.status === "Hết chỗ"}>
-                                Chọn
-                              </button>
-                            </td>
+                             <td className="text-right">
+                               <button 
+                                 className="select-btn" 
+                                 disabled={item.status === "Hết chỗ"}
+                                 onClick={() => {
+                                   setSelectedDate(item.date);
+                                   setSelectedDepId(item.id);
+                                   window.scrollTo({ top: 0, behavior: 'smooth' });
+                                 }}
+                               >
+                                 Chọn
+                               </button>
+                             </td>
                           </tr>
                         ))}
                       </tbody>

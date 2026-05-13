@@ -1,52 +1,56 @@
-const destinations = [
-  {
-    id: 1,
-    title: "Hạ Long",
-    time: "3 ngày 2 đêm",
-    domain: "b",
-    image: "/clients/assets/images/gallery-tours/tour-mien-bac-4n3d-ha-noi-ninh-binh-ha-long-yen-tu-1.png",
-  },
-  {
-    id: 2,
-    title: "Ninh Bình",
-    time: "4 ngày 3 đêm",
-    domain: "b",
-    image: "/clients/assets/images/gallery-tours/tour-mien-bac-4n3d-ha-noi-ninh-binh-ha-long-yen-tu-2.png",
-  },
-  {
-    id: 3,
-    title: "Đà Nẵng",
-    time: "4 ngày 3 đêm",
-    domain: "t",
-    image: "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-1.png",
-  },
-  {
-    id: 4,
-    title: "Hội An",
-    time: "3 ngày 2 đêm",
-    domain: "t",
-    image: "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-2.png",
-  },
-  {
-    id: 5,
-    title: "Phú Quốc",
-    time: "3 ngày 2 đêm",
-    domain: "n",
-    image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-phu-quoc-1.jpg",
-  },
-  {
-    id: 6,
-    title: "Côn Đảo",
-    time: "3 ngày 2 đêm",
-    domain: "n",
-    image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-con-dao-1.jpg",
-  },
-];
+"use client";
+
+import { useEffect, useState } from "react";
+import { getDestinations } from "@/api/coreApi_new";
+
+interface Destination {
+  id: number;
+  cityName: string;
+  region: string;
+  country: string;
+  imageUrl: string;
+}
 
 export default function DestinationPage() {
-  return (
-    
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("*");
 
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const res = await getDestinations(0, 20);
+        if (res.status === 200 && res.data && res.data.content) {
+          setDestinations(res.data.content);
+        }
+      } catch (err) {
+        console.error("Lỗi khi lấy danh sách địa danh:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Hàm helper để phân loại miền (Bắc, Trung, Nam)
+  const getDomain = (dest: Destination) => {
+    const r = dest.region?.toLowerCase() || "";
+    if (r.includes("hà nội") || r.includes("quảng ninh") || r.includes("ninh bình") || r.includes("lào cai") || r.includes("hải phòng")) return "b";
+    if (r.includes("đà nẵng") || r.includes("huế") || r.includes("hội an") || r.includes("nha trang") || r.includes("lâm đồng") || r.includes("quảng bình")) return "t";
+    if (r.includes("hồ chí minh") || r.includes("vũng tàu") || r.includes("phú quốc") || r.includes("kiên giang") || r.includes("cần thơ")) return "n";
+    return "other";
+  };
+
+  const filteredDestinations = destinations.filter(d => {
+    if (filter === "*") return true;
+    if (filter === ".domain-b") return getDomain(d) === "b";
+    if (filter === ".domain-t") return getDomain(d) === "t";
+    if (filter === ".domain-n") return getDomain(d) === "n";
+    return true;
+  });
+
+  return (
     <>
       <section
         className="page-banner-area pt-50 pb-35 rel z-1 bgs-cover"
@@ -92,48 +96,65 @@ export default function DestinationPage() {
               >
                 <h2>Khám phá các điểm đến phổ biến</h2>
                 <p>
-                  Website{" "}
-                  <span className="count-text plus" data-speed="3000" data-stop="34500">
-                    0
+                  Hiện có{" "}
+                  <span className="count-text plus">
+                    {destinations.length}
                   </span>{" "}
-                  trải nghiệm phổ biến nhất mà bạn sẽ nhớ
+                  địa danh tuyệt vời đang chờ đón bạn
                 </p>
                 <ul className="destinations-nav mt-30">
-                  <li data-filter="*" className="active">Tất cả</li>
-                  <li data-filter=".domain-b">Miền Bắc</li>
-                  <li data-filter=".domain-t">Miền Trung</li>
-                  <li data-filter=".domain-n">Miền Nam</li>
+                  <li onClick={() => setFilter("*")} className={filter === "*" ? "active" : ""}>Tất cả</li>
+                  <li onClick={() => setFilter(".domain-b")} className={filter === ".domain-b" ? "active" : ""}>Miền Bắc</li>
+                  <li onClick={() => setFilter(".domain-t")} className={filter === ".domain-t" ? "active" : ""}>Miền Trung</li>
+                  <li onClick={() => setFilter(".domain-n")} className={filter === ".domain-n" ? "active" : ""}>Miền Nam</li>
                 </ul>
               </div>
             </div>
           </div>
           <div className="container">
-            <div className="row gap-10 destinations-active justify-content-center">
-              {destinations.map((destination, index) => (
-                <div
-                  className={`col-xl-3 col-md-6 item domain-${destination.domain}`}
-                  key={destination.id}
-                >
-                  <div className="destination-item style-two" data-aos-duration="1500" data-aos-offset="50">
-                    <div className="image" style={{ maxHeight: 250 }}>
-                      <a href="#" className="heart">
-                        <i className="fas fa-heart"></i>
-                      </a>
-                      <img src={destination.image} alt="Destination" />
-                    </div>
-                    <div className="content">
-                      <h6 className="tour-title">
-                        <a href={`/booking/${destination.id}`}>{destination.title}</a>
-                      </h6>
-                      <span className="time">{destination.time}</span>
-                      <a href={`/booking/${destination.id}`} className="more">
-                        <i className="fas fa-chevron-right"></i>
-                      </a>
+            {loading ? (
+              <div className="text-center py-5">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="sr-only">Đang tải...</span>
+                </div>
+              </div>
+            ) : (
+              <div className="row gap-10 destinations-active justify-content-center">
+                {filteredDestinations.map((dest) => (
+                  <div
+                    className={`col-xl-3 col-md-6 item domain-${getDomain(dest)}`}
+                    key={dest.id}
+                  >
+                    <div className="destination-item style-two" data-aos-duration="1500" data-aos-offset="50">
+                      <div className="image" style={{ height: 250, overflow: 'hidden' }}>
+                        <a href="#" className="heart">
+                          <i className="fas fa-heart"></i>
+                        </a>
+                        <img 
+                          src={dest.imageUrl || "/clients/assets/images/destinations/destination-default.jpg"} 
+                          alt={dest.cityName} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                      <div className="content">
+                        <h6 className="tour-title">
+                          <a href={`/booking/${dest.id}`}>{dest.cityName}</a>
+                        </h6>
+                        <span className="time">{dest.region}, {dest.country}</span>
+                        <a href={`/booking/${dest.id}`} className="more">
+                          <i className="fas fa-chevron-right"></i>
+                        </a>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+                {filteredDestinations.length === 0 && (
+                  <div className="col-12 text-center py-5">
+                    <p className="text-muted">Không tìm thấy địa danh nào cho khu vực này.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>

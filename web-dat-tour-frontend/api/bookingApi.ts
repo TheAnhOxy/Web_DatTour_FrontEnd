@@ -23,6 +23,16 @@ export const createBooking = async (bookingData: any) => {
   }
 };
 
+export const getBookingByCode = async (bookingCode: string) => {
+  try {
+    const res = await client.get(`/bookings/${bookingCode}`);
+    return wrap(res);
+  } catch (err: any) {
+    return { status: 500, message: err.message, data: null };
+  }
+};
+
 export default {
   createBooking,
+  getBookingByCode,
 };

@@ -6,6 +6,7 @@ export interface User {
   userId: number;
   email: string;
   token: string;
+  refreshToken: string;
 }
 
 export interface AuthResult {
@@ -21,11 +22,13 @@ interface AuthState {
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (data: RegisterRequest) => Promise<AuthResult>;
   logout: () => Promise<void>;
+  /** Gọi khi access token hết hạn (401) — trả về access token mới hoặc null nếu thất bại */
+  doRefresh: () => Promise<string | null>;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       isLoggedIn: false,
       _hasHydrated: false,
@@ -42,10 +45,13 @@ export const useAuthStore = create<AuthState>()(
           };
 
           if (body?.status === 200 && body.data?.token) {
-            const { token, email: userEmail, userId } = body.data;
-            // sync token for apiClient (reads localStorage.getItem("token"))
+            const { token, refreshToken, email: userEmail, userId } = body.data;
             localStorage.setItem("token", token);
-            set({ user: { token, email: userEmail, userId }, isLoggedIn: true });
+            localStorage.setItem("refreshToken", refreshToken ?? "");
+            set({
+              user: { token, refreshToken: refreshToken ?? "", email: userEmail, userId },
+              isLoggedIn: true,
+            });
             return { success: true, message: "Đăng nhập thành công!" };
           }
 
@@ -79,6 +85,41 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      doRefresh: async () => {
+        const currentRefreshToken = get().user?.refreshToken
+          || localStorage.getItem("refreshToken");
+
+        if (!currentRefreshToken) return null;
+
+        try {
+          const res = await authApi.refreshToken(currentRefreshToken);
+          const body = res.data as {
+            status: number;
+            message?: string;
+            data?: LoginResponse;
+          };
+
+          if (body?.status === 200 && body.data?.token) {
+            const { token, refreshToken, email: userEmail, userId } = body.data;
+            localStorage.setItem("token", token);
+            localStorage.setItem("refreshToken", refreshToken ?? "");
+            set({
+              user: { token, refreshToken: refreshToken ?? "", email: userEmail, userId },
+              isLoggedIn: true,
+            });
+            return token;
+          }
+        } catch {
+          // refresh thất bại → buộc logout
+        }
+
+        // Refresh token hết hạn → logout
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        set({ user: null, isLoggedIn: false });
+        return null;
+      },
+
       logout: async () => {
         try {
           await authApi.logout();
@@ -86,18 +127,18 @@ export const useAuthStore = create<AuthState>()(
           // ignore API error, still clear local state
         }
         localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
         set({ user: null, isLoggedIn: false });
       },
     }),
     {
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),
-      // only persist user data, not transient state
       partialize: (state) => ({ user: state.user, isLoggedIn: state.isLoggedIn }),
       onRehydrateStorage: () => (state) => {
-        // sync token key for apiClient after rehydration
         if (state?.user?.token) {
           localStorage.setItem("token", state.user.token);
+          localStorage.setItem("refreshToken", state.user.refreshToken ?? "");
         }
         state?.setHasHydrated(true);
       },

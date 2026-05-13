@@ -34,7 +34,13 @@ const login = (email: string, password: string) =>
 const register = (data: RegisterRequest) =>
   client.post("/auth/register", data);
 
+const verifyOtp = (email: string, otp: string) =>
+  client.post("/auth/verify-otp", { email, otp });
+
+const refreshToken = (token: string) =>
+  client.post("/auth/refresh-token", { refreshToken: token });
+
 const logout = () =>
   client.post("/auth/logout", {});
 
-export default { login, register, logout };
+export default { login, register, verifyOtp, refreshToken, logout };

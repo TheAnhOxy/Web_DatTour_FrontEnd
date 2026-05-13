@@ -98,6 +98,16 @@ export default function BookingDetailPage() {
               exclusions: safeParse(tourData.exclusions),
               policies: safeParse(tourData.policies),
               
+              // Tạo Gói tour từ PriceConfig nếu BE không trả về packages
+              packages: tourData.packages || [
+                {
+                  id: "standard",
+                  name: "Gói Tiêu Chuẩn",
+                  extraPrice: 0,
+                  description: "Bao gồm đầy đủ các dịch vụ cơ bản theo chương trình tour."
+                }
+              ],
+
               // Map price config
               priceConfig: {
                   adultPrice: depData.priceConfig?.adultPrice || 0,
@@ -111,10 +121,8 @@ export default function BookingDetailPage() {
             setSelectedDate(mergedData.startDate);
             setSelectedDepId(depData.id);
             
-            // Cài đặt gói mặc định nếu có
-            if (mergedData.packages && mergedData.packages.length > 0) {
-              setSelectedPackage(mergedData.packages[0].id);
-            }
+            // Cài đặt gói mặc định
+            setSelectedPackage(mergedData.packages[0].id);
 
             // Cập nhật danh sách các ngày khởi hành khác (Schedules)
             if (schedulesRes && schedulesRes.data) {
@@ -122,7 +130,9 @@ export default function BookingDetailPage() {
                 const dateStr = s.startDate || s.date || s.departureDate;
                 return {
                   ...s,
-                  date: dateStr ? new Date(dateStr) : null
+                  date: dateStr ? new Date(dateStr) : null,
+                  price: s.priceConfig?.adultPrice || 0,
+                  status: s.status === 'ACTIVE' || s.status === 'AVAILABLE' ? 'Còn chỗ' : 'Hết chỗ'
                 };
               }).filter((s: any) => s.date !== null));
             }

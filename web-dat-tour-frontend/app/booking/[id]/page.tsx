@@ -72,13 +72,33 @@ export default function BookingDetailPage() {
             const tourDetailRes = await getTourDetails(depData.tourId);
             
             // Bước 4: GHÉP DỮ LIỆU (Mapping BE fields sang FE fields)
+            const tourData = tourDetailRes.data;
+            
+            // Helper to safely parse JSON strings or objects
+            const safeParse = (data: any) => {
+              if (typeof data === 'string') {
+                try { return JSON.parse(data); } catch (e) { return data; }
+              }
+              return data;
+            };
+
             const mergedData = {
-              ...tourDetailRes.data,      // Lấy images, overview, itinerary, policies
-              ...depData,                 // Lấy startDate, endDate, maxSlots
+              ...tourData,
+              ...depData,
               id: depData.id,
-              title: depData.tourTitle,   // BE trả về tourTitle -> FE dùng title
-              image: tourDetailRes.data?.image || tourDetailRes.data?.images?.[0], // Lấy ảnh đầu tiên
-              // Map lại cấu hình giá
+              tourId: depData.tourId,
+              title: depData.tourTitle || tourData.title,
+              image: tourData.images?.find((img: any) => img.isCover)?.imageUrl || tourData.images?.[0]?.imageUrl || tourData.coverImageUrl,
+              images: tourData.images?.map((img: any) => img.imageUrl),
+              
+              // Map structured fields
+              overview: tourData.overview || tourData.description,
+              itinerary: safeParse(tourData.itinerary),
+              inclusions: safeParse(tourData.inclusions),
+              exclusions: safeParse(tourData.exclusions),
+              policies: safeParse(tourData.policies),
+              
+              // Map price config
               priceConfig: {
                   adultPrice: depData.priceConfig?.adultPrice || 0,
                   child1014Price: depData.priceConfig?.child1014Price || 0,
@@ -995,40 +1015,32 @@ export default function BookingDetailPage() {
                 <div className="policy-content">
                   {activePolicyTab === "inclusions" && (
                     <ul className="list-unstyled list-check">
-                      {tourDetail.inclusions?.map((inc: string, idx: number) => (
+                      {Array.isArray(tourDetail.inclusions) ? tourDetail.inclusions.map((inc: string, idx: number) => (
                         <li key={idx}>{inc}</li>
-                      ))}
+                      )) : <li>{tourDetail.inclusions || "Đang cập nhật..."}</li>}
                     </ul>
                   )}
                   {activePolicyTab === "exclusions" && (
                     <ul className="list-unstyled list-cross">
-                      {tourDetail.exclusions?.map((exc: string, idx: number) => (
+                      {Array.isArray(tourDetail.exclusions) ? tourDetail.exclusions.map((exc: string, idx: number) => (
                         <li key={idx}>{exc}</li>
-                      ))}
+                      )) : <li>{tourDetail.exclusions || "Đang cập nhật..."}</li>}
                     </ul>
                   )}
                   {activePolicyTab === "children" && (
-                    <ul className="list-unstyled list-check">
-                      {tourDetail.childPolicy?.map((p: string, idx: number) => (
-                        <li key={idx}>{p}</li>
-                      ))}
-                    </ul>
+                    <div className="text-muted">
+                      {tourDetail.policies?.childPolicy || tourDetail.childPolicy || "Theo quy định của khách sạn và hãng hàng không."}
+                    </div>
                   )}
                   {activePolicyTab === "cancel" && (
-                    <ul className="list-unstyled list-cross">
-                      {tourDetail.cancellationPolicy?.map((p: string, idx: number) => (
-                        <li key={idx}>{p}</li>
-                      ))}
-                    </ul>
+                    <div className="text-muted">
+                      {tourDetail.policies?.cancellationPolicy || tourDetail.cancellationPolicy || "Hủy trước 7 ngày không mất phí."}
+                    </div>
                   )}
                   {activePolicyTab === "notes" && (
-                    <ul className="list-unstyled">
-                      {tourDetail.notes?.map((n: string, idx: number) => (
-                        <li key={idx} className="mb-2">
-                          <i className="fas fa-info-circle mr-2 text-primary"></i> {n}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="text-muted">
+                      {tourDetail.policies?.notes || tourDetail.notes || "Vui lòng mang theo giấy tờ tùy thân."}
+                    </div>
                   )}
                 </div>
               </div>

@@ -138,10 +138,10 @@ export default function DestinationPage() {
                       </div>
                       <div className="content">
                         <h6 className="tour-title">
-                          <a href={`/booking/${dest.id}`}>{dest.cityName}</a>
+                          <a href={`/destination/${dest.id}`}>{dest.cityName}</a>
                         </h6>
                         <span className="time">{dest.region}, {dest.country}</span>
-                        <a href={`/booking/${dest.id}`} className="more">
+                        <a href={`/destination/${dest.id}`} className="more">
                           <i className="fas fa-chevron-right"></i>
                         </a>
                       </div>

@@ -56,12 +56,22 @@ export const getDestinations = async (page = 0, size = 10) => {
     }
 };
 
-export const getTours = async (categoryId?: number, isHot?: boolean, page = 0, size = 10) => {
+export const getTours = async (categoryId?: number, isHot?: boolean, destinationId?: number, page = 0, size = 10) => {
     try {
         let url = `/core/tours?page=${page}&size=${size}`;
         if (categoryId) url += `&categoryId=${categoryId}`;
         if (isHot !== undefined) url += `&isHot=${isHot}`;
+        if (destinationId) url += `&destinationId=${destinationId}`;
         const res = await client.get(url);
+        return wrap(res);
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: null };
+    }
+};
+
+export const getDestinationById = async (id: number) => {
+    try {
+        const res = await client.get(`/core/destinations/${id}`);
         return wrap(res);
     } catch (err: any) {
         return { status: 500, message: err.message, data: null };
@@ -73,5 +83,6 @@ export default {
     getTourSchedules,
     getTourDetails,
     getDestinations,
+    getDestinationById,
     getTours
 };

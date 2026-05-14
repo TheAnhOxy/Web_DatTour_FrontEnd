@@ -19,6 +19,9 @@ const updateDeparture = (id, payload) =>
 const deleteDeparture = (id) =>
   client.delete(`/core/departures/${id}`).then(wrap)
 
+const getPriceConfig = (departureId) =>
+  client.get(`/core/departures/${departureId}/price-config`).then(wrap)
+
 const upsertPriceConfig = (departureId, payload) =>
   client.put(`/core/departures/${departureId}/price-config`, payload).then(wrap)
 
@@ -44,7 +47,7 @@ const calculatePrice = (departureId, { adultCount = 1, child1014Count = 0, child
 
 export default {
   getDepartures, createDeparture, updateDeparture, deleteDeparture,
-  upsertPriceConfig,
+  getPriceConfig, upsertPriceConfig,
   getPricingRules, createPricingRule, updatePricingRule, deletePricingRule, togglePricingRule,
   calculatePrice,
 }

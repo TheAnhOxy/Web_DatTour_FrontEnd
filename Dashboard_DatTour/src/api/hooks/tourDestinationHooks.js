@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import * as tourDestinationApi from "../tourDestinationApi";
+import tourDestinationApi from "../tourDestinationApi";
 import { TOUR_KEYS } from "./tourKeys";
 
 export const useAddDestinationMutation = (tourId) => {

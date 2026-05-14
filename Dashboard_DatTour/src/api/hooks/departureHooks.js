@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import * as departureApi from "../departureApi";
+import departureApi from "../departureApi";
 import { TOUR_KEYS } from "./tourKeys";
 
 export const useDeparturesQuery = (tourId) =>
@@ -9,6 +9,14 @@ export const useDeparturesQuery = (tourId) =>
     queryFn: () => departureApi.getDepartures(tourId).then((response) => response.data?.content ?? []),
     enabled: !!tourId,
     staleTime: 1000 * 60 * 2,
+  });
+
+export const usePriceConfigQuery = (departureId) =>
+  useQuery({
+    queryKey: TOUR_KEYS.priceConfig(departureId),
+    queryFn: () => departureApi.getPriceConfig(departureId).then((r) => r.data ?? null),
+    enabled: !!departureId,
+    staleTime: 1000 * 60 * 5,
   });
 
 export const useCreateDepartureMutation = (tourId) => {
@@ -52,6 +60,8 @@ export const useUpsertPriceConfigMutation = (departureId, tourId) => {
   return useMutation({
     mutationFn: (payload) => departureApi.upsertPriceConfig(departureId, payload),
     onSuccess: () => {
+      // Invalidate both the specific price config AND the departures list
+      queryClient.invalidateQueries({ queryKey: TOUR_KEYS.priceConfig(departureId) });
       queryClient.invalidateQueries({ queryKey: TOUR_KEYS.departures(tourId) });
       toast.success("Lưu cấu hình giá thành công");
     },

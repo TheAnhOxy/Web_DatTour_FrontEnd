@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
-import * as tourImageApi from "../tourImageApi";
+import tourImageApi from "../tourImageApi";
 import { TOUR_KEYS } from "./tourKeys";
 
 export const useTourImagesQuery = (tourId) =>

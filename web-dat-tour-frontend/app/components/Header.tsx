@@ -1,6 +1,18 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "../../store/authStore";
+
 export default function Header() {
+  const { user, isLoggedIn, _hasHydrated, logout } = useAuthStore();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
+
   return (
     <header className="main-header header-one sticky-header-css">
       <div className="header-upper bg-white py-30 rpy-0">
@@ -8,7 +20,8 @@ export default function Header() {
           <div className="header-inner rel d-flex align-items-center">
             <div className="logo-outer">
               <div className="logo">
-                <a href="/">
+                <Link href="/">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/clients/assets/images/logos/logo.png"
                     alt="Logo"
@@ -16,7 +29,7 @@ export default function Header() {
                     width={155}
                     height={40}
                   />
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -24,7 +37,8 @@ export default function Header() {
               <nav className="main-menu navbar-expand-lg">
                 <div className="navbar-header">
                   <div className="mobile-logo">
-                    <a href="/">
+                    <Link href="/">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/clients/assets/images/logos/logo.png"
                         alt="Logo"
@@ -32,7 +46,7 @@ export default function Header() {
                         width={155}
                         height={40}
                       />
-                    </a>
+                    </Link>
                   </div>
 
                   <button
@@ -50,16 +64,16 @@ export default function Header() {
                 <div className="navbar-collapse collapse clearfix">
                   <ul className="navigation clearfix">
                     <li>
-                      <a href="/">Trang chủ</a>
+                      <Link href="/">Trang chủ</Link>
                     </li>
                     <li>
                       <a href="/about">Giới thiệu</a>
                     </li>
                     <li>
-                      <a href="/tours">Tours</a>
+                      <Link href="/tours">Tours</Link>
                     </li>
                     <li>
-                      <a href="/destination">Điểm đến</a>
+                      <Link href="/destination">Điểm đến</Link>
                     </li>
                     <li>
                       <a href="/contact">Liên hệ</a>
@@ -70,10 +84,10 @@ export default function Header() {
             </div>
 
             <div className="menu-btns py-10">
-              <a href="/tours" className="theme-btn style-two bgc-secondary">
+              <Link href="/tours" className="theme-btn style-two bgc-secondary">
                 <span data-hover="Đặt ngay">Đặt ngay</span>
                 <i className="fal fa-arrow-right"></i>
-              </a>
+              </Link>
               <div className="menu-sidebar">
                 <li className="drop-down">
                   <button
@@ -86,11 +100,64 @@ export default function Header() {
                       style={{ fontSize: 36, color: "black" }}
                     ></i>
                   </button>
-                  <ul className="dropdown-menu" id="dropdownMenu">
-                    <li>
-                      <a href="/login">Đăng nhập</a>
-                    </li>
-                  </ul>
+
+                  {/* Chờ hydration để tránh SSR mismatch */}
+                  {_hasHydrated && (
+                    <ul className="dropdown-menu" id="dropdownMenu">
+                      {isLoggedIn ? (
+                        <>
+                          <li
+                            style={{
+                              padding: "8px 16px",
+                              borderBottom: "1px solid #eee",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 13,
+                                color: "#555",
+                                fontWeight: 500,
+                                display: "block",
+                                maxWidth: 180,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {user?.email}
+                            </span>
+                          </li>
+                          <li>
+                            <Link href="/user-profile">Trang cá nhân</Link>
+                          </li>
+                          <li>
+                            <Link href="/my-tours">Tour của tôi</Link>
+                          </li>
+                          <li>
+                            <a
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleLogout();
+                              }}
+                              style={{ color: "#e74c3c" }}
+                            >
+                              Đăng xuất
+                            </a>
+                          </li>
+                        </>
+                      ) : (
+                        <>
+                          <li>
+                            <Link href="/login">Đăng nhập</Link>
+                          </li>
+                          <li>
+                            <Link href="/login?tab=signup">Đăng ký</Link>
+                          </li>
+                        </>
+                      )}
+                    </ul>
+                  )}
                 </li>
               </div>
             </div>

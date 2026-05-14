@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className="h-full" suppressHydrationWarning>
+    <html lang="vi" className="h-full" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link
           rel="shortcut icon"

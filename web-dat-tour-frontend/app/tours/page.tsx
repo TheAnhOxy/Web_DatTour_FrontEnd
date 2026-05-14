@@ -136,13 +136,7 @@ export default function ToursPage() {
               Bảng Giá Tours
             </h2>
             <nav aria-label="breadcrumb">
-              <ol
-                className="breadcrumb justify-content-center mb-20"
-                data-aos="fade-right"
-                data-aos-delay="200"
-                data-aos-duration="1500"
-                data-aos-offset="50"
-              >
+              <ol className="breadcrumb justify-content-center mb-20">
                 <li className="breadcrumb-item">
                   <a href="/">Trang chủ</a>
                 </li>
@@ -372,13 +366,7 @@ export default function ToursPage() {
             <div className="col-lg-6">
               <div
                 className="newsletter-image-part bgs-cover"
-                style={{
-                  backgroundImage:
-                    "url(/clients/assets/images/newsletter/newsletter-two-right.jpg)",
-                }}
-                data-aos="fade-left"
-                data-aos-duration="1500"
-                data-aos-offset="50"
+                style={{ backgroundImage: "url(/clients/assets/images/newsletter/newsletter-two-right.jpg)" }}
               ></div>
             </div>
           </div>

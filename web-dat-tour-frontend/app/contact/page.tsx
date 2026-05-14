@@ -67,10 +67,11 @@ export default function ContactPage() {
               </div>
             </div>
             <div className="col-lg-8">
-              <div className="row">
-                <div className="col-md-6">
+              <div className="row align-items-stretch g-4">
+                <div className="col-md-6 d-flex">
                   <div
-                    className="contact-info-item"
+                    className="contact-info-item w-100"
+                    style={{ height: "100%" }}
                     data-aos="fade-up"
                     data-aos-duration="1500"
                     data-aos-offset="50"
@@ -88,9 +89,10 @@ export default function ContactPage() {
                     </div>
                   </div>
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-6 d-flex">
                   <div
-                    className="contact-info-item"
+                    className="contact-info-item w-100"
+                    style={{ height: "100%" }}
                     data-aos="fade-up"
                     data-aos-duration="1500"
                     data-aos-offset="50"
@@ -108,9 +110,10 @@ export default function ContactPage() {
                     </div>
                   </div>
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-6 d-flex">
                   <div
-                    className="contact-info-item"
+                    className="contact-info-item w-100"
+                    style={{ height: "100%" }}
                     data-aos="fade-up"
                     data-aos-duration="1500"
                     data-aos-offset="50"
@@ -127,9 +130,10 @@ export default function ContactPage() {
                     </div>
                   </div>
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-6 d-flex">
                   <div
-                    className="contact-info-item"
+                    className="contact-info-item w-100"
+                    style={{ height: "100%" }}
                     data-aos="fade-up"
                     data-aos-duration="1500"
                     data-aos-offset="50"
@@ -141,7 +145,7 @@ export default function ContactPage() {
                     <div className="content">
                       <h5>Ký túc xá Việt Hàn</h5>
                       <div className="text">
-                        <i className="fal fa-map-marker-alt"></i> 470 Trần Đại Nghĩa, Ngũ Hành Sơn, Thành phố Đà Nẵng
+                        <i className="fal fa-map-marker-alt"></i> 470 Trần Đại Nghĩa, Ngũ Hành Sơn, Tp. Đà Nẵng
                       </div>
                     </div>
                   </div>

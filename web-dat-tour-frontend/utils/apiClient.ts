@@ -47,9 +47,18 @@ class ApiClient {
           // Retry với token mới
           response = await this.rawFetch(url, options);
         } else {
-          // Refresh thất bại → redirect về login
-          window.location.href = "/login";
-          return { data: { status: 401, message: "Phiên đăng nhập hết hạn!", data: null } };
+          // Refresh thất bại → xóa auth state trước, sau đó redirect về login
+          // Nếu không xóa isLoggedIn, login page sẽ redirect lại trang cũ → vòng lặp vô tận
+          localStorage.removeItem("token");
+          localStorage.removeItem("refreshToken");
+          try {
+            const { useAuthStore } = await import("../store/authStore");
+            useAuthStore.setState({ user: null, isLoggedIn: false });
+          } catch { /* ignore nếu store chưa khởi tạo */ }
+
+          const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+          window.location.href = `/login?returnUrl=${returnUrl}`;
+          return { data: { status: 401, message: "Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.", data: null } };
         }
       }
 
@@ -92,11 +101,21 @@ class ApiClient {
         localStorage.setItem("token", token);
         if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
 
-        // Đồng bộ Zustand store nếu có
+        // Đồng bộ Zustand store trực tiếp — KHÔNG gọi store.doRefresh() vì sẽ
+        // kích hoạt một lần refresh API thứ hai làm xóa mất token vừa lưu
         try {
           const { useAuthStore } = await import("../store/authStore");
-          const store = useAuthStore.getState();
-          await store.doRefresh();
+          const currentUser = useAuthStore.getState().user;
+          if (currentUser) {
+            useAuthStore.setState({
+              user: {
+                ...currentUser,
+                token,
+                refreshToken: newRefreshToken ?? currentUser.refreshToken,
+              },
+              isLoggedIn: true,
+            });
+          }
         } catch {
           // store chưa sẵn sàng — bỏ qua, token trong localStorage đã được cập nhật
         }

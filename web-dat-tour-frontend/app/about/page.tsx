@@ -206,46 +206,30 @@ export default function AboutPage() {
           <div className="row justify-content-center">
             <div className="col-xl-3 col-lg-4 col-sm-6">
               <div className="team-item hover-content" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                <img src="/clients/assets/images/team/guide-dien.jpg" alt="Guide" />
+                <img src="/clients/assets/images/team/man.png" alt="Guide" />
                 <div className="content">
-                  <h6>NGUYEN MINH DIEN</h6>
+                  <h6>NGUYEN DUC HAU</h6>
                   <span className="designation">Founder</span>
                   <div className="social-style-one inner-content">
-                    <a href="/contact">
-                      <i className="fab fa-twitter"></i>
-                    </a>
-                    <a href="https://www.facebook.com/dienne.dev">
-                      <i className="fab fa-facebook-f"></i>
-                    </a>
-                    <a href="/contact">
-                      <i className="fab fa-instagram"></i>
-                    </a>
-                    <a href="https://www.youtube.com/@dienne248">
-                      <i className="fab fa-youtube"></i>
-                    </a>
+                    <a href="#"><i className="fab fa-twitter"></i></a>
+                    <a href="#"><i className="fab fa-facebook-f"></i></a>
+                    <a href="#"><i className="fab fa-instagram"></i></a>
+                    <a href="#"><i className="fab fa-youtube"></i></a>
                   </div>
                 </div>
               </div>
             </div>
             <div className="col-xl-3 col-lg-4 col-sm-6">
               <div className="team-item hover-content" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                <img src="/clients/assets/images/team/guide-ngan.jpg" alt="Guide" />
+                <img src="/clients/assets/images/team/man2.png" alt="Guide" />
                 <div className="content">
-                  <h6>BAO NGAN</h6>
+                  <h6>HAU NGUYEN DUC</h6>
                   <span className="designation">Co-founder</span>
                   <div className="social-style-one inner-content">
-                    <a href="/contact">
-                      <i className="fab fa-twitter"></i>
-                    </a>
-                    <a href="https://www.facebook.com/dienne.dev">
-                      <i className="fab fa-facebook-f"></i>
-                    </a>
-                    <a href="/contact">
-                      <i className="fab fa-instagram"></i>
-                    </a>
-                    <a href="https://www.youtube.com/@dienne248">
-                      <i className="fab fa-youtube"></i>
-                    </a>
+                    <a href="#"><i className="fab fa-twitter"></i></a>
+                    <a href="#"><i className="fab fa-facebook-f"></i></a>
+                    <a href="#"><i className="fab fa-instagram"></i></a>
+                    <a href="#"><i className="fab fa-youtube"></i></a>
                   </div>
                 </div>
               </div>

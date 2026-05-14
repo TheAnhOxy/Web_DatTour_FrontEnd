@@ -39,6 +39,8 @@ export default function LoginPage() {
     password: "",
     rePassword: "",
   });
+  // Phần username trước @gmail.com trong form đăng ký
+  const [emailUsername, setEmailUsername] = useState("");
 
   const [loginError, setLoginError] = useState("");
   const [registerError, setRegisterError] = useState("");
@@ -51,9 +53,12 @@ export default function LoginPage() {
   const { login, register, isLoggedIn } = useAuthStore();
   const router = useRouter();
 
+  // Lấy returnUrl từ query param, mặc định về trang chủ nếu không có
+  const returnUrl = searchParams.get("returnUrl") || "/";
+
   useEffect(() => {
-    if (isLoggedIn) router.replace("/");
-  }, [isLoggedIn, router]);
+    if (isLoggedIn) router.replace(returnUrl);
+  }, [isLoggedIn, router, returnUrl]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +67,7 @@ export default function LoginPage() {
     const result = await login(loginForm.email, loginForm.password);
     setLoading(false);
     if (result.success) {
-      router.push("/");
+      router.push(returnUrl);
     } else {
       setLoginError(result.message);
     }
@@ -99,6 +104,7 @@ export default function LoginPage() {
       setOtpEmail(registerForm.email);
       setOtpStep(true);
       setRegisterForm({ fullName: "", email: "", phone: "", password: "", rePassword: "" });
+      setEmailUsername("");
     } else {
       setRegisterError(result.message);
     }
@@ -208,14 +214,18 @@ export default function LoginPage() {
                         <input
                           type="text"
                           id="otp_input"
-                          placeholder="Nhập mã OTP (6 chữ số)"
+                          placeholder="Nhập mã 6 chữ số"
                           maxLength={6}
                           required
                           value={otpValue}
                           onChange={(e) =>
                             setOtpValue(e.target.value.replace(/\D/g, "").slice(0, 6))
                           }
-                          style={{ letterSpacing: 6, fontSize: 20, textAlign: "center" }}
+                          style={{
+                            letterSpacing: otpValue.length > 0 ? 10 : 2,
+                            fontSize: otpValue.length > 0 ? 22 : 15,
+                            textAlign: "center",
+                          }}
                         />
                       </div>
 
@@ -422,21 +432,37 @@ export default function LoginPage() {
                       />
                     </div>
 
-                    <div className="form-group">
+                    <div className="form-group" style={{ position: "relative" }}>
                       <label htmlFor="email_register">
                         <i className="zmdi zmdi-email"></i>
                       </label>
                       <input
-                        type="email"
+                        type="text"
                         name="email"
                         id="email_register"
-                        placeholder="Email"
+                        placeholder="Tên tài khoản Gmail"
                         required
-                        value={registerForm.email}
-                        onChange={(e) =>
-                          setRegisterForm({ ...registerForm, email: e.target.value })
-                        }
+                        value={emailUsername}
+                        onChange={(e) => {
+                          // Không cho nhập ký tự @ để tránh nhập email đầy đủ
+                          const username = e.target.value.replace(/@.*$/, "");
+                          setEmailUsername(username);
+                          setRegisterForm({ ...registerForm, email: username + "@gmail.com" });
+                        }}
+                        style={{ paddingRight: "100px" }}
                       />
+                      <span style={{
+                        position: "absolute",
+                        right: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "#999",
+                        fontSize: 13,
+                        pointerEvents: "none",
+                        userSelect: "none",
+                      }}>
+                        @gmail.com
+                      </span>
                     </div>
 
                     <div className="form-group">

@@ -4,6 +4,30 @@ import { setAuthToken } from "../api/client";
 
 const AuthContext = createContext();
 
+const normalizeUser = (source = {}) => ({
+  id: source.id ?? source.userId ?? source.userID ?? null,
+  userId: source.userId ?? source.userID ?? source.id ?? null,
+  email: source.email ?? source.userEmail ?? "",
+  username: source.username ?? source.email ?? "",
+  fullName: source.fullName ?? source.name ?? "",
+  name: source.name ?? source.fullName ?? "",
+  phone: source.phone ?? "",
+  address: source.address ?? "",
+  dob: source.dob ?? source.dateOfBirth ?? "",
+  gender: source.gender ?? "",
+  avatarUrl: source.avatarUrl ?? source.avatar ?? "",
+  avatar: source.avatar ?? source.avatarUrl ?? null,
+  role: source.role ?? source.roles?.[0] ?? "",
+});
+
+const extractResponseData = (response) => {
+  if (!response) return null;
+  if (response.status && Object.prototype.hasOwnProperty.call(response, "data")) {
+    return response.data;
+  }
+  return response.data ?? response;
+};
+
 export const AuthProvider = ({ children }) => {
   const storedUser =
     typeof window !== "undefined" ? localStorage.getItem("auth_user") : null;
@@ -22,13 +46,28 @@ export const AuthProvider = ({ children }) => {
       const res = await authApi.login({ email, password });
       if (res.status === 200 && res.data) {
         const { token, refreshToken, email: userEmail, userId } = res.data;
-        const nextUser = { id: userId, email: userEmail, avatar: null };
+        setAuthToken(token);
+
+        let profileData = res.data.user || res.data.profile || null;
+        if (!profileData && userId != null) {
+          const profileRes = await authApi.getUserById(userId);
+          profileData = extractResponseData(profileRes);
+        }
+
+        const nextUser = normalizeUser({
+          ...profileData,
+          id: userId,
+          userId,
+          email: profileData?.email || userEmail,
+          avatarUrl: profileData?.avatarUrl || profileData?.avatar || "",
+          avatar: profileData?.avatar || profileData?.avatarUrl || null,
+        });
+
         setIsAuthenticated(true);
         setUser(nextUser);
         localStorage.setItem("auth_user", JSON.stringify(nextUser));
         localStorage.setItem("auth_token", token);
         localStorage.setItem("auth_refresh", refreshToken || "");
-        setAuthToken(token);
         return { ok: true, res };
       }
       return { ok: false, res };
@@ -73,6 +112,55 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
+  const refreshCurrentUser = async () => {
+    if (!user?.id) {
+      return { ok: false, res: { status: 400, message: "Không tìm thấy người dùng hiện tại." } };
+    }
+
+    const res = await authApi.getUserById(user.id);
+    const profileData = extractResponseData(res);
+    if (res && res.status === 200 && profileData) {
+      const nextUser = normalizeUser({
+        ...user,
+        ...profileData,
+        id: user.id,
+        userId: user.userId ?? user.id,
+      });
+
+      setUser(nextUser);
+      localStorage.setItem("auth_user", JSON.stringify(nextUser));
+      return { ok: true, res, user: nextUser };
+    }
+
+    return { ok: false, res };
+  };
+
+  const updateProfile = async (payload) => {
+    if (!user?.id) {
+      return { ok: false, res: { status: 400, message: "Không tìm thấy người dùng hiện tại." } };
+    }
+
+    const res = await authApi.updateProfile(user.id, payload);
+    if (res && (res.status === 200 || res.status === 201)) {
+      const savedProfile = extractResponseData(res) || {};
+      const nextUser = normalizeUser({
+        ...user,
+        ...savedProfile,
+        ...payload,
+        id: user.id,
+        userId: user.userId ?? user.id,
+        avatarUrl: payload.avatarUrl || savedProfile.avatarUrl || user.avatarUrl || user.avatar || "",
+        avatar: payload.avatarUrl || savedProfile.avatar || savedProfile.avatarUrl || user.avatar || null,
+      });
+
+      setUser(nextUser);
+      localStorage.setItem("auth_user", JSON.stringify(nextUser));
+      return { ok: true, res };
+    }
+
+    return { ok: false, res };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -84,6 +172,8 @@ export const AuthProvider = ({ children }) => {
         forgotPassword,
         verifyOtp,
         resetPassword,
+        refreshCurrentUser,
+        updateProfile,
       }}
     >
       {children}

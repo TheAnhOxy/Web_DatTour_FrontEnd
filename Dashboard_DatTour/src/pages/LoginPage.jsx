@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
 
 const socialButtonStyle = {
@@ -31,11 +32,27 @@ const quickButtonStyle = (accentColor) => ({
   WebkitBackdropFilter: "blur(12px)",
 });
 
+const loginMessageMap = {
+  INVALID_CREDENTIALS: "Email hoặc mật khẩu không đúng.",
+  BAD_CREDENTIALS: "Email hoặc mật khẩu không đúng.",
+  USER_NOT_FOUND: "Không tìm thấy tài khoản.",
+  PASSWORD_TOO_SHORT: "Mật khẩu phải có ít nhất 8 ký tự.",
+};
+
+const translateLoginMessage = (message) => {
+  if (!message) return "Đăng nhập thất bại. Vui lòng thử lại.";
+  if (loginMessageMap[message]) return loginMessageMap[message];
+  const upperMessage = message.toUpperCase();
+  if (loginMessageMap[upperMessage]) return loginMessageMap[upperMessage];
+  return message;
+};
+
 export const LoginPage = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -49,8 +66,10 @@ export const LoginPage = () => {
       navigate("/dashboard");
     } else {
       const msg =
-        result.res && result.res.message ? result.res.message : "Login failed";
-      setError(msg);
+        result.res && result.res.message
+          ? result.res.message
+          : "Đăng nhập thất bại";
+      setError(translateLoginMessage(msg));
     }
   };
 
@@ -126,24 +145,93 @@ export const LoginPage = () => {
             alignItems: "flex-start",
           }}
         >
+          <div className="mb-6 flex items-center gap-4">
+            <div
+              style={{
+                width: "126px",
+                height: "126px",
+                borderRadius: "36px",
+                background: "rgba(255,255,255,0.10)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                display: "grid",
+                placeItems: "center",
+                fontSize: "64px",
+                boxShadow: "0 22px 60px rgba(0,0,0,0.18)",
+                animation: "float 3s ease-in-out infinite",
+              }}
+            >
+              ✈️
+            </div>
+
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div
+                style={{
+                  position: "relative",
+                  width: "220px",
+                  height: "2px",
+                  borderRadius: "999px",
+                  background:
+                    "linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.85), rgba(255,255,255,0))",
+                  overflow: "hidden",
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "-26px",
+                    transform: "translateY(-50%)",
+                    animation: "flyAcross 3.6s linear infinite",
+                    fontSize: "20px",
+                  }}
+                >
+                  🛩️
+                </span>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  color: "rgba(255,255,255,0.78)",
+                  fontSize: "13px",
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Hành trình bay thẳng vào hệ thống
+              </p>
+            </div>
+          </div>
           <div
             style={{
-              width: "132px",
-              height: "132px",
-              borderRadius: "36px",
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              display: "grid",
-              placeItems: "center",
-              fontSize: "72px",
-              boxShadow: "0 22px 60px rgba(0,0,0,0.18)",
-              marginBottom: "28px",
-              animation: "float 3s ease-in-out infinite",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "18px",
             }}
           >
-            ✈️
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "999px",
+                background: "#67e8f9",
+                boxShadow: "0 0 0 0 rgba(103,232,249,0.7)",
+                animation: "pulseDot 1.8s ease-in-out infinite",
+              }}
+            />
+            <span
+              style={{
+                fontSize: "12px",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.78)",
+                fontWeight: 700,
+              }}
+            >
+              Go Tour admin access
+            </span>
           </div>
           <h1
             style={{
@@ -154,7 +242,7 @@ export const LoginPage = () => {
               letterSpacing: "-0.04em",
             }}
           >
-            DatTour Admin
+            Go Tour
           </h1>
           <p
             style={{
@@ -165,8 +253,8 @@ export const LoginPage = () => {
               lineHeight: 1.6,
             }}
           >
-            Giao diện quản trị đặt tour theo phong cách glass, nổi khối, sáng rõ
-            và không phụ thuộc màu AI.
+            Xin chào, đã đến với cổng đăng nhập Go Tour admin. Quản lý nhanh,
+            thao tác gọn và không gian sáng rõ để bắt đầu làm việc ngay.
           </p>
         </div>
 
@@ -216,7 +304,7 @@ export const LoginPage = () => {
                   letterSpacing: "-0.03em",
                 }}
               >
-                Login
+                Đăng nhập
               </h2>
               <p
                 style={{
@@ -225,7 +313,7 @@ export const LoginPage = () => {
                   fontSize: "13px",
                 }}
               >
-                Đăng nhập để quản lý tour
+                Truy cập hệ thống để quản lý tour
               </p>
             </div>
 
@@ -301,26 +389,50 @@ export const LoginPage = () => {
                     color: "rgba(255,255,255,0.84)",
                   }}
                 >
-                  Password
+                  Mật khẩu
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  style={{
-                    width: "100%",
-                    height: "44px",
-                    padding: "0 16px",
-                    borderRadius: "12px",
-                    border: "1px solid rgba(255,255,255,0.24)",
-                    background: "rgba(255,255,255,0.12)",
-                    color: "white",
-                    outline: "none",
-                    boxSizing: "border-box",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-                  }}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu"
+                    style={{
+                      width: "100%",
+                      height: "44px",
+                      padding: "0 48px 0 16px",
+                      borderRadius: "12px",
+                      border: "1px solid rgba(255,255,255,0.24)",
+                      background: "rgba(255,255,255,0.12)",
+                      color: "white",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    style={{
+                      position: "absolute",
+                      right: "10px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      background: "rgba(255,255,255,0.12)",
+                      color: "white",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showPassword ? <FiEyeOff /> : <FiEye />}
+                  </button>
+                </div>
               </div>
 
               <div
@@ -361,7 +473,7 @@ export const LoginPage = () => {
                   boxShadow: "0 16px 30px rgba(37, 99, 235, 0.28)",
                 }}
               >
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
               </button>
             </form>
 
@@ -383,7 +495,7 @@ export const LoginPage = () => {
               <span
                 style={{ fontSize: "12px", color: "rgba(255,255,255,0.68)" }}
               >
-                or continue with
+                hoặc tiếp tục với
               </span>
               <div
                 style={{
@@ -469,7 +581,7 @@ export const LoginPage = () => {
                   fontSize: "12px",
                 }}
               >
-                Admin demo
+                Demo quản trị
               </button>
               <button
                 type="button"
@@ -483,7 +595,7 @@ export const LoginPage = () => {
                   fontSize: "12px",
                 }}
               >
-                Test demo
+                Demo thử
               </button>
             </div>
           </div>
@@ -494,6 +606,20 @@ export const LoginPage = () => {
         @keyframes float {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-18px); }
+        }
+
+        @keyframes flyAcross {
+          0% { transform: translate(-10px, -50%) rotate(0deg); opacity: 0; }
+          10% { opacity: 1; }
+          50% { transform: translate(94px, -50%) rotate(2deg); opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translate(210px, -50%) rotate(0deg); opacity: 0; }
+        }
+
+        @keyframes pulseDot {
+          0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(103,232,249,0.65); }
+          70% { transform: scale(1); box-shadow: 0 0 0 16px rgba(103,232,249,0); }
+          100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(103,232,249,0); }
         }
 
         input::placeholder {

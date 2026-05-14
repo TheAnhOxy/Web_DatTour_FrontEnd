@@ -1,9 +1,41 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getDepartureDetails, getTourSchedules, getTourDetails } from "../../../api/coreApi_new";
 import { createBooking, getBookingByCode, type BookingRequest, type PassengerDTO } from "../../../api/bookingApi";
+import { useAuthStore } from "../../../store/authStore";
+
+const createPassengerDefaults = (ageGroup: PassengerDTO["ageGroup"], _index: number): PassengerDTO => ({
+  fullName: "",
+  ageGroup,
+  dob: "",
+  gender: "",
+  idCardNumber: ageGroup === "BABY" ? undefined : "",
+});
+
+const syncPassengerList = (current: PassengerDTO[], nextLength: number, ageGroup: PassengerDTO["ageGroup"]) => {
+  return Array.from({ length: nextLength }, (_, index) => current[index] ?? createPassengerDefaults(ageGroup, index));
+};
+
+const isValidIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+
+const resolveChildAgeGroup = (dob: string): PassengerDTO["ageGroup"] => {
+  if (!isValidIsoDate(dob)) return "CHILD_10_14";
+
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+
+  if (age >= 10) return "CHILD_10_14";
+  return "CHILD_4_9";
+};
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -26,24 +58,99 @@ export default function BookingDetailPage() {
   const [numAdults, setNumAdults] = useState(2);
   const [numChildren, setNumChildren] = useState(0);
   const [numBabies, setNumBabies] = useState(0);
+  const [adultPassengers, setAdultPassengers] = useState<PassengerDTO[]>(() => syncPassengerList([], 2, "ADULT"));
+  const [childPassengers, setChildPassengers] = useState<PassengerDTO[]>(() => syncPassengerList([], 0, "CHILD_10_14"));
+  const [babyPassengers, setBabyPassengers] = useState<PassengerDTO[]>(() => syncPassengerList([], 0, "BABY"));
+  const [passengerModalOpen, setPassengerModalOpen] = useState(false);
   const [visibleRows, setVisibleRows] = useState(10);
   const [activePolicyTab, setActivePolicyTab] = useState("inclusions");
   const [isCheckoutMode, setIsCheckoutMode] = useState(false);
   // Booking result modal
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [holdRemainingMs, setHoldRemainingMs] = useState<number | null>(null);
 
   // --- CHECKOUT FORM STATES ---
   const [pickupPoint, setPickupPoint] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
+  const [contactName, setContactName] = useState("Nguyen Minh Dien");
+  const [contactPhone, setContactPhone] = useState("0900000000");
+  const [contactEmail, setContactEmail] = useState("duchaunguyen131@gmail.com");
+  const [contactAddress, setContactAddress] = useState("470 Tran Dai Nghia, Da Nang");
   const [contactNotes, setContactNotes] = useState("");
   const [paymentRatio, setPaymentRatio] = useState(100); // 100 or 50
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedVouchers, setAppliedVouchers] = useState<any[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("bank"); // bank or cash
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const authUser = useAuthStore((state) => state.user);
+  const authHydrated = useAuthStore((state) => state._hasHydrated);
+
+  const changePassengerCount = (group: "adult" | "child" | "baby", delta: number) => {
+    if (group === "adult") {
+      setNumAdults((current) => {
+        const next = Math.max(1, current + delta);
+        setAdultPassengers((passengers) => syncPassengerList(passengers, next, "ADULT"));
+        return next;
+      });
+      return;
+    }
+
+    if (group === "child") {
+      setNumChildren((current) => {
+        const next = Math.max(0, current + delta);
+        setChildPassengers((passengers) => syncPassengerList(passengers, next, "CHILD_10_14"));
+        return next;
+      });
+      return;
+    }
+
+    setNumBabies((current) => {
+      const next = Math.max(0, current + delta);
+      setBabyPassengers((passengers) => syncPassengerList(passengers, next, "BABY"));
+      return next;
+    });
+  };
+
+  const updatePassenger = (
+    group: "adult" | "child" | "baby",
+    index: number,
+    field: keyof PassengerDTO,
+    value: string,
+  ) => {
+    const setter = group === "adult" ? setAdultPassengers : group === "child" ? setChildPassengers : setBabyPassengers;
+    setter((current) => {
+      const next = [...current];
+      next[index] = { ...next[index], [field]: value } as PassengerDTO;
+      return next;
+    });
+  };
+
+  const hasIncompletePassengers = () => {
+    const hasAdultCount = numAdults > 0;
+    const hasChildCount = numChildren > 0;
+    const hasBabyCount = numBabies > 0;
+
+    const adultIncomplete = hasAdultCount && adultPassengers.some((passenger) => !passenger.fullName || !passenger.dob || !passenger.gender || !passenger.idCardNumber);
+    const childIncomplete = hasChildCount && childPassengers.some((passenger) => !passenger.fullName || !passenger.dob || !passenger.gender || !passenger.idCardNumber);
+    const babyIncomplete = hasBabyCount && babyPassengers.some((passenger) => !passenger.fullName || !passenger.dob || !passenger.gender);
+
+    return adultIncomplete || childIncomplete || babyIncomplete || adultPassengers.length !== numAdults || childPassengers.length !== numChildren || babyPassengers.length !== numBabies;
+  };
+
+  useEffect(() => {
+    if (!bookingResult?.expiresAt) {
+      return;
+    }
+
+    const updateRemaining = () => {
+      const remaining = Math.max(0, bookingResult.expiresAt - Date.now());
+      setHoldRemainingMs(remaining);
+    };
+
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(timer);
+  }, [bookingResult?.expiresAt]);
 
   // --- FETCH DATA ---
     // --- FETCH DATA THẬT TỪ BACKEND ---
@@ -298,61 +405,64 @@ export default function BookingDetailPage() {
 
   const handleBooking = async () => {
     if (!tourDetail) return;
-    
-    if (!isCheckoutMode) {
-      setIsCheckoutMode(true);
-      window.scrollTo(0, 0);
+
+    if (hasIncompletePassengers()) {
+      setPassengerModalOpen(true);
+      showToast("Chưa đủ thông tin hành khách. Vui lòng nhập đầy đủ trước khi đặt tour.", "error");
       return;
     }
 
-    if (!contactName || !contactPhone || !contactEmail) {
-      showToast("Vui lòng điền đầy đủ thông tin liên hệ bắt buộc!", "error");
-      return;
-    }
-    if (!/^[0-9]{9,11}$/.test(contactPhone.replace(/\s/g, ""))) {
-      showToast("Số điện thoại không hợp lệ (9-11 chữ số)!", "error");
-      return;
-    }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contactEmail)) {
-      showToast("Email không đúng định dạng!", "error");
-      return;
-    }
-    if (!agreedToTerms) {
-      showToast("Vui lòng đồng ý điều khoản và chính sách bảo mật!", "error");
+    if (!authHydrated) {
+      showToast("Đang tải thông tin đăng nhập, vui lòng thử lại sau vài giây.", "error");
       return;
     }
 
-    // --- BUILD PassengerDTO list (khớp BookingRequest.java) ---
-    const passengerList: PassengerDTO[] = [];
-    for (let i = 0; i < numAdults; i++) {
-      passengerList.push({
-        fullName: i === 0 ? contactName : `Người lớn ${i + 1}`,
-        ageGroup: "ADULT",
-        gender: i === 0 ? "MALE" : "MALE",
-        dob: "1990-01-01",
-      });
+    if (!authUser?.userId) {
+      showToast("Vui lòng đăng nhập để đặt tour!", "error");
+      return;
     }
-    for (let i = 0; i < numChildren; i++) {
-      passengerList.push({
-        fullName: `Trẻ em ${i + 1}`,
-        ageGroup: "CHILD",
-        gender: "FEMALE",
-        dob: "2015-06-01",
-      });
+    const passengerList: PassengerDTO[] = [
+      ...adultPassengers.map((passenger) => ({
+        ...passenger,
+        ageGroup: "ADULT" as const,
+      })),
+      ...childPassengers.map((passenger) => ({
+        ...passenger,
+        ageGroup: resolveChildAgeGroup(passenger.dob),
+      })),
+      ...babyPassengers.map((passenger) => ({
+        fullName: passenger.fullName,
+        ageGroup: "BABY" as const,
+        dob: passenger.dob,
+        gender: passenger.gender,
+        idCardNumber: passenger.idCardNumber,
+      })),
+    ];
+
+    if (!passengerList.length) {
+      showToast("Chưa đủ thông tin hành khách. Vui lòng nhập đầy đủ trước khi đặt tour.", "error");
+      setPassengerModalOpen(true);
+      return;
     }
-    for (let i = 0; i < numBabies; i++) {
-      passengerList.push({
-        fullName: `Em bé ${i + 1}`,
-        ageGroup: "BABY",
-        gender: "MALE",
-        dob: "2024-01-01",
-      });
+
+    const hasInvalidPassenger = passengerList.some((passenger) =>
+      !passenger.fullName ||
+      !passenger.ageGroup ||
+      !passenger.gender ||
+      !isValidIsoDate(passenger.dob) ||
+      (passenger.ageGroup !== "BABY" && !passenger.idCardNumber)
+    );
+
+    if (hasInvalidPassenger) {
+      showToast("Chưa đủ thông tin hành khách. Vui lòng nhập đầy đủ trước khi đặt tour.", "error");
+      setPassengerModalOpen(true);
+      return;
     }
 
     const requestData: BookingRequest = {
-      userId: 1, // TODO: lấy từ auth store khi có login
+      userId: authUser.userId,
       departureId: Number(selectedDepId || id),
-      note: `${paymentMethod === 'bank' ? '[Chuyển khoản]' : '[Tiền mặt]'} ${paymentRatio === 50 ? '[Đặt cọc 50%]' : '[Thanh toán 100%]'}${contactNotes ? ' - ' + contactNotes : ''}`,
+      note: [contactNotes, `Địa chỉ: ${contactAddress}`].filter(Boolean).join(" | ") || undefined,
       passengers: passengerList,
     };
 
@@ -361,11 +471,20 @@ export default function BookingDetailPage() {
       const res = await createBooking(requestData);
 
       if (res.status === 201 || res.status === 200) {
+        const bookingResponse = (res as any).data ?? res;
+        const createdAtValue = bookingResponse.createdAt ? new Date(bookingResponse.createdAt).getTime() : 0;
         // Lưu kết quả để hiện Modal thành công
         setBookingResult({
-          bookingCode: res.data?.bookingCode,
+          bookingCode: bookingResponse.bookingCode,
+          status: bookingResponse.status,
+          message: bookingResponse.message,
+          destination: bookingResponse.destination,
+          createdAt: bookingResponse.createdAt,
+          expiresAt: createdAtValue + 10 * 60 * 1000,
           tourTitle: tourDetail?.title,
           startDate: selectedDate,
+          subtotalAmount: totalAmount,
+          totalDiscount,
           totalAmount: finalTotal,
           depositAmount,
           paymentMethod,
@@ -376,7 +495,17 @@ export default function BookingDetailPage() {
           contactName,
           contactPhone,
           contactEmail,
+          contactAddress,
+          cityName: bookingResponse.cityName,
+          pickupName: bookingResponse.pickupName,
+          pickupAddress: bookingResponse.pickupAddress,
+          pickupTime: bookingResponse.pickupTime,
+          priceDetail: bookingResponse.priceDetail,
+          passengers: bookingResponse.passengers || passengerList,
+          voucherCode,
+          appliedVouchers,
         });
+        setHoldRemainingMs(10 * 60 * 1000);
       } else {
         showToast("Lỗi: " + (res.message || "Không thể đặt tour, vui lòng thử lại!"), "error");
       }
@@ -393,6 +522,20 @@ export default function BookingDetailPage() {
   const showToast = (msg: string, type: "error" | "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const continueToCheckout = () => {
+    if (bookingResult) {
+      try {
+        window.sessionStorage.setItem("htour.checkout", JSON.stringify(bookingResult));
+      } catch (error) {
+        console.warn("Không thể lưu thông tin checkout:", error);
+      }
+    }
+
+    setBookingResult(null);
+    setIsCheckoutMode(false);
+    router.push("/booking/checkout");
   };
 
   const getStatusBadge = (status: string) => {
@@ -537,6 +680,220 @@ export default function BookingDetailPage() {
         </div>
       )}
 
+      {passengerModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10001,
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={() => setPassengerModalOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Nhập thông tin hành khách"
+            style={{
+              background: "white",
+              borderRadius: 24,
+              padding: 28,
+              width: "min(1080px, 100%)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.3)",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
+              <div>
+                <h3 style={{ margin: 0, fontWeight: 900, fontSize: 24, color: "#1A1A1A" }}>Nhập thông tin hành khách</h3>
+                <p style={{ margin: "8px 0 0", color: "#666" }}>
+                  {numAdults} NL, {numChildren} TE, {numBabies} EB. Vui lòng nhập đầy đủ thông tin trước khi đặt tour.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPassengerModalOpen(false)}
+                style={{ border: "none", background: "transparent", fontSize: 28, lineHeight: 1, cursor: "pointer", color: "#666" }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gap: 18 }}>
+              {adultPassengers.map((passenger, index) => (
+                <section key={`adult-${index}`} style={{ border: "1px solid #F0D2B8", borderRadius: 18, padding: 18, background: "#FFFDF9" }}>
+                  <h4 style={{ margin: "0 0 14px", color: "#D65A00", fontWeight: 800 }}>Hành khách (Người lớn)</h4>
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Họ và tên *</label>
+                      <input
+                        className="form-control"
+                        type="text"
+                        value={passenger.fullName || ""}
+                        onChange={(event) => updatePassenger("adult", index, "fullName", event.target.value)}
+                        placeholder="Họ và tên"
+                      />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Ngày sinh *</label>
+                      <input
+                        className="form-control"
+                        type="date"
+                        value={passenger.dob || ""}
+                        onChange={(event) => updatePassenger("adult", index, "dob", event.target.value)}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Giới tính *</label>
+                      <select
+                        className="form-control"
+                        value={passenger.gender || ""}
+                        onChange={(event) => updatePassenger("adult", index, "gender", event.target.value)}
+                      >
+                        <option value="">Chọn giới tính</option>
+                        <option value="MALE">Nam</option>
+                        <option value="FEMALE">Nữ</option>
+                      </select>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Số CCCD / CMND *</label>
+                      <input
+                        className="form-control"
+                        type="text"
+                        value={passenger.idCardNumber || ""}
+                        onChange={(event) => updatePassenger("adult", index, "idCardNumber", event.target.value)}
+                        placeholder="123456789"
+                      />
+                    </div>
+                  </div>
+                </section>
+              ))}
+
+              {childPassengers.map((passenger, index) => (
+                <section key={`child-${index}`} style={{ border: "1px solid #F0D2B8", borderRadius: 18, padding: 18, background: "#FFFDF9" }}>
+                  <h4 style={{ margin: "0 0 14px", color: "#D65A00", fontWeight: 800 }}>Hành khách (Trẻ em)</h4>
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Họ và tên *</label>
+                      <input
+                        className="form-control"
+                        type="text"
+                        value={passenger.fullName || ""}
+                        onChange={(event) => updatePassenger("child", index, "fullName", event.target.value)}
+                        placeholder="Họ và tên"
+                      />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Ngày sinh *</label>
+                      <input
+                        className="form-control"
+                        type="date"
+                        value={passenger.dob || ""}
+                        onChange={(event) => updatePassenger("child", index, "dob", event.target.value)}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Giới tính *</label>
+                      <select
+                        className="form-control"
+                        value={passenger.gender || ""}
+                        onChange={(event) => updatePassenger("child", index, "gender", event.target.value)}
+                      >
+                        <option value="">Chọn giới tính</option>
+                        <option value="MALE">Nam</option>
+                        <option value="FEMALE">Nữ</option>
+                      </select>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Số CCCD / CMND *</label>
+                      <input
+                        className="form-control"
+                        type="text"
+                        value={passenger.idCardNumber || ""}
+                        onChange={(event) => updatePassenger("child", index, "idCardNumber", event.target.value)}
+                        placeholder="123456789"
+                      />
+                    </div>
+                  </div>
+                </section>
+              ))}
+
+              {babyPassengers.map((passenger, index) => (
+                <section key={`baby-${index}`} style={{ border: "1px solid #D8E8F4", borderRadius: 18, padding: 18, background: "#F8FCFF" }}>
+                  <h4 style={{ margin: "0 0 14px", color: "#0F6C8A", fontWeight: 800 }}>Hành khách (Em bé)</h4>
+                  <div className="row">
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label">Họ và tên *</label>
+                      <input
+                        className="form-control"
+                        type="text"
+                        value={passenger.fullName || ""}
+                        onChange={(event) => updatePassenger("baby", index, "fullName", event.target.value)}
+                        placeholder="Họ và tên"
+                      />
+                    </div>
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label">Ngày sinh *</label>
+                      <input
+                        className="form-control"
+                        type="date"
+                        value={passenger.dob || ""}
+                        onChange={(event) => updatePassenger("baby", index, "dob", event.target.value)}
+                      />
+                    </div>
+                    <div className="col-md-4 mb-3">
+                      <label className="form-label">Giới tính *</label>
+                      <select
+                        className="form-control"
+                        value={passenger.gender || ""}
+                        onChange={(event) => updatePassenger("baby", index, "gender", event.target.value)}
+                      >
+                        <option value="">Chọn giới tính</option>
+                        <option value="FEMALE">Nữ</option>
+                        <option value="MALE">Nam</option>
+                      </select>
+                    </div>
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 22 }}>
+              <button
+                type="button"
+                className="booking-btn"
+                style={{ width: 150, background: "#EFEFEF", color: "#333" }}
+                onClick={() => setPassengerModalOpen(false)}
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                className="booking-btn"
+                style={{ width: 220 }}
+                onClick={() => {
+                  if (hasIncompletePassengers()) {
+                    showToast("Chưa đủ thông tin hành khách. Vui lòng nhập đầy đủ trước khi đặt tour.", "error");
+                    return;
+                  }
+
+                  setPassengerModalOpen(false);
+                }}
+              >
+                Lưu hành khách
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ───── BOOKING SUCCESS MODAL ───── */}
       {bookingResult && (
         <div style={{
@@ -546,10 +903,12 @@ export default function BookingDetailPage() {
           padding: "20px"
         }}>
           <div style={{
-            background: "white", borderRadius: 24, padding: "40px 36px",
-            maxWidth: 520, width: "100%", textAlign: "center",
+            background: "white", borderRadius: 24, padding: "28px 24px",
+            maxWidth: 620, width: "100%", textAlign: "center",
             boxShadow: "0 24px 80px rgba(0,0,0,0.3)",
-            animation: "popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)"
+            animation: "popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)",
+            maxHeight: "86vh",
+            overflowY: "auto"
           }}>
             {/* Icon thành công */}
             <div style={{
@@ -568,6 +927,20 @@ export default function BookingDetailPage() {
               Cảm ơn bạn đã tin tưởng lựa chọn HTravel
             </p>
 
+            <div style={{
+              background: "#E8F5E9",
+              borderRadius: 12,
+              padding: "12px 16px",
+              marginBottom: 18,
+              color: "#1B5E20",
+              fontWeight: 700,
+              lineHeight: 1.5,
+            }}>
+              {holdRemainingMs !== null && holdRemainingMs > 0
+                ? `Giữ chỗ trong ${Math.ceil(holdRemainingMs / 60000)} phút ${Math.floor((holdRemainingMs % 60000) / 1000)} giây.`
+                : "Giữ chỗ 10 phút đã được kích hoạt từ thời điểm tạo booking."}
+            </div>
+
             {/* Booking Code badge */}
             <div style={{
               background: "#FFF3E0", border: "2px dashed #FF6B00",
@@ -578,6 +951,16 @@ export default function BookingDetailPage() {
                 {bookingResult.bookingCode}
               </div>
             </div>
+
+            {bookingResult.destination?.imageUrl && (
+              <div style={{ marginBottom: 20 }}>
+                <img
+                  src={bookingResult.destination.imageUrl}
+                  alt={bookingResult.destination?.destinationName || bookingResult.tourTitle || "Điểm đến"}
+                  style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 16 }}
+                />
+              </div>
+            )}
 
             {/* Tour info */}
             <div style={{
@@ -602,11 +985,50 @@ export default function BookingDetailPage() {
                 <span style={{color: "#666", fontSize: 13}}>📞 Liên hệ</span>
                 <span style={{fontWeight: 700, fontSize: 13, color: "#333"}}>{bookingResult.contactName} · {bookingResult.contactPhone}</span>
               </div>
+              {bookingResult.cityName && (
+                <div style={{display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+                  <span style={{color: "#666", fontSize: 13}}>🏙️ Điểm đến</span>
+                  <span style={{fontWeight: 700, fontSize: 13, color: "#333", textAlign: "right"}}>
+                    {bookingResult.cityName}
+                  </span>
+                </div>
+              )}
+              {bookingResult.pickupName && (
+                <div style={{display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+                  <span style={{color: "#666", fontSize: 13}}>📍 Điểm đón</span>
+                  <span style={{fontWeight: 700, fontSize: 13, color: "#333", textAlign: "right"}}>
+                    {bookingResult.pickupName}
+                  </span>
+                </div>
+              )}
+              {bookingResult.pickupAddress && (
+                <div style={{display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+                  <span style={{color: "#666", fontSize: 13}}>🛣️ Địa chỉ đón</span>
+                  <span style={{fontWeight: 700, fontSize: 13, color: "#333", textAlign: "right"}}>
+                    {bookingResult.pickupAddress}
+                  </span>
+                </div>
+              )}
               <div style={{display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 10}}>
                 <span style={{color: "#666", fontSize: 13}}>💰 {bookingResult.paymentRatio === 50 ? "Tiền cọc (50%)" : "Tổng thanh toán"}</span>
                 <span style={{fontWeight: 900, fontSize: 16, color: "#D32F2F"}}>{formatPrice(bookingResult.depositAmount)}</span>
               </div>
             </div>
+
+            {bookingResult.message && (
+              <div style={{
+                background: "#FFF8E1",
+                borderRadius: 12,
+                padding: "12px 16px",
+                marginBottom: 20,
+                textAlign: "left",
+                color: "#7A4E00",
+                fontSize: 13,
+                lineHeight: 1.6,
+              }}>
+                <strong>Diễn giải tính tiền:</strong> {bookingResult.message}
+              </div>
+            )}
 
             {/* Payment info */}
             <div style={{
@@ -622,11 +1044,21 @@ export default function BookingDetailPage() {
             </div>
 
             {/* Action buttons */}
-            <div style={{display: "flex", gap: 12}}>
+            <div style={{display: "grid", gridTemplateColumns: "1fr", gap: 12}}>
+              <button
+                onClick={continueToCheckout}
+                style={{
+                  width: "100%", padding: "13px 20px", borderRadius: 12,
+                  background: "#FFF8F0", color: "#FF6B00", fontWeight: 800,
+                  border: "1.5px solid #FFB57A", cursor: "pointer", fontSize: 14
+                }}
+              >
+                Tiếp tục nhập thông tin thanh toán
+              </button>
               <button
                 onClick={() => router.push(`/booking/${bookingResult.bookingCode}`)}
                 style={{
-                  flex: 1, padding: "13px 20px", borderRadius: 12,
+                  width: "100%", padding: "13px 20px", borderRadius: 12,
                   background: "linear-gradient(135deg, #FF6B00, #FF9A00)",
                   color: "white", fontWeight: 700, border: "none",
                   cursor: "pointer", fontSize: 14,
@@ -639,7 +1071,7 @@ export default function BookingDetailPage() {
               <button
                 onClick={() => router.push("/")}
                 style={{
-                  flex: 1, padding: "13px 20px", borderRadius: 12,
+                  width: "100%", padding: "13px 20px", borderRadius: 12,
                   background: "white", color: "#555", fontWeight: 600,
                   border: "1.5px solid #E0E0E0", cursor: "pointer", fontSize: 14
                 }}
@@ -954,254 +1386,8 @@ export default function BookingDetailPage() {
             </div>
           </div>
 
-          {isCheckoutMode ?
-            <div className="row">
-              <div className="col-lg-8">
-                <div className="booking-card p-4 mb-4">
-                  <h3 className="checkout-section-title">1. Thông tin tour</h3>
-                  <div className="d-flex align-items-center mb-4">
-                    <img src={tourDetail.image} alt="" style={{width: 120, height: 85, objectFit: "cover", borderRadius: 8, marginRight: 20}} />
-                    <div>
-                      <h5 className="font-weight-bold mb-1">{tourDetail.title}</h5>
-                      <div className="text-muted small mb-1">
-                        <i className="far fa-calendar-alt mr-2"></i>
-                        Ngày đi: {formatFullDate(selectedDate || tourDetail.startDate)}
-                      </div>
-                      <div className="text-muted small">
-                        <i className="fas fa-box mr-2"></i>
-                        Gói: {tourDetail.packages?.find((p: any) => p.id === selectedPackage)?.name}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Điểm đón khách *</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="Nhập điểm đón (vd: Sân bay Tân Sơn Nhất, Văn phòng công ty...)" 
-                      value={pickupPoint} 
-                      onChange={(e) => setPickupPoint(e.target.value)} 
-                    />
-                  </div>
-                </div>
-
-                <div className="booking-card p-4 mb-4">
-                  <h3 className="checkout-section-title">2. Thông tin liên hệ</h3>
-                  <div className="row">
-                    <div className="col-md-6 mb-3">
-                      <div className="form-group">
-                        <label>Họ và tên *</label>
-                        <input type="text" className="form-control" value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Nguyễn Văn A" />
-                      </div>
-                    </div>
-                    <div className="col-md-6 mb-3">
-                      <div className="form-group">
-                        <label>Số điện thoại *</label>
-                        <input type="text" className="form-control" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="090xxxxxxx" />
-                      </div>
-                    </div>
-                    <div className="col-md-12 mb-3">
-                      <div className="form-group">
-                        <label>Email *</label>
-                        <input type="email" className="form-control" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@example.com" />
-                      </div>
-                    </div>
-                    <div className="col-md-12">
-                      <div className="form-group">
-                        <label>Ghi chú</label>
-                        <textarea 
-                          className="form-control" 
-                          rows={3} 
-                          value={contactNotes} 
-                          onChange={(e) => setContactNotes(e.target.value)}
-                          placeholder="Yêu cầu đặc biệt về ăn uống, chỗ ngồi..."
-                        ></textarea>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="booking-card p-4 mb-4">
-                  <h3 className="checkout-section-title">3. Tỷ lệ thanh toán</h3>
-                  <div className="row">
-                    <div className="col-md-6 mb-3 mb-md-0">
-                      <div className={`payment-option h-100 ${paymentRatio === 100 ? 'active' : ''}`} onClick={() => setPaymentRatio(100)}>
-                        <div className="font-weight-bold mb-1">Thanh toán 100%</div>
-                        <div className="small text-muted">Thanh toán toàn bộ số tiền tour để nhận xác nhận tức thì.</div>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className={`payment-option h-100 ${paymentRatio === 50 ? 'active' : ''}`} onClick={() => setPaymentRatio(50)}>
-                        <div className="font-weight-bold mb-1">Thanh toán 50%</div>
-                        <div className="small text-muted">Đặt cọc trước 50%, số tiền còn lại sẽ thanh toán sau.</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="booking-card p-4 mb-4">
-                  <h3 className="checkout-section-title">4. Mã giảm giá / Voucher</h3>
-                  <div className="voucher-input-group mb-3">
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="Nhập mã giảm giá (GIAM50K, GIAM100K...)" 
-                      value={voucherCode} 
-                      onChange={(e) => setVoucherCode(e.target.value)} 
-                    />
-                    <button className="btn btn-primary" style={{borderRadius: 8, padding: "0 24px", background: "#FF6B00", border: "none"}} onClick={applyVoucher}>Áp dụng</button>
-                  </div>
-                  {appliedVouchers.length > 0 && (
-                    <div className="applied-vouchers d-flex flex-wrap" style={{gap: "8px"}}>
-                      {appliedVouchers.map((v, i) => (
-                        <div key={i} className="badge badge-success p-2 d-flex align-items-center" style={{fontSize: "0.9rem", background: "#E8F5E9", color: "#2E7D32", borderRadius: "6px"}}>
-                          {v.code} (-{formatPrice(v.value)})
-                          <i className="fas fa-times ml-2 cursor-pointer" onClick={() => setAppliedVouchers(appliedVouchers.filter((_, idx) => idx !== i))}></i>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="text-muted small mt-2">
-                    * Voucher có thể cộng dồn (nếu còn hiệu lực). Không vượt quá tổng tiền tạm tính.
-                  </div>
-                </div>
-
-                <div className="booking-card p-4 mb-4">
-                  <h3 className="checkout-section-title">5. Phương thức thanh toán</h3>
-                  <div 
-                    className={`payment-option ${paymentMethod === 'bank' ? 'active' : ''}`} 
-                    onClick={() => setPaymentMethod('bank')}
-                  >
-                    <div className="d-flex align-items-center">
-                      <i className="fas fa-university mr-3 text-primary" style={{fontSize: "1.2rem"}}></i>
-                      <div className="font-weight-bold">Chuyển khoản ngân hàng</div>
-                    </div>
-                    {paymentMethod === 'bank' && (
-                      <div className="bank-info mt-3" style={{border: "1px dashed #FF6B00"}}>
-                        <div className="mb-1">Ngân hàng: <strong>Vietcombank</strong></div>
-                        <div className="mb-1">Chủ tài khoản: <strong>CÔNG TY TNHH TOURISM</strong></div>
-                        <div className="mb-1">Số tài khoản: <strong>012345678910</strong></div>
-                        <div>Chi nhánh: <strong>Bến Thành</strong></div>
-                        <div className="mt-2 text-warning font-weight-bold small">Giữ chỗ tức thì, xác nhận sau khi nhận được chuyển khoản.</div>
-                      </div>
-                    )}
-                  </div>
-                  <div 
-                    className={`payment-option ${paymentMethod === 'cash' ? 'active' : ''}`} 
-                    onClick={() => setPaymentMethod('cash')}
-                  >
-                    <div className="d-flex align-items-center">
-                      <i className="fas fa-money-bill-wave mr-3 text-success" style={{fontSize: "1.2rem"}}></i>
-                      <div className="font-weight-bold">Thanh toán tiền mặt tại văn phòng</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-lg-4">
-                <div className="booking-card p-4 checkout-sidebar">
-                  <h5 className="font-weight-bold mb-4">Chi tiết thanh toán</h5>
-                  <div className="summary-item">
-                    <span className="text-muted">Người lớn ({numAdults})</span>
-                    <span className="font-weight-bold">{formatPrice(numAdults * adultPrice)}</span>
-                  </div>
-                  {numChildren > 0 && (
-                    <div className="summary-item">
-                      <span className="text-muted">Trẻ em ({numChildren})</span>
-                      <span className="font-weight-bold">{formatPrice(numChildren * childPrice)}</span>
-                    </div>
-                  )}
-                  {numBabies > 0 && (
-                    <div className="summary-item">
-                      <span className="text-muted">Em bé ({numBabies})</span>
-                      <span className="font-weight-bold">0đ</span>
-                    </div>
-                  )}
-                  <div className="summary-item pt-2">
-                    <span>Tạm tính</span>
-                    <span className="font-weight-bold">{formatPrice(totalAmount)}</span>
-                  </div>
-                  <div className="summary-item text-success">
-                    <span>Giảm giá</span>
-                    <span>-{formatPrice(totalDiscount)}</span>
-                  </div>
-                  <div className="summary-total">
-                    <span>Tổng cộng</span>
-                    <span>{formatPrice(finalTotal)}</span>
-                  </div>
-                  
-                  <div className="mt-4 pt-3 border-top">
-                    <div className="summary-item">
-                      <span className="font-weight-bold">Hình thức</span>
-                      <span className="badge badge-info" style={{background: "#E1F5FE", color: "#01579B"}}>
-                        {paymentRatio === 100 ? "Thanh toán 100%" : "Thanh toán 50%"}
-                      </span>
-                    </div>
-                    {paymentRatio === 50 && (
-                      <div className="summary-item">
-                        <span className="font-weight-bold">Số tiền cọc</span>
-                        <span className="text-primary font-weight-bold">{formatPrice(depositAmount)}</span>
-                      </div>
-                    )}
-                    <div className="summary-total" style={{fontSize: "1.5rem", borderTop: "none", marginTop: 0}}>
-                      <span>Thanh toán</span>
-                      <span>{formatPrice(depositAmount)}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 mb-4">
-                    <label className="d-flex align-items-start cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="mt-1 mr-2" 
-                        checked={agreedToTerms} 
-                        onChange={(e) => setAgreedToTerms(e.target.checked)} 
-                      />
-                      <span className="small text-muted">Tôi đồng ý với <strong>Điều khoản và Chính sách bảo mật</strong> của công ty.</span>
-                    </label>
-                  </div>
-
-                  <button
-                    className="cta-btn"
-                    onClick={handleBooking}
-                    disabled={bookingSubmitting}
-                    style={{
-                      opacity: bookingSubmitting ? 0.82 : 1,
-                      cursor: bookingSubmitting ? "not-allowed" : "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 10
-                    }}
-                  >
-                    {bookingSubmitting ? (
-                      <>
-                        <span style={{
-                          width: 18, height: 18, borderRadius: "50%",
-                          border: "2.5px solid rgba(255,255,255,0.4)",
-                          borderTopColor: "white",
-                          animation: "spin 0.8s linear infinite",
-                          display: "inline-block", flexShrink: 0
-                        }} />
-                        Đang xử lý...
-                      </>
-                    ) : (
-                      <>Xác nhận thanh toán {formatPrice(depositAmount)}</>
-                    )}
-                  </button>
-                  
-                  <div className="text-center mt-3">
-                    <button className="btn btn-link text-muted small" onClick={() => setIsCheckoutMode(false)}>
-                      <i className="fas fa-chevron-left mr-2"></i> Quay lại chỉnh sửa
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          :
-            <div className="row">
-              
-              {/* LỊCH KHỞI HÀNH & HÌNH ẢNH - MAIN CONTENT */}
-              <div className="col-lg-7 mb-4">
-              
-              {/* THƯ VIỆN HÌNH ẢNH */}
+          <div className="row">
+            <div className="col-lg-7 mb-4">
               <div className="mb-4">
                 <div className="gallery-grid">
                   <div className="gallery-main">
@@ -1226,14 +1412,6 @@ export default function BookingDetailPage() {
                   </div>
                 </div>
               </div>
-
-              {/* TỔNG QUAN & LỊCH TRÌNH */}
-              {tourDetail.overview && (
-                <div className="booking-card p-4 mb-4">
-                  <h4 className="font-weight-bold mb-3" style={{fontSize: "1.25rem"}}>Tổng quan về tour</h4>
-                  <p className="text-muted" style={{lineHeight: 1.6}}>{tourDetail.overview}</p>
-                </div>
-              )}
 
               {tourDetail.itinerary && tourDetail.itinerary.length > 0 && (
                 <div className="booking-card p-4 mb-4">
@@ -1372,6 +1550,123 @@ export default function BookingDetailPage() {
             {/* WIDGET BÊN PHẢI - STICKY CARD */}
             <div className="col-lg-5">
               <div className="booking-card p-4 sticky-card">
+                {isCheckoutMode ? (
+                  <div className="checkout-two-column">
+                    <div className="checkout-panel checkout-panel-left">
+                      <h5 className="font-weight-bold mb-3" style={{fontSize: "1rem"}}>4. Thanh toán</h5>
+
+                      <div className="mb-4 p-3" style={{background: "#FFF8F0", borderRadius: 12}}>
+                        <div className="summary-item">
+                          <span>Tổng tiền:</span>
+                          <span className="font-weight-bold">{formatPrice(finalTotal)}</span>
+                        </div>
+                        <div className="summary-item mb-0">
+                          <span>Thanh toán:</span>
+                          <span className="text-danger font-weight-bold">{formatPrice(depositAmount)}</span>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="font-weight-bold mb-2 d-block">Chọn hình thức thanh toán</label>
+                        <div className={`payment-option ${paymentMethod === 'bank' ? 'active' : ''}`} onClick={() => setPaymentMethod('bank')}>
+                          <div className="d-flex align-items-center">
+                            <i className="fas fa-university mr-3 text-primary" style={{fontSize: "1.2rem"}}></i>
+                            <div className="font-weight-bold">Chuyển khoản ngân hàng</div>
+                          </div>
+                          {paymentMethod === 'bank' && (
+                            <div className="bank-info mt-3" style={{border: "1px dashed #FF6B00"}}>
+                              <div className="mb-1">Xác nhận thanh toán để giữ chỗ trong 10 phút.</div>
+                              <div className="mt-2 text-warning font-weight-bold small">Hết 10 phút booking sẽ tự hết hiệu lực.</div>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`payment-option ${paymentMethod === 'cash' ? 'active' : ''}`} onClick={() => setPaymentMethod('cash')}>
+                          <div className="d-flex align-items-center">
+                            <i className="fas fa-money-bill-wave mr-3 text-success" style={{fontSize: "1.2rem"}}></i>
+                            <div className="font-weight-bold">Thanh toán tiền mặt tại văn phòng</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-top pt-4">
+                        <button className="cta-btn" onClick={handleBooking} disabled={bookingSubmitting} style={{display: "flex", alignItems: "center", justifyContent: "center", gap: 10}}>
+                          {bookingSubmitting ? "Đang xử lý..." : `Xác nhận thanh toán ${formatPrice(depositAmount)}`}
+                        </button>
+                      </div>
+
+                      <div className="text-center mt-3">
+                        <button type="button" className="btn btn-link text-muted small" onClick={() => setIsCheckoutMode(false)}>
+                          <i className="fas fa-chevron-left mr-2"></i> Quay lại chọn hành khách
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="checkout-panel checkout-panel-right">
+                      <h5 className="font-weight-bold mb-3" style={{fontSize: "1rem"}}>5. Thông tin user</h5>
+                      <div className="mb-3 p-3" style={{background: "#F8F9FA", borderRadius: 12}}>
+                        <div className="summary-item"><span>User ID:</span><span className="font-weight-bold">{authUser?.userId ?? "Chưa có"}</span></div>
+                        <div className="summary-item"><span>Họ tên:</span><span className="font-weight-bold">{contactName}</span></div>
+                        <div className="summary-item"><span>Email:</span><span className="font-weight-bold">{contactEmail || authUser?.email}</span></div>
+                        <div className="summary-item mb-0"><span>Địa chỉ:</span><span className="font-weight-bold text-right">{contactAddress}</span></div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="form-group mb-3">
+                          <label>Họ và tên</label>
+                          <input type="text" className="form-control" value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Nguyễn Văn A" />
+                        </div>
+                        <div className="form-group mb-3">
+                          <label>Số điện thoại</label>
+                          <input type="text" className="form-control" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="090xxxxxxx" />
+                        </div>
+                        <div className="form-group mb-3">
+                          <label>Email</label>
+                          <input type="email" className="form-control" value={contactEmail || authUser?.email || ""} onChange={(e) => setContactEmail(e.target.value)} placeholder="email@example.com" />
+                        </div>
+                        <div className="form-group mb-0">
+                          <label>Địa chỉ</label>
+                          <textarea className="form-control" rows={3} value={contactAddress} onChange={(e) => setContactAddress(e.target.value)} placeholder="Địa chỉ nhận vé / địa chỉ liên hệ" />
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <h5 className="font-weight-bold mb-3" style={{fontSize: "1rem"}}>6. Promotion / Voucher</h5>
+                        <div className="voucher-input-group mb-3">
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Nhập mã giảm giá (GIAM50K, GIAM100K...)"
+                            value={voucherCode}
+                            onChange={(e) => setVoucherCode(e.target.value)}
+                          />
+                          <button className="btn btn-primary" type="button" style={{borderRadius: 8, padding: "0 20px", background: "#FF6B00", border: "none"}} onClick={applyVoucher}>Áp dụng</button>
+                        </div>
+                        {appliedVouchers.length > 0 && (
+                          <div className="d-flex flex-wrap" style={{gap: 8}}>
+                            {appliedVouchers.map((v, i) => (
+                              <div key={i} className="badge p-2 d-flex align-items-center" style={{fontSize: "0.85rem", background: "#E8F5E9", color: "#2E7D32", borderRadius: 6}}>
+                                {v.code} (-{formatPrice(v.value)})
+                                <i className="fas fa-times ml-2 cursor-pointer" onClick={() => setAppliedVouchers(appliedVouchers.filter((_, idx) => idx !== i))} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mb-0">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <span className="font-weight-bold">Mã tour</span>
+                          <span>{tourDetail?.tourId || selectedDepId}</span>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <span className="font-weight-bold">Mã giảm giá</span>
+                          <span>{voucherCode || "Chưa nhập"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 
                 {/* 1. Chọn gói tour */}
                 <div className="mb-4">
@@ -1440,9 +1735,9 @@ export default function BookingDetailPage() {
                       <div className="text-muted small">{formatPrice(adultPrice)}</div>
                     </div>
                     <div className="d-flex align-items-center">
-                      <button className="counter-btn" disabled={numAdults <= 1} onClick={() => setNumAdults(prev => prev - 1)}>–</button>
+                        <button className="counter-btn" disabled={numAdults <= 1} onClick={() => changePassengerCount("adult", -1)}>–</button>
                       <div className="counter-value">{numAdults}</div>
-                      <button className="counter-btn" onClick={() => setNumAdults(prev => prev + 1)}>+</button>
+                        <button className="counter-btn" onClick={() => changePassengerCount("adult", 1)}>+</button>
                     </div>
                   </div>
 
@@ -1452,9 +1747,9 @@ export default function BookingDetailPage() {
                       <div className="text-muted small">{formatPrice(childPrice)}</div>
                     </div>
                     <div className="d-flex align-items-center">
-                      <button className="counter-btn" disabled={numChildren <= 0} onClick={() => setNumChildren(prev => prev - 1)}>–</button>
+                        <button className="counter-btn" disabled={numChildren <= 0} onClick={() => changePassengerCount("child", -1)}>–</button>
                       <div className="counter-value">{numChildren}</div>
-                      <button className="counter-btn" onClick={() => setNumChildren(prev => prev + 1)}>+</button>
+                        <button className="counter-btn" onClick={() => changePassengerCount("child", 1)}>+</button>
                     </div>
                   </div>
 
@@ -1464,12 +1759,35 @@ export default function BookingDetailPage() {
                       <div className="text-muted small">0đ (miễn phí)</div>
                     </div>
                     <div className="d-flex align-items-center">
-                      <button className="counter-btn" disabled={numBabies <= 0} onClick={() => setNumBabies(prev => prev - 1)}>–</button>
+                        <button className="counter-btn" disabled={numBabies <= 0} onClick={() => changePassengerCount("baby", -1)}>–</button>
                       <div className="counter-value">{numBabies}</div>
-                      <button className="counter-btn" onClick={() => setNumBabies(prev => prev + 1)}>+</button>
+                        <button className="counter-btn" onClick={() => changePassengerCount("baby", 1)}>+</button>
                     </div>
                   </div>
                 </div>
+
+                  {(numAdults > 0 || numChildren > 0 || numBabies > 0) && (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="payment-option"
+                      style={{ background: "#FFF8F0", borderColor: "#FFB57A", marginBottom: 16 }}
+                      onClick={() => setPassengerModalOpen(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setPassengerModalOpen(true);
+                        }
+                      }}
+                    >
+                      <div className="font-weight-bold mb-1">Vui lòng nhập thông tin hành khách</div>
+                      <div className="small text-muted">
+                        {hasIncompletePassengers()
+                          ? "Chưa đủ thông tin hành khách. Nhấn vào đây để nhập theo số lượng đã chọn."
+                          : "Đã có thông tin hành khách. Bạn có thể kiểm tra lại trước khi đặt tour."}
+                      </div>
+                    </div>
+                  )}
 
                 {/* Tổng tiền & Nút đặt tour */}
                 <div className="border-top pt-4">
@@ -1487,10 +1805,12 @@ export default function BookingDetailPage() {
                   </button>
                 </div>
 
+                  </>
+                )}
+
               </div>
             </div>
           </div>
-          }
         </div>
       </div>
     </>

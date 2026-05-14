@@ -25,16 +25,55 @@ export const MainLayout = ({ children }) => {
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: "▣", path: "/dashboard" },
-    { id: "tour", label: "Tour", icon: "✈", path: "/tour" },
+    {
+      id: "tour",
+      label: "Tour",
+      icon: "✈",
+      submenu: [
+        {
+          id: "tour-list",
+          label: "Danh sách Tour",
+          path: "/tour",
+          icon: FiGrid,
+        },
+        {
+          id: "tour-categories",
+          label: "Danh mục",
+          path: "/tour/categories",
+          icon: FiTag,
+        },
+        {
+          id: "tour-destinations",
+          label: "Điểm đến",
+          path: "/tour/destinations",
+          icon: FiMapPin,
+        },
+      ],
+    },
     { id: "promotion", label: "Promotion", icon: "✦", path: "/promotion" },
     {
       id: "booking",
       label: "Booking",
       icon: "⌁",
       submenu: [
-        { id: "tour-booking", label: "Tour Booking", path: "/booking/tour" },
-        { id: "payment", label: "Payment", path: "/booking/payment" },
-        { id: "bookings-list", label: "Bookings", path: "/bookings" },
+        {
+          id: "tour-booking",
+          label: "Tour Booking",
+          path: "/booking/tour",
+          icon: FiBook,
+        },
+        {
+          id: "payment",
+          label: "Payment",
+          path: "/booking/payment",
+          icon: FiCreditCard,
+        },
+        {
+          id: "bookings-list",
+          label: "Bookings",
+          path: "/bookings",
+          icon: FiGrid,
+        },
       ],
     },
     { id: "messages", label: "Tin nhắn", icon: "✉", path: "/messages" },
@@ -62,9 +101,9 @@ export const MainLayout = ({ children }) => {
     paths.some((path) => location.pathname === path);
 
   return (
-    <div className="flex min-h-screen w-full overflow-hidden bg-[#f3f6fb] text-slate-700">
+    <div className="flex min-h-screen w-full bg-[#f3f6fb] text-slate-700">
       <aside
-        className={`${sidebarOpen ? "w-60" : "w-20"} flex flex-none flex-col border-r border-slate-200 bg-white shadow-[10px_0_40px_rgba(15,23,42,0.05)] transition-all duration-300`}
+        className={`${sidebarOpen ? "w-60" : "w-20"} fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-200 bg-white shadow-[10px_0_40px_rgba(15,23,42,0.05)] transition-all duration-300 overflow-y-auto`}
       >
         <div className="flex items-center border-b border-slate-200 px-4 py-4">
           {sidebarOpen ? (
@@ -83,9 +122,6 @@ export const MainLayout = ({ children }) => {
                 <p className="truncate text-[12px] font-medium text-slate-500">
                   Tour Management
                 </p>
-                <h1 className="text-xl font-black tracking-tight text-slate-900">
-                  Admin
-                </h1>
               </div>
             </div>
           ) : (
@@ -141,7 +177,7 @@ export const MainLayout = ({ children }) => {
                                 : "text-slate-400"
                             }
                           >
-                            •
+                            <subitem.icon className="text-sm" />
                           </span>
                           {sidebarOpen && <span>{subitem.label}</span>}
                         </button>
@@ -179,7 +215,7 @@ export const MainLayout = ({ children }) => {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`${sidebarOpen ? "ml-60" : "ml-20"} flex min-w-0 flex-1 flex-col transition-all duration-300`}>
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/95 px-5 py-3 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur-md">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.34em] text-blue-600">

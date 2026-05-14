@@ -1,1100 +1,522 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
-import { mockTourDetails } from "../data/mockTourData";
+import { FiEdit2, FiTrash2, FiSave, FiLoader } from "react-icons/fi";
+import { useTourDetailQuery, useUpdateTourMutation, useTourCategoriesQuery } from "../api/hooks/tourHooks";
+import { useDeparturesQuery, useCreateDepartureMutation, useUpdateDepartureMutation, useDeleteDepartureMutation } from "../api/hooks/departureHooks";
+import { useAddDestinationMutation, useRemoveDestinationMutation } from "../api/hooks/tourDestinationHooks";
+import { useTransportationsQuery } from "../api/hooks/transportationHooks";
+import { useAllDestinationsQuery } from "../api/hooks/tourHooks";
+import TourImageSection from "../components/tour/TourImageSection";
+import DeparturePricePanel from "../components/tour/DeparturePricePanel";
 
-const categoryOptions = [
-  "Du lịch biển",
-  "Du lịch biển đảo",
-  "Nghỉ dưỡng",
-  "Du lịch lịch sử",
-  "Du lịch khám phá",
-];
-
-const transportOptions = [
-  "Xe du lịch chất lượng cao",
-  "Máy bay",
-  "Xe giường nằm cao cấp",
-  "Máy bay + xe du lịch",
-];
-
-// ── Mock price config & pricing rules per departure ──────────────────────────
-const mockPriceConfigs = {
-  1: { adultPrice: "4500000", child1014Price: "3800000", child49Price: "2500000", babyPrice: "0" },
-  2: { adultPrice: "4500000", child1014Price: "3800000", child49Price: "2500000", babyPrice: "0" },
-  3: { adultPrice: "4500000", child1014Price: "3800000", child49Price: "2500000", babyPrice: "0" },
+const fmtPrice = (v) => { const n = Number(String(v ?? "").replace(/\D/g, "")); return Number.isFinite(n) ? new Intl.NumberFormat("vi-VN").format(n) : ""; };
+const fmtDate = (d) => {
+  if (!d) return "—";
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return d;
+  return `${String(dt.getDate()).padStart(2,"0")} Th${String(dt.getMonth()+1).padStart(2,"0")}, ${dt.getFullYear()}`;
 };
-
-const mockPricingRules = {
-  1: [
-    {
-      id: 101, ruleName: "Early Bird - Đặt sớm 30 ngày", ruleType: "EARLY_BIRD",
-      adjustmentType: "PERCENT", adjustmentValue: "-10",
-      minDaysBefore: "30", maxDaysBefore: "60", minSlotsLeft: "", maxSlotsLeft: "",
-      priority: 1, isActive: true,
-    },
-    {
-      id: 102, ruleName: "Last Minute - Dưới 5 chỗ", ruleType: "LAST_MINUTE",
-      adjustmentType: "FIXED", adjustmentValue: "-200000",
-      minDaysBefore: "", maxDaysBefore: "3", minSlotsLeft: "1", maxSlotsLeft: "5",
-      priority: 2, isActive: false,
-    },
-  ],
-  2: [
-    {
-      id: 201, ruleName: "Early Bird - Đặt sớm 45 ngày", ruleType: "EARLY_BIRD",
-      adjustmentType: "PERCENT", adjustmentValue: "-15",
-      minDaysBefore: "45", maxDaysBefore: "90", minSlotsLeft: "", maxSlotsLeft: "",
-      priority: 1, isActive: true,
-    },
-  ],
-  3: [],
+const fmtTime = (t) => {
+  if (!t) return "";
+  if (t && t.includes("T")) return t.slice(11, 16);
+  return t;
 };
-
-const toTourCode = (id) => `HLB-2024-${String(id).padStart(3, "0")}`;
-
-const formatDateVN = (dateStr) => {
-  const date = new Date(`${dateStr}T00:00:00`);
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  return `${day} Th${month}, ${year}`;
+// Convert date input (yyyy-MM-dd) to LocalDateTime string (yyyy-MM-ddT00:00:00)
+const toDateTime = (dateStr) => {
+  if (!dateStr) return null;
+  if (dateStr.includes("T")) return dateStr; // already datetime
+  return `${dateStr}T00:00:00`;
 };
-
-const formatPrice = (value) => {
-  const num = Number(String(value || "").replace(/\D/g, ""));
-  if (!Number.isFinite(num)) return "";
-  return new Intl.NumberFormat("vi-VN").format(num);
+// Convert time input (HH:mm) + date to full LocalDateTime
+const toPickupDateTime = (timeStr, dateStr) => {
+  if (!timeStr) return null;
+  if (timeStr.includes("T")) return timeStr; // already datetime
+  const base = dateStr ? dateStr.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  return `${base}T${timeStr}:00`;
 };
-
-// ─── Slot indicator: shows both booked & remaining ───────────────────────────
-const SlotIndicator = ({ booked, max }) => {
-  const remain = Math.max(0, max - booked);
-  const ratio = max > 0 ? (booked / max) * 100 : 0;
-  const isFull = remain === 0;
-  const isLow = remain <= 3 && remain > 0;
-  const barColor = isFull ? "#dc2626" : isLow ? "#f59e0b" : "#2563eb";
-
-  return (
-    <div className="flex flex-col gap-1">
-      {/* Progress bar */}
-      <div className="h-2 w-full max-w-[120px] rounded-full bg-slate-200 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${Math.max(4, ratio)}%`, background: barColor }}
-        />
-      </div>
-      {/* Dual label */}
-      <div className="flex items-center gap-2 text-xs font-semibold">
-        <span style={{ color: barColor }}>
-          {booked}/{max} đã đặt
-        </span>
-        <span className="text-slate-400">·</span>
-        <span className={isFull ? "text-red-500" : isLow ? "text-amber-500" : "text-slate-500"}>
-          {remain} còn nhận
-        </span>
-      </div>
-    </div>
-  );
+// Extract date part from datetime for date input value
+const toDateInput = (dt) => {
+  if (!dt) return "";
+  return String(dt).slice(0, 10);
 };
+// Extract time part from datetime for time input value
+const toTimeInput = (dt) => {
+  if (!dt) return "";
+  if (dt.includes("T")) return dt.slice(11, 16);
+  return dt;
+};
+// Parse JSONB string → human-readable text
+const parseJsonbText = (val) => {
+  if (!val) return "";
+  try {
+    const parsed = JSON.parse(val);
+    if (typeof parsed === "string") return parsed.replace(/\\n/g, "\n");
+    if (Array.isArray(parsed)) return parsed.join("\n");
+    if (parsed && typeof parsed.content === "string") return parsed.content.replace(/\\n/g, "\n");
+    return JSON.stringify(parsed, null, 2);
+  } catch { return String(val); }
+};
+// Re-serialize text back to JSONB format for object fields
+const toJsonbObject = (text) => JSON.stringify({ content: text });
+// Re-serialize text back to JSONB format for array fields (each line = one item)
+const toJsonbArray = (text) => JSON.stringify(text.split("\n").map(s => s.trim()).filter(Boolean));
 
-// ─── Labeled input helper ─────────────────────────────────────────────────────
-const LabeledInput = ({ label, children }) => (
-  <div>
-    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-      {label}
-    </label>
+const Lbl = ({ children }) => <label className="mb-1 block text-xs font-semibold text-slate-500">{children}</label>;
+const inputCls = "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100";
+const taCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100";
+const Card = ({ title, children, className = "" }) => (
+  <div className={`rounded-xl border border-slate-200 bg-white p-5 ${className}`}>
+    {title && <h3 className="mb-4 text-base font-bold text-slate-900">{title}</h3>}
     {children}
   </div>
 );
 
+const SlotBar = ({ booked = 0, max = 0 }) => {
+  const remain = Math.max(0, max - booked);
+  const ratio = max > 0 ? (booked / max) * 100 : 0;
+  const color = remain === 0 ? "#dc2626" : remain <= 3 ? "#f59e0b" : "#2563eb";
+  return (
+    <div className="space-y-1">
+      <div className="h-2 w-full max-w-[120px] overflow-hidden rounded-full bg-slate-200">
+        <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(4, ratio)}%`, background: color }} />
+      </div>
+      <p className="text-xs font-semibold" style={{ color }}>{booked}/{max} · còn {remain}</p>
+    </div>
+  );
+};
+
+// │ DepEditFields is MODULE-LEVEL to prevent focus loss on re-render
+const DepEditFields = ({ form, setForm }) => (
+  <div className="space-y-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div>
+        <Lbl>Ngày khởi hành *</Lbl>
+        <input type="date" value={toDateInput(form.startDate)} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} className={inputCls} />
+      </div>
+      <div>
+        <Lbl>Ngày kết thúc *</Lbl>
+        <input type="date" value={toDateInput(form.endDate)} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} className={inputCls} />
+      </div>
+      <div>
+        <Lbl>Giờ đón</Lbl>
+        <input type="time" value={toTimeInput(form.pickupTime)} onChange={e => setForm(p => ({ ...p, pickupTime: e.target.value }))} className={inputCls} />
+      </div>
+    </div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div><Lbl>Điểm đón</Lbl><input value={form.pickupName ?? ""} onChange={e => setForm(p => ({ ...p, pickupName: e.target.value }))} className={inputCls} /></div>
+      <div><Lbl>Địa chỉ</Lbl><input value={form.pickupAddress ?? ""} onChange={e => setForm(p => ({ ...p, pickupAddress: e.target.value }))} className={inputCls} /></div>
+    </div>
+    <div className="grid grid-cols-3 gap-3">
+      <div><Lbl>Tổng chỗ</Lbl><input type="number" min={1} value={form.maxSlots ?? 20} onChange={e => setForm(p => ({ ...p, maxSlots: e.target.value }))} className={inputCls} /></div>
+      <div><Lbl>Đã đặt</Lbl><input type="number" min={0} value={form.bookedSlots ?? 0} onChange={e => setForm(p => ({ ...p, bookedSlots: e.target.value }))} className={inputCls} /></div>
+      <div>
+        <Lbl>Trạng thái</Lbl>
+        <select value={form.status ?? "OPEN"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
+          <option value="OPEN">OPEN</option>
+          <option value="CLOSED">CLOSED</option>
+          <option value="FULL">FULL</option>
+        </select>
+      </div>
+    </div>
+  </div>
+);
+
+const EMPTY_DEP = { startDate: "", endDate: "", maxSlots: 20, bookedSlots: 0, status: "OPEN", pickupName: "", pickupAddress: "", pickupTime: "" };
+
 export const TourDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const tourId = Number(id);
-  const tour = mockTourDetails[tourId];
 
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [editingDepartureId, setEditingDepartureId] = useState(null);
-  const [priceConfigOpen, setPriceConfigOpen] = useState({});          // { [id]: bool }
-  const [expandedRules, setExpandedRules] = useState({});               // { [ruleKey]: bool }
-  const [toast, setToast] = useState("");
+  const { data: tour, isLoading } = useTourDetailQuery(id);
+  const { data: departures = [] } = useDeparturesQuery(id);
+  const { data: categories = [] } = useTourCategoriesQuery();
+  const { data: transportations = [] } = useTransportationsQuery();
+  const { data: allDestinations = [] } = useAllDestinationsQuery();
 
-  // ── Destination state ──
-  const [isEditingDest, setIsEditingDest] = useState(false);
+  const updateTour = useUpdateTourMutation();
+  const addDest = useAddDestinationMutation(id);
+  const removeDest = useRemoveDestinationMutation(id);
+  const createDep = useCreateDepartureMutation(id);
+  const updateDep = useUpdateDepartureMutation(id);
+  const deleteDep = useDeleteDepartureMutation(id);
+
+  const [formData, setFormData] = useState(null);
+  const [editingDepId, setEditingDepId] = useState(null);
+  const [depForm, setDepForm] = useState({});
+  const [isNewDep, setIsNewDep] = useState(false);
+  const [newDepForm, setNewDepForm] = useState({ ...EMPTY_DEP });
+  const [priceOpen, setPriceOpen] = useState({});
   const [isAddingDest, setIsAddingDest] = useState(false);
-  const [newDestName, setNewDestName] = useState("");
+  const [isEditingDest, setIsEditingDest] = useState(false);
+  const [selectedDestId, setSelectedDestId] = useState("");
 
-  const [formData, setFormData] = useState(() => {
-    if (!tour) return null;
-    return {
-      title: tour.title,
-      slug: tour.slug,
-      categoryName: tour.categoryName,
-      transportationType: tour.transportationType,
-      basePrice: String(tour.basePrice),
-      description: tour.description,
-      isHot: tour.isHot,
-      destinations: [...(tour.destinations || [])],
-      departures: (tour.departures || []).map((dep) => ({
-        ...dep,
-        priceConfig: mockPriceConfigs[dep.id] || {},
-        pricingRules: (mockPricingRules[dep.id] || []).map((r) => ({ ...r })),
-      })),
-    };
+  useEffect(() => {
+    if (tour) setFormData({
+      title: tour.title ?? "",
+      slug: tour.slug ?? "",
+      description: tour.description ?? "",
+      overview: tour.overview ?? "",
+      itinerary: parseJsonbText(tour.itinerary),
+      inclusions: parseJsonbText(tour.inclusions),
+      exclusions: parseJsonbText(tour.exclusions),
+      policies: parseJsonbText(tour.policies),
+      durationDays: tour.durationDays ?? 1,
+      basePrice: String(tour.basePrice ?? ""),
+      status: tour.status ?? "ACTIVE",
+      isHot: tour.isHot ?? false,
+      categoryId: tour.categoryId ?? "",
+      transportationId: tour.transportationId ?? "",
+    });
+  }, [tour]);
+
+  if (isLoading) return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-10 w-64 rounded-lg bg-slate-200" />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-5 space-y-4">
+          <div className="h-80 rounded-xl bg-slate-200" />
+          <div className="h-40 rounded-xl bg-slate-200" />
+        </div>
+        <div className="xl:col-span-7 space-y-4">
+          <div className="h-64 rounded-xl bg-slate-200" />
+          <div className="h-40 rounded-xl bg-slate-200" />
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!tour || !formData) return (
+    <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+      <p className="text-slate-600">Không tìm thấy tour.</p>
+      <button onClick={() => navigate("/tour")} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white">Quay lại</button>
+    </div>
+  );
+
+  const set = (f, v) => setFormData(p => ({ ...p, [f]: v }));
+
+  const handleSave = () => {
+    updateTour.mutate({
+      id: Number(id),
+      payload: {
+        title: formData.title,
+        description: formData.description,
+        overview: formData.overview,
+        // Re-serialize JSONB fields
+        itinerary: formData.itinerary ? toJsonbObject(formData.itinerary) : null,
+        inclusions: formData.inclusions ? toJsonbArray(formData.inclusions) : null,
+        exclusions: formData.exclusions ? toJsonbArray(formData.exclusions) : null,
+        policies: formData.policies ? toJsonbObject(formData.policies) : null,
+        durationDays: Number(formData.durationDays) || 1,
+        basePrice: Number(String(formData.basePrice).replace(/\D/g, "")) || 0,
+        status: formData.status,
+        isHot: formData.isHot,
+        categoryId: formData.categoryId ? Number(formData.categoryId) : null,
+        transportationId: formData.transportationId ? Number(formData.transportationId) : null,
+      },
+    });
+  };
+
+  const handleAddDest = () => {
+    if (!selectedDestId) return;
+    addDest.mutate(Number(selectedDestId));
+    setSelectedDestId("");
+    setIsAddingDest(false);
+  };
+
+  const startEditDep = (dep) => {
+    setEditingDepId(dep.id);
+    setDepForm({
+      ...dep,
+      startDate: toDateInput(dep.startDate),
+      endDate: toDateInput(dep.endDate),
+      pickupTime: toTimeInput(dep.pickupTime),
+    });
+  };
+
+  // Build departure payload with proper LocalDateTime format
+  const buildDepPayload = (form) => ({
+    tourId: Number(id),
+    startDate: toDateTime(form.startDate),
+    endDate: toDateTime(form.endDate),
+    pickupTime: toPickupDateTime(form.pickupTime, form.startDate),
+    maxSlots: Number(form.maxSlots) || 20,
+    bookedSlots: Number(form.bookedSlots) || 0,
+    status: form.status || "OPEN",
+    pickupName: form.pickupName || "",
+    pickupAddress: form.pickupAddress || "",
+    pickupLatitude: form.pickupLatitude ?? null,
+    pickupLongitude: form.pickupLongitude ?? null,
   });
 
-  if (!tour || !formData) {
-    return (
-      <div className="rounded-xl border border-slate-300 bg-white p-8 text-center">
-        <p className="text-slate-700">Không tìm thấy tour.</p>
-        <button
-          onClick={() => navigate("/tour")}
-          className="mt-4 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white"
-        >
-          Quay lại danh sách
-        </button>
-      </div>
-    );
-  }
-
-  const images = tour.images || [];
-  const activeImage = images[selectedImage] || images[0];
-
-  const setField = (field, value) =>
-    setFormData((prev) => ({ ...prev, [field]: value }));
-
-  const setDepartureField = (departureId, field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      departures: prev.departures.map((dep) =>
-        dep.id === departureId
-          ? {
-              ...dep,
-              [field]:
-                field === "maxSlots" || field === "bookedSlots"
-                  ? Number(value || 0)
-                  : value,
-            }
-          : dep,
-      ),
-    }));
+  const handleSaveDep = () => {
+    updateDep.mutate({ id: editingDepId, payload: buildDepPayload(depForm) });
+    setEditingDepId(null);
   };
 
-  const togglePriceConfig = (id) =>
-    setPriceConfigOpen((prev) => ({ ...prev, [id]: !prev[id] }));
-
-  const toggleRule = (key) =>
-    setExpandedRules((prev) => ({ ...prev, [key]: !prev[key] }));
-
-  const showToast = (message) => {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2500);
+  const handleCreateDep = () => {
+    if (!newDepForm.startDate || !newDepForm.endDate) {
+      alert("Vui lòng chọn ngày khởi hành và ngày kết thúc");
+      return;
+    }
+    createDep.mutate(buildDepPayload(newDepForm), {
+      onSuccess: () => {
+        setIsNewDep(false);
+        setNewDepForm({ ...EMPTY_DEP });
+      },
+    });
   };
 
-  const onSave = () =>
-    showToast("Đã lưu thay đổi. Thông tin tour đã được cập nhật thành công.");
-
-  // ── Departure handlers ──
-  const onDeleteDeparture = (departureId) => {
-    setFormData((prev) => ({
-      ...prev,
-      departures: prev.departures.filter((dep) => dep.id !== departureId),
-    }));
-    if (editingDepartureId === departureId) setEditingDepartureId(null);
-    showToast("Đã xóa lịch khởi hành.");
+  const handleDeleteDep = (depId) => {
+    if (confirm("Xóa lịch khởi hành này?")) deleteDep.mutate(depId);
   };
 
-  const onAddDeparture = () => {
-    const nextId = Math.max(0, ...formData.departures.map((d) => d.id)) + 1;
-    setFormData((prev) => ({
-      ...prev,
-      departures: [
-        {
-          id: nextId,
-          startDate: "",
-          endDate: "",
-          maxSlots: 20,
-          bookedSlots: 0,
-          pickupName: "",
-          pickupAddress: "",
-          pickupTime: "",
-          priceConfig: {},
-          pricingRules: [],
-          _isNew: true,
-        },
-        ...prev.departures,
-      ],
-    }));
-    setEditingDepartureId(nextId);
-    // No toast — user hasn't filled anything yet
-  };
+  const availableDestinations = allDestinations.filter(d => !(tour.destinations ?? []).some(td => td.id === d.id));
 
-  // ── Destination handlers ──
-  const onAddDestination = () => {
-    const name = newDestName.trim();
-    if (!name) return;
-    const nextId = Math.max(0, ...formData.destinations.map((d) => d.id)) + 1;
-    setFormData((prev) => ({
-      ...prev,
-      destinations: [...prev.destinations, { id: nextId, name }],
-    }));
-    setNewDestName("");
-    setIsAddingDest(false);
-    showToast("Đã thêm điểm đến mới.");
-  };
-
-  const onRemoveDestination = (destId) => {
-    setFormData((prev) => ({
-      ...prev,
-      destinations: prev.destinations.filter((d) => d.id !== destId),
-    }));
-    showToast("Đã xóa điểm đến.");
-  };
-
-  const moreDepartureText = useMemo(
-    () => `Xem thêm ${Math.max(3, formData.departures.length + 2)} lịch khởi hành`,
-    [formData.departures.length],
-  );
+  // DepEditFields is now module-level (above) - do NOT redeclare here
 
   return (
     <div className="space-y-4">
-      {/* ── Page header ── */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-blue-700">Chi tiết Tour</h2>
-          <span className="text-slate-400">/</span>
-          <p className="border-b-2 border-blue-600 pb-1 text-xs font-semibold text-blue-700">
-            {formData.title}
-          </p>
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={() => { window.location.href = "/tour"; }} className="shrink-0 cursor-pointer text-sm text-slate-500 hover:text-blue-700">← Quay lại</button>
+          <span className="text-slate-300">|</span>
+          <h2 className="shrink-0 text-xl font-bold text-blue-700">Chi tiết Tour</h2>
+          <span className="truncate max-w-sm text-sm font-semibold text-slate-600">— {tour.title}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-            Preview Tour
-          </button>
-          <button
-            onClick={onSave}
-            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-          >
-            Lưu thay đổi
-          </button>
-        </div>
+        <button onClick={handleSave} disabled={updateTour.isPending}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-60">
+          {updateTour.isPending ? <><FiLoader className="animate-spin" /> Đang lưu...</> : <><FiSave /> Lưu thay đổi</>}
+        </button>
       </div>
 
-      <button
-        onClick={() => navigate("/tour")}
-        className="text-sm text-slate-600 transition hover:text-blue-900 cursor-pointer"
-      >
-        ← Quay lại
-      </button>
-
-      {/* ── Main grid ── */}
+      {/* Main grid */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        {/* Left column */}
+        {/* LEFT */}
         <div className="space-y-4 xl:col-span-5">
-          {/* Images */}
-          <div className="rounded-xl border border-slate-300 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Hình ảnh Tour</h3>
-              <button className="text-sm font-semibold text-blue-700 hover:text-blue-800">
-                ↥ Tải ảnh lên
-              </button>
-            </div>
-            <div className="relative overflow-hidden rounded-lg border border-blue-500">
-              <img
-                src={activeImage?.imageUrl}
-                alt={formData.title}
-                className="h-64 w-full object-cover"
-              />
-              <span className="absolute left-3 top-3 rounded bg-blue-700 px-2 py-1 text-[10px] font-semibold text-white">
-                ẢNH BÌA
-              </span>
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              {images.slice(0, 2).map((img, idx) => (
-                <button
-                  key={img.id}
-                  onClick={() => setSelectedImage(idx)}
-                  className={`overflow-hidden rounded-lg border ${
-                    selectedImage === idx ? "border-blue-600" : "border-slate-300"
-                  }`}
-                >
-                  <img
-                    src={img.imageUrl}
-                    alt={`tour-thumb-${idx}`}
-                    className="h-20 w-full object-cover"
-                  />
-                </button>
-              ))}
-              <button className="flex h-20 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-500 hover:bg-slate-50">
-                🖼️
-              </button>
-            </div>
-          </div>
+          <Card title="Hình ảnh Tour">
+            <TourImageSection tourId={id} />
+          </Card>
 
-          {/* Quick info */}
           <div className="rounded-xl bg-[#0B1837] p-4 text-white">
             <h4 className="mb-4 text-lg font-semibold">Thông tin nhanh</h4>
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                <span className="text-white/70">Mã Tour</span>
-                <span className="font-semibold">{toTourCode(tour.id)}</span>
+                <span className="text-white/70">Trạng thái</span>
+                <select value={formData.status} onChange={e => set("status", e.target.value)}
+                  className={`rounded-lg px-3 py-1 text-xs font-semibold text-white outline-none border-none cursor-pointer transition ${
+                    formData.status === "ACTIVE" ? "bg-emerald-600" : "bg-red-500"
+                  }`}>
+                  <option value="ACTIVE">✅ ACTIVE</option>
+                  <option value="INACTIVE">🔴 INACTIVE</option>
+                </select>
               </div>
               <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                <span className="text-white/70">Trạng thái</span>
-                <span className="rounded-full bg-blue-700 px-3 py-1 text-xs font-semibold">
-                  {tour.status}
-                </span>
+                <span className="text-white/70">Số ngày</span>
+                <input type="number" min={1} value={formData.durationDays}
+                  onChange={e => set("durationDays", e.target.value)}
+                  className="w-16 rounded-lg bg-white/10 px-2 py-1 text-center text-sm font-bold text-white outline-none" />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-white/70">Hot Tour</span>
-                <button
-                  onClick={() => setField("isHot", !formData.isHot)}
-                  className={`relative h-6 w-11 rounded-full transition ${
-                    formData.isHot ? "bg-blue-500" : "bg-white/25"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
-                      formData.isHot ? "left-5" : "left-0.5"
-                    }`}
-                  />
+                <span className="text-white/70">Tour nổi bật</span>
+                <button onClick={() => set("isHot", !formData.isHot)}
+                  className={`relative h-6 w-11 rounded-full transition ${formData.isHot ? "bg-blue-500" : "bg-white/25"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${formData.isHot ? "left-5" : "left-0.5"}`} />
                 </button>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right column */}
-        <div className="space-y-4 xl:col-span-7">
-          {/* Basic info */}
-          <div className="rounded-xl border border-slate-300 bg-white p-4">
-            <h3 className="mb-4 text-xl font-bold text-slate-900">Thông tin cơ bản</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  Tiêu đề Tour
-                </label>
-                <input
-                  value={formData.title}
-                  onChange={(e) => setField("title", e.target.value)}
-                  className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700"
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Slug (URL)
-                  </label>
-                  <input
-                    value={formData.slug}
-                    onChange={(e) => setField("slug", e.target.value)}
-                    className="h-11 w-full rounded-lg border border-slate-300 bg-slate-100 px-3 text-sm italic text-slate-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Danh mục
-                  </label>
-                  <select
-                    value={formData.categoryName}
-                    onChange={(e) => setField("categoryName", e.target.value)}
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700"
-                  >
-                    {categoryOptions.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Phương tiện
-                  </label>
-                  <select
-                    value={formData.transportationType}
-                    onChange={(e) => setField("transportationType", e.target.value)}
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700"
-                  >
-                    {transportOptions.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600">
-                    Giá khởi điểm (VND)
-                  </label>
-                  <input
-                    value={formatPrice(formData.basePrice)}
-                    onChange={(e) =>
-                      setField("basePrice", e.target.value.replace(/\D/g, ""))
-                    }
-                    className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm font-bold text-blue-600"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">
-                  Mô tả chi tiết
-                </label>
-                <textarea
-                  rows={6}
-                  value={formData.description}
-                  onChange={(e) => setField("description", e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm leading-6 text-slate-700"
-                />
-              </div>
+          {/* Destinations */}
+          <Card title="Điểm đến">
+            <div className="mb-3 flex gap-2">
+              <button onClick={() => { setIsEditingDest(v => !v); setIsAddingDest(false); }}
+                className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${isEditingDest ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-300 bg-white text-slate-600"}`}>
+                {isEditingDest ? "✓ Xong" : <span className="inline-flex items-center gap-1"><FiEdit2 /> Sửa</span>}
+              </button>
+              <button onClick={() => { setIsAddingDest(v => !v); setIsEditingDest(false); }}
+                className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-800">
+                + Thêm
+              </button>
             </div>
-          </div>
-
-          {/* ── Destinations ── */}
-          <div className="rounded-xl border border-slate-300 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Điểm đến</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setIsEditingDest((v) => !v);
-                    setIsAddingDest(false);
-                  }}
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
-                    isEditingDest
-                      ? "border-blue-300 bg-blue-50 text-blue-700"
-                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {isEditingDest ? "✓ Xong" : (
-                    <span className="inline-flex items-center gap-1.5">
-                      <FiEdit2 /> Sửa
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    setIsAddingDest((v) => !v);
-                    setIsEditingDest(false);
-                  }}
-                  className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-800"
-                >
-                  + Thêm
-                </button>
-              </div>
-            </div>
-
             <div className="flex flex-wrap gap-2">
-              {formData.destinations.map((dest) => (
-                <span
-                  key={dest.id}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 py-1 pl-3 pr-2 text-sm font-semibold text-blue-700"
-                >
-                  {dest.name}
+              {(tour.destinations ?? []).map((dest) => (
+                <span key={dest.id} className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 py-1 pl-3 pr-2 text-sm font-semibold text-blue-700">
+                  {dest.cityName ?? dest.name}
                   {isEditingDest && (
-                    <button
-                      onClick={() => onRemoveDestination(dest.id)}
-                      className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-[10px] font-bold text-blue-700 transition hover:bg-red-200 hover:text-red-600"
-                      title="Xóa"
-                    >
+                    <button onClick={() => removeDest.mutate(dest.id)}
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-[10px] text-blue-700 hover:bg-red-200 hover:text-red-600">
                       <FiTrash2 />
                     </button>
                   )}
                 </span>
               ))}
-
-              {formData.destinations.length === 0 && (
-                <p className="text-sm text-slate-400 italic">Chưa có điểm đến nào.</p>
-              )}
+              {(tour.destinations ?? []).length === 0 && <p className="text-sm italic text-slate-400">Chưa có điểm đến.</p>}
             </div>
-
-            {/* Add destination form */}
             {isAddingDest && (
               <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                  Tên điểm đến mới
-                </label>
+                <Lbl>Chọn điểm đến</Lbl>
                 <div className="flex gap-2">
-                  <input
-                    autoFocus
-                    value={newDestName}
-                    onChange={(e) => setNewDestName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && onAddDestination()}
-                    placeholder="VD: Đà Nẵng, Phú Quốc..."
-                    className="h-9 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
-                  />
-                  <button
-                    onClick={onAddDestination}
-                    className="rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-700"
-                  >
+                  <select value={selectedDestId} onChange={e => setSelectedDestId(e.target.value)} className={inputCls}>
+                    <option value="">-- Chọn --</option>
+                    {availableDestinations.map(d => <option key={d.id} value={d.id}>{d.cityName ?? d.name}</option>)}
+                  </select>
+                  <button onClick={handleAddDest} disabled={!selectedDestId}
+                    className="rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-40">
                     Thêm
                   </button>
-                  <button
-                    onClick={() => { setIsAddingDest(false); setNewDestName(""); }}
-                    className="rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-500 hover:bg-slate-50"
-                  >
-                    Hủy
-                  </button>
+                  <button onClick={() => setIsAddingDest(false)} className="rounded-lg border border-slate-300 px-3 text-sm text-slate-500">Hủy</button>
                 </div>
               </div>
             )}
-          </div>
+          </Card>
+        </div>
+
+        {/* RIGHT */}
+        <div className="space-y-4 xl:col-span-7">
+          <Card title="Thông tin cơ bản">
+            <div className="space-y-3">
+              <div><Lbl>Tiêu đề Tour</Lbl><input value={formData.title} onChange={e => set("title", e.target.value)} className={inputCls} /></div>
+              <div><Lbl>Slug (URL)</Lbl><input value={formData.slug} onChange={e => set("slug", e.target.value)} className={`${inputCls} bg-slate-50 italic text-slate-500`} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Lbl>Danh mục</Lbl>
+                  <select value={formData.categoryId} onChange={e => set("categoryId", e.target.value)} className={inputCls}>
+                    <option value="">-- Chọn --</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Lbl>Phương tiện</Lbl>
+                  <select value={formData.transportationId} onChange={e => set("transportationId", e.target.value)} className={inputCls}>
+                    <option value="">-- Chọn --</option>
+                    {transportations.map(t => <option key={t.id} value={t.id}>{t.type ?? t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <Lbl>Giá khởi điểm (VND)</Lbl>
+                <input value={fmtPrice(formData.basePrice)} onChange={e => set("basePrice", e.target.value.replace(/\D/g, ""))}
+                  className={`${inputCls} font-bold text-blue-600`} />
+              </div>
+              <div><Lbl>Mô tả ngắn</Lbl><textarea rows={4} value={formData.description} onChange={e => set("description", e.target.value)} className={taCls} /></div>
+            </div>
+          </Card>
+
+          <Card title="Nội dung chi tiết">
+            <div className="space-y-3">
+              {[
+                ["Tổng quan", "overview", 4],
+                ["Lịch trình", "itinerary", 5],
+              ].map(([label, field, rows]) => (
+                <div key={field}><Lbl>{label}</Lbl><textarea rows={rows} value={formData[field]} onChange={e => set(field, e.target.value)} className={taCls} /></div>
+              ))}
+              <div className="grid grid-cols-2 gap-3">
+                {[["Dịch vụ bao gồm","inclusions"],["Không bao gồm","exclusions"]].map(([label, field]) => (
+                  <div key={field}><Lbl>{label}</Lbl><textarea rows={4} value={formData[field]} onChange={e => set(field, e.target.value)} className={taCls} /></div>
+                ))}
+              </div>
+              <div><Lbl>Chính sách</Lbl><textarea rows={4} value={formData.policies} onChange={e => set("policies", e.target.value)} className={taCls} /></div>
+            </div>
+          </Card>
         </div>
       </div>
 
-      {/* ── Departures table ── */}
-      <div className="overflow-hidden rounded-xl border border-slate-300 bg-white">
-        {/* Section header */}
+      {/* Departures */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Lịch khởi hành & Điểm đón</h3>
-            <p className="text-sm text-slate-500">Quản lý các đợt khởi hành trong tương lai</p>
+            <p className="text-sm text-slate-500">Quản lý các đợt khởi hành</p>
           </div>
-          <button
-            onClick={onAddDeparture}
-            disabled={editingDepartureId !== null}
-            title={editingDepartureId !== null ? "Hoàn thành lịch đang chỉnh sửa trước" : ""}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              editingDepartureId !== null
-                ? "cursor-not-allowed bg-slate-200 text-slate-400"
-                : "bg-black text-white hover:bg-slate-800"
-            }`}
-          >
+          <button onClick={() => { setIsNewDep(true); setNewDepForm({ ...EMPTY_DEP }); }}
+            disabled={isNewDep}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-40">
             🗓️ Thêm ngày khởi hành
           </button>
         </div>
+
+        {/* New departure inline form */}
+        {isNewDep && (
+          <div className="border-t border-blue-100 bg-blue-50/30 px-5 py-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="rounded-md bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">+ Lịch mới</span>
+              <div className="flex gap-2">
+                <button onClick={handleCreateDep} disabled={createDep.isPending}
+                  className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-800">
+                  {createDep.isPending ? "Đang lưu..." : "✓ Lưu lịch"}
+                </button>
+                <button onClick={() => setIsNewDep(false)} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600">Hủy</button>
+              </div>
+            </div>
+            <DepEditFields form={newDepForm} setForm={setNewDepForm} />
+          </div>
+        )}
 
         {/* Table header */}
         <div className="grid grid-cols-13 bg-slate-100 px-5 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">
           <div className="col-span-1">STT</div>
           <div className="col-span-3">Ngày khởi hành</div>
           <div className="col-span-4">Điểm đón & Thời gian</div>
-          <div className="col-span-3">Đã đặt / Còn nhận</div>
+          <div className="col-span-3">Đã đặt / Còn</div>
           <div className="col-span-2 text-right">Thao tác</div>
         </div>
 
-        {/* Departure rows */}
-        {formData.departures.map((departure) => {
-          const isEditing = editingDepartureId === departure.id;
-          const isPriceOpen = !!priceConfigOpen[departure.id];
+        {departures.length === 0 && (
+          <p className="py-6 text-center text-sm italic text-slate-400">Chưa có lịch khởi hành.</p>
+        )}
 
+        {departures.map((dep, idx) => {
+          const isEditing = editingDepId === dep.id;
+          const isPriceOpen = !!priceOpen[dep.id];
           return (
-            <div key={departure.id} className="border-t border-slate-200">
+            <div key={dep.id} className="border-t border-slate-200">
               {isEditing ? (
-                /* ── Edit mode (full-width, labeled) ── */
                 <div className="px-5 py-4">
-                  {/* Edit mode badge + action buttons */}
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600">
-                      <span className="inline-flex items-center gap-1"><FiEdit2 /> Đang chỉnh sửa lịch khởi hành</span>
-                    </span>
+                    <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600"><FiEdit2 className="inline mr-1" />Đang chỉnh sửa</span>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          const dep = formData.departures.find(d => d.id === departure.id);
-                          if (dep?._isNew) {
-                            setFormData(prev => ({
-                              ...prev,
-                              departures: prev.departures.map(d =>
-                                d.id === departure.id ? { ...d, _isNew: false } : d
-                              ),
-                            }));
-                            showToast("Đã thêm lịch khởi hành mới.");
-                          } else {
-                            showToast("Đã lưu thay đổi lịch khởi hành.");
-                          }
-                          setEditingDepartureId(null);
-                        }}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                      >
-                        ✓ Xong
+                      <button onClick={handleSaveDep} disabled={updateDep.isPending}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                        {updateDep.isPending ? "Đang lưu..." : "✓ Xong"}
                       </button>
-                      <button
-                        onClick={() => onDeleteDeparture(departure.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
-                      >
+                      <button onClick={() => handleDeleteDep(dep.id)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50">
                         <FiTrash2 /> Xóa
                       </button>
                     </div>
                   </div>
-
-                  {/* Row 1: dates + time */}
-                  <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <LabeledInput label="📅 Ngày khởi hành">
-                      <input
-                        type="date"
-                        value={departure.startDate}
-                        onChange={(e) =>
-                          setDepartureField(departure.id, "startDate", e.target.value)
-                        }
-                        className="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                      />
-                    </LabeledInput>
-                    <LabeledInput label="🏁 Ngày kết thúc">
-                      <input
-                        type="date"
-                        value={departure.endDate}
-                        onChange={(e) =>
-                          setDepartureField(departure.id, "endDate", e.target.value)
-                        }
-                        className="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                      />
-                    </LabeledInput>
-                    <LabeledInput label="⏰ Giờ đón khách">
-                      <input
-                        value={departure.pickupTime}
-                        onChange={(e) =>
-                          setDepartureField(departure.id, "pickupTime", e.target.value)
-                        }
-                        placeholder="VD: 07:30 AM"
-                        className="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                      />
-                    </LabeledInput>
-                  </div>
-
-                  {/* Row 2: pickup */}
-                  <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <LabeledInput label="📍 Tên điểm đón">
-                      <input
-                        value={departure.pickupName}
-                        onChange={(e) =>
-                          setDepartureField(departure.id, "pickupName", e.target.value)
-                        }
-                        className="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                      />
-                    </LabeledInput>
-                    <LabeledInput label="🗺️ Địa chỉ cụ thể">
-                      <input
-                        value={departure.pickupAddress}
-                        onChange={(e) =>
-                          setDepartureField(departure.id, "pickupAddress", e.target.value)
-                        }
-                        className="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                      />
-                    </LabeledInput>
-                  </div>
-
-                  {/* Row 3: slots */}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <LabeledInput label="👥 Tổng chỗ (maxSlots)">
-                      <input
-                        type="number"
-                        min={0}
-                        value={departure.maxSlots}
-                        onChange={(e) =>
-                          setDepartureField(departure.id, "maxSlots", e.target.value)
-                        }
-                        className="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                      />
-                    </LabeledInput>
-                    <LabeledInput label="✅ Đã đặt (bookedSlots)">
-                      <input
-                        type="number"
-                        min={0}
-                        value={departure.bookedSlots}
-                        onChange={(e) =>
-                          setDepartureField(departure.id, "bookedSlots", e.target.value)
-                        }
-                        className="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                      />
-                    </LabeledInput>
-                    {/* Preview of slot indicator while editing */}
-                    <div className="col-span-2 flex items-end pb-1">
-                      <div className="w-full rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                        Preview:&nbsp;
-                        <SlotIndicator
-                          booked={departure.bookedSlots}
-                          max={departure.maxSlots}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <DepEditFields form={depForm} setForm={setDepForm} />
                 </div>
               ) : (
-                /* ── View mode ── */
                 <>
-                  <div className="grid grid-cols-13 items-center px-5 py-4 gap-2">
-                    <div className="col-span-1">
-                      <p className="text-sm font-semibold text-slate-700">
-                        {formData.departures.indexOf(departure) + 1}
-                      </p>
-                    </div>
-
+                  <div className="grid grid-cols-13 items-center gap-2 px-5 py-4">
+                    <div className="col-span-1 text-sm font-semibold text-slate-700">{idx + 1}</div>
                     <div className="col-span-3 flex items-center gap-3">
                       <div className="shrink-0 rounded-xl bg-blue-100 p-3 text-blue-700">📅</div>
-                      <p className="text-[15px] font-semibold text-slate-800">
-                        {formatDateVN(departure.startDate)}
-                      </p>
+                      <p className="text-[15px] font-semibold text-slate-800">{fmtDate(dep.startDate)}</p>
                     </div>
-
                     <div className="col-span-4">
-                      <p className="text-[15px] font-semibold text-slate-800">{departure.pickupName}</p>
-                      <p className="text-xs text-slate-400">
-                        {departure.pickupTime} · {departure.pickupAddress}
-                      </p>
+                      <p className="text-[15px] font-semibold text-slate-800">{dep.pickupName}</p>
+                      <p className="text-xs text-slate-400">{fmtTime(dep.pickupTime)} · {dep.pickupAddress}</p>
                     </div>
-
-                    <div className="col-span-2">
-                      <SlotIndicator
-                        booked={departure.bookedSlots}
-                        max={departure.maxSlots}
-                      />
-                    </div>
-
+                    <div className="col-span-2"><SlotBar booked={dep.bookedSlots ?? 0} max={dep.maxSlots ?? 0} /></div>
                     <div className="col-span-3 flex items-center justify-end gap-2">
-                      {/* Price config button */}
-                      <button
-                        onClick={() => togglePriceConfig(departure.id)}
-                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
-                          isPriceOpen
-                            ? "border-blue-400 bg-blue-600 text-white"
-                            : "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                        }`}
-                        title="Cấu hình giá"
-                      >
-                        <span>💰</span>
-                        <span>Cấu hình giá</span>
+                      <button onClick={() => setPriceOpen(p => ({ ...p, [dep.id]: !p[dep.id] }))}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${isPriceOpen ? "border-blue-400 bg-blue-600 text-white" : "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"}`}>
+                        💰 Cấu hình giá
                       </button>
-                      <button
-                        onClick={() => setEditingDepartureId(isEditing ? null : departure.id)}
-                        className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-50"
-                        title="Sửa"
-                      >
-                        <FiEdit2 />
-                      </button>
-                      <button
-                        onClick={() => onDeleteDeparture(departure.id)}
-                        className="rounded border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50"
-                        title="Xóa"
-                      >
-                        <FiTrash2 />
-                      </button>
+                      <button onClick={() => startEditDep(dep)} className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-50"><FiEdit2 /></button>
+                      <button onClick={() => handleDeleteDep(dep.id)} className="rounded border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50"><FiTrash2 /></button>
                     </div>
                   </div>
-
-                  {/* ── Price config panel ── */}
-                  {isPriceOpen && (
-                    <div className="border-t border-blue-100 bg-slate-50 px-5 py-5">
-
-                      {/* ── SECTION 1: Price config ── */}
-                      <div className="mb-5">
-                        <div className="mb-3 flex items-center gap-2">
-                          <span className="text-base">👥</span>
-                          <h4 className="text-sm font-bold text-slate-700">Cấu hình giá theo độ tuổi</h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                          {[
-                            { label: "Người lớn", sub: "Adult", field: "adultPrice", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
-                            { label: "Trẻ em", sub: "10–14 tuổi", field: "child1014Price", color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200" },
-                            { label: "Trẻ em", sub: "4–9 tuổi", field: "child49Price", color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
-                            { label: "Em bé", sub: "Dưới 4 tuổi", field: "babyPrice", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" },
-                          ].map(({ label, sub, field, color, bg, border }) => (
-                            <div key={field} className={`rounded-xl border ${border} ${bg} p-3`}>
-                              <p className="mb-0.5 text-[11px] font-bold text-slate-500">{label}</p>
-                              <p className="mb-2 text-[10px] text-slate-400">{sub}</p>
-                              <div className="flex items-baseline gap-1">
-                                <input
-                                  type="text"
-                                  value={formatPrice(departure.priceConfig?.[field] ?? "")}
-                                  onChange={(e) => {
-                                    const raw = e.target.value.replace(/\D/g, "");
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      departures: prev.departures.map((d) =>
-                                        d.id === departure.id
-                                          ? { ...d, priceConfig: { ...(d.priceConfig || {}), [field]: raw } }
-                                          : d
-                                      ),
-                                    }));
-                                  }}
-                                  placeholder="0"
-                                  className={`w-full bg-transparent text-lg font-bold outline-none ${color}`}
-                                />
-                                <span className="shrink-0 text-[10px] font-semibold text-slate-400">VND</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* ── SECTION 2: Pricing rules ── */}
-                      <div>
-                        <div className="mb-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base">🛡️</span>
-                            <h4 className="text-sm font-bold text-slate-700">Quy tắc giảm giá</h4>
-                            {departure.pricingRules?.length > 0 && (
-                              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-600">
-                                {departure.pricingRules.length}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => {
-                              const newRule = {
-                                _tempId: Date.now(),
-                                ruleName: "",
-                                ruleType: "EARLY_BIRD",
-                                adjustmentType: "PERCENT",
-                                adjustmentValue: "",
-                                minDaysBefore: "",
-                                maxDaysBefore: "",
-                                minSlotsLeft: "",
-                                maxSlotsLeft: "",
-                                priority: (departure.pricingRules?.length ?? 0) + 1,
-                                isActive: true,
-                              };
-                              const key = newRule._tempId;
-                              setFormData((prev) => ({
-                                ...prev,
-                                departures: prev.departures.map((d) =>
-                                  d.id === departure.id
-                                    ? { ...d, pricingRules: [...(d.pricingRules || []), newRule] }
-                                    : d
-                                ),
-                              }));
-                              setExpandedRules((prev) => ({ ...prev, [key]: true }));
-                            }}
-                            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                          >
-                            + Thêm quy tắc
-                          </button>
-                        </div>
-
-                        {(!departure.pricingRules || departure.pricingRules.length === 0) && (
-                          <div className="rounded-xl border border-dashed border-slate-300 py-6 text-center text-sm text-slate-400">
-                            Chưa có quy tắc nào. Bấm "+ Thêm quy tắc" để tạo.
-                          </div>
-                        )}
-
-                        <div className="space-y-2">
-                          {(departure.pricingRules || []).map((rule) => {
-                            const ruleKey = rule.id ?? rule._tempId;
-                            const isExpanded = !!expandedRules[ruleKey];
-                            const ruleTypeLabel = {
-                              EARLY_BIRD: "Early Bird", LAST_MINUTE: "Last Minute",
-                              GROUP_DISCOUNT: "Group Discount", SLOT_BASED: "Slot Based",
-                            }[rule.ruleType] ?? rule.ruleType;
-
-                            const setRuleField = (f, v) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                departures: prev.departures.map((d) =>
-                                  d.id === departure.id
-                                    ? { ...d, pricingRules: d.pricingRules.map((r) =>
-                                        (r.id ?? r._tempId) === ruleKey ? { ...r, [f]: v } : r
-                                      )}
-                                    : d
-                                ),
-                              }));
-
-                            const removeRule = () =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                departures: prev.departures.map((d) =>
-                                  d.id === departure.id
-                                    ? { ...d, pricingRules: d.pricingRules.filter((r) => (r.id ?? r._tempId) !== ruleKey) }
-                                    : d
-                                ),
-                              }));
-
-                            return (
-                              <div key={ruleKey} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                                {/* ── Pill summary row (always visible) ── */}
-                                <div
-                                  className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-slate-50"
-                                  onClick={() => toggleRule(ruleKey)}
-                                >
-                                  {/* Expand chevron */}
-                                  <span
-                                    className="shrink-0 text-xs text-slate-400 transition-transform"
-                                    style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block", transition: "transform .2s" }}
-                                  >
-                                    ∧
-                                  </span>
-
-                                  {/* Rule name */}
-                                  <p className="flex-1 text-sm font-semibold text-slate-800">
-                                    {rule.ruleName || <span className="italic text-slate-400">Chưa đặt tên</span>}
-                                  </p>
-
-                                  {/* Pills */}
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                                      {ruleTypeLabel}
-                                    </span>
-                                    {rule.adjustmentValue && (
-                                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-600">
-                                        {rule.adjustmentValue}{rule.adjustmentType === "PERCENT" ? "%" : " VND"}
-                                      </span>
-                                    )}
-                                    {(rule.minDaysBefore || rule.maxDaysBefore) && (
-                                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
-                                        {rule.minDaysBefore || "?"}&ndash;{rule.maxDaysBefore || "?"} ngày trước
-                                      </span>
-                                    )}
-                                    {(rule.minSlotsLeft || rule.maxSlotsLeft) && (
-                                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
-                                        Slot {rule.minSlotsLeft || "?"}&ndash;{rule.maxSlotsLeft || "?"}
-                                      </span>
-                                    )}
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                                      P{rule.priority}
-                                    </span>
-                                  </div>
-
-                                  {/* Active toggle */}
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setRuleField("isActive", !rule.isActive); }}
-                                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold transition ${
-                                      rule.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-400"
-                                    }`}
-                                  >
-                                    {rule.isActive ? "Active" : "Inactive"}
-                                  </button>
-
-                                  {/* Delete */}
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); removeRule(); }}
-                                    className="shrink-0 rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-500"
-                                  >
-                                    <FiTrash2 />
-                                  </button>
-                                </div>
-
-                                {/* ── Expanded form ── */}
-                                {isExpanded && (
-                                  <div className="border-t border-slate-100 bg-slate-50 px-4 py-4">
-                                    {/* Rule name input */}
-                                    <div className="mb-4">
-                                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Tên quy tắc</label>
-                                      <input
-                                        value={rule.ruleName}
-                                        onChange={(e) => setRuleField("ruleName", e.target.value)}
-                                        placeholder="VD: Early Bird - Đặt sớm 30 ngày"
-                                        className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-                                      />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Loại rule</label>
-                                        <select
-                                          value={rule.ruleType}
-                                          onChange={(e) => setRuleField("ruleType", e.target.value)}
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none focus:border-blue-400"
-                                        >
-                                          <option value="EARLY_BIRD">Early Bird</option>
-                                          <option value="LAST_MINUTE">Last Minute</option>
-                                          <option value="GROUP_DISCOUNT">Group Discount</option>
-                                          <option value="SLOT_BASED">Slot Based</option>
-                                        </select>
-                                      </div>
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Loại điều chỉnh</label>
-                                        <select
-                                          value={rule.adjustmentType}
-                                          onChange={(e) => setRuleField("adjustmentType", e.target.value)}
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none focus:border-blue-400"
-                                        >
-                                          <option value="PERCENT">% Giảm</option>
-                                          <option value="FIXED">Cố định (VND)</option>
-                                        </select>
-                                      </div>
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Mức điều chỉnh</label>
-                                        <input
-                                          value={rule.adjustmentValue}
-                                          onChange={(e) => setRuleField("adjustmentValue", e.target.value)}
-                                          placeholder={rule.adjustmentType === "PERCENT" ? "-10" : "-200000"}
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Priority</label>
-                                        <input
-                                          type="number"
-                                          value={rule.priority}
-                                          onChange={(e) => setRuleField("priority", Number(e.target.value))}
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Min ngày trước</label>
-                                        <input
-                                          type="number"
-                                          value={rule.minDaysBefore}
-                                          onChange={(e) => setRuleField("minDaysBefore", e.target.value)}
-                                          placeholder="VD: 30"
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Max ngày trước</label>
-                                        <input
-                                          type="number"
-                                          value={rule.maxDaysBefore}
-                                          onChange={(e) => setRuleField("maxDaysBefore", e.target.value)}
-                                          placeholder="VD: 60"
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Min slot còn</label>
-                                        <input
-                                          type="number"
-                                          value={rule.minSlotsLeft}
-                                          onChange={(e) => setRuleField("minSlotsLeft", e.target.value)}
-                                          placeholder="VD: 1"
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-400">Max slot còn</label>
-                                        <input
-                                          type="number"
-                                          value={rule.maxSlotsLeft}
-                                          onChange={(e) => setRuleField("maxSlotsLeft", e.target.value)}
-                                          placeholder="VD: 5"
-                                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-400"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* ── Save button ── */}
-                      <div className="mt-5 flex justify-end border-t border-slate-200 pt-4">
-                        <button
-                          onClick={() => showToast("Đã lưu cấu hình giá cho lịch khởi hành.")}
-                          className="rounded-lg bg-blue-700 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-                        >
-                          💾 Lưu cấu hình giá
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  {isPriceOpen && <DeparturePricePanel departure={dep} tourId={id} />}
                 </>
               )}
             </div>
           );
         })}
-
-        <button className="w-full border-t border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-blue-700 hover:bg-slate-100">
-          ˇ {moreDepartureText}
-        </button>
       </div>
-
-      {/* ── Toast ── */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-2xl">
-          {toast}
-        </div>
-      )}
     </div>
   );
 };

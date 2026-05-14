@@ -9,7 +9,7 @@ import {
 import { DestinationSidebar } from "../components/tour-destination/DestinationSidebar";
 import { DestinationStats } from "../components/tour-destination/DestinationStats";
 import { DestinationTable } from "../components/tour-destination/DestinationTable";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 
 const pageSize = 10;
 const SEARCH_DEBOUNCE_MS = 500;

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "react-toastify";
+import { toast } from "../../utils/toast";
 import * as destinationApi from "../destinationApi";
 
 export const DESTINATION_QUERY_KEY = ["destinations"];

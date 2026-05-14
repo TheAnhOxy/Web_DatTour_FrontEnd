@@ -136,7 +136,7 @@ export const TourCard = ({ tour, onView, onToggleHot, onDelete, togglePending })
               <FiEye className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => onDelete(tour)}
+              onClick={() => onToggleHot?.(tour)}
               title={isActive ? 'Tạm dừng tour' : 'Kích hoạt tour'}
               className={`cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-xl border transition active:scale-95 ${
                 isActive

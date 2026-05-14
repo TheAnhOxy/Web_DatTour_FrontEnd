@@ -1,102 +1,94 @@
-import TourGrid from "../components/TourGrid";
+"use client";
 
-const tours = [
-  {
-    id: 1,
-    title: "Tour Mien Bac 4N3D",
-    destination: "Mien Bac",
-    time: "4 ngay 3 dem",
-    quantity: "12 nguoi",
-    rating: 5,
-    price: "3.200.000",
-    image:
-      "/clients/assets/images/gallery-tours/tour-mien-bac-4n3d-ha-noi-ninh-binh-ha-long-yen-tu-1.png",
-  },
-  {
-    id: 2,
-    title: "Tour Mien Trung 4N3D",
-    destination: "Mien Trung",
-    time: "4 ngay 3 dem",
-    quantity: "18 nguoi",
-    rating: 4,
-    price: "3.800.000",
-    image:
-      "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-1.png",
-  },
-  {
-    id: 3,
-    title: "Bien Dao Phu Quoc 3N2D",
-    destination: "Phu Quoc",
-    time: "3 ngay 2 dem",
-    quantity: "10 nguoi",
-    rating: 5,
-    price: "2.900.000",
-    image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-phu-quoc-1.jpg",
-  },
-  {
-    id: 4,
-    title: "Bien Dao Con Dao 3N2D",
-    destination: "Con Dao",
-    time: "3 ngay 2 dem",
-    quantity: "8 nguoi",
-    rating: 4,
-    price: "3.100.000",
-    image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-con-dao-1.jpg",
-  },
-  {
-    id: 5,
-    title: "Mien Bac 4N3D - Yen Tu",
-    destination: "Ha Long",
-    time: "4 ngay 3 dem",
-    quantity: "16 nguoi",
-    rating: 5,
-    price: "3.500.000",
-    image:
-      "/clients/assets/images/gallery-tours/tour-mien-bac-4n3d-ha-noi-ninh-binh-ha-long-yen-tu-2.png",
-  },
-  {
-    id: 6,
-    title: "Mien Trung 4N3D - Ba Na",
-    destination: "Da Nang",
-    time: "4 ngay 3 dem",
-    quantity: "14 nguoi",
-    rating: 4,
-    price: "3.900.000",
-    image:
-      "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-2.png",
-  },
-];
+import { useEffect, useState } from "react";
+import { getTours } from "@/api/coreApi_new";
 
-const toursPopular = [
-  {
-    id: 1,
-    title: "Mien Bac 4N3D",
-    destination: "Ha Long",
-    rating: "4.9",
-    image:
-      "/clients/assets/images/gallery-tours/tour-mien-bac-4n3d-ha-noi-ninh-binh-ha-long-yen-tu-3.png",
-  },
-  {
-    id: 2,
-    title: "Mien Trung 4N3D",
-    destination: "Hoi An",
-    rating: "4.8",
-    image:
-      "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-3.png",
-  },
-  {
-    id: 3,
-    title: "Bien Dao Phu Quoc",
-    destination: "Phu Quoc",
-    rating: "4.7",
-    image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-phu-quoc-2.jpg",
-  },
-];
+type TourItem = {
+  id: number;
+  title: string;
+  destination: string;
+  time: string;
+  quantity: string;
+  rating: number;
+  price: string;
+  image: string;
+  durationDays?: number;
+};
 
 export default function ToursPage() {
-  return (
-    
+  const [loading, setLoading] = useState(true);
+  const [toursPopular, setToursPopular] = useState<TourItem[]>([]);
+  const [allTours, setAllTours] = useState<TourItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterDuration, setFilterDuration] = useState("all");
+  const [filterTransport, setFilterTransport] = useState("all");
 
+  useEffect(() => {
+    const fetchAllTours = async () => {
+      setLoading(true);
+      try {
+        // Lấy 100 tour để bao quát hết bảng tours trong DB
+        const res = await getTours(undefined, undefined, undefined, 0, 100);
+        if (res.status === 200 && res.data && res.data.content) {
+          const fetchedTours = res.data.content;
+          
+          // Lấy tất cả tours (kể cả INACTIVE để trùng khớp số lượng trên DB)
+          const allDbTours = fetchedTours;
+          
+          // Map từ dữ liệu API sang kiểu TourItem
+          const mappedTours: TourItem[] = allDbTours.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            destination: t.region || t.categoryName || "Khác",
+            time: t.durationDays === 1 ? "1 ngày" : `${t.durationDays || 1} ngày ${Math.max(1, (t.durationDays || 1) - 1)} đêm`,
+            quantity: "Khởi hành hàng tuần", // Mock
+            rating: t.rating || 5,
+            price: new Intl.NumberFormat('vi-VN').format(t.basePrice || 0),
+            image: t.coverImageUrl || t.cover_image_url || "/clients/assets/images/gallery-tours/destination-default.jpg",
+            durationDays: t.durationDays || 1 // Dùng để group
+          }));
+
+          setAllTours(mappedTours);
+
+          // Tạo danh sách Popular (lọc các tour hot hoặc lấy 3 tour ngẫu nhiên/đầu tiên)
+          const popular = mappedTours.slice(0, 3);
+          setToursPopular(popular);
+        }
+      } catch (err) {
+        console.error("Lỗi khi fetch tours:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAllTours();
+  }, []);
+
+  const getDurationLabel = (days: number) => {
+    if (days === 1) return "Tour 1 ngày";
+    return `Tour ${days} ngày ${days - 1} đêm`;
+  };
+
+  // Lọc Tours
+  const filteredTours = allTours.filter(tour => {
+    if (searchTerm && !tour.title.toLowerCase().includes(searchTerm.toLowerCase()) && !tour.destination.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (filterDuration !== "all" && tour.durationDays?.toString() !== filterDuration) return false;
+    return true;
+  });
+
+  // Group by durationDays
+  const grouped: Record<number, TourItem[]> = {};
+  filteredTours.forEach((tour: any) => {
+    const days = tour.durationDays;
+    if (!grouped[days]) grouped[days] = [];
+    grouped[days].push(tour);
+  });
+
+  // Sắp xếp các nhóm theo số ngày (1 ngày -> 2 ngày -> 3 ngày...)
+  const sortedDurations = Object.keys(grouped)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  return (
     <>
       <section
         className="page-banner-area pt-50 pb-35 rel z-1 bgs-cover"
@@ -110,7 +102,7 @@ export default function ToursPage() {
               data-aos-duration="1500"
               data-aos-offset="50"
             >
-              Tours
+              Bảng Giá Tours
             </h2>
             <nav aria-label="breadcrumb">
               <ol
@@ -121,9 +113,9 @@ export default function ToursPage() {
                 data-aos-offset="50"
               >
                 <li className="breadcrumb-item">
-                  <a href="/">Trang chu</a>
+                  <a href="/">Trang chủ</a>
                 </li>
-                <li className="breadcrumb-item active">Tours</li>
+                <li className="breadcrumb-item active">Bảng Giá Tours</li>
               </ol>
             </nav>
           </div>
@@ -133,192 +125,160 @@ export default function ToursPage() {
       <section className="tour-grid-page py-100 rel z-1">
         <div className="container">
           <div className="row">
-            <div className="col-lg-3 col-md-6 col-sm-10 rmb-75">
-              <div className="shop-sidebar">
-                <div className="div_filter_clear">
-                  <button className="clear_filter" name="btn_clear">
-                    <a href="/tours">Clear</a>
-                  </button>
-                </div>
-                <div className="widget widget-filter" data-aos="fade-up" data-aos-delay="50" data-aos-duration="1500" data-aos-offset="50">
-                  <h6 className="widget-title">Loc theo gia</h6>
-                  <div className="price-filter-wrap">
-                    <div className="price-slider-range"></div>
-                    <div className="price">
-                      <span>Gia </span>
-                      <input type="text" id="price" readOnly />
-                    </div>
+            {/* Main Content Area - Full width */}
+            <div className="col-lg-12">
+              {/* Search Bar matching tourbonphuong */}
+              <div className="search-filter-bar bg-white shadow-sm rounded p-3 mb-4 d-flex flex-wrap gap-3 align-items-center" style={{ border: '1px solid #eee' }}>
+                <div className="flex-grow-1" style={{ minWidth: '250px' }}>
+                  <div className="input-group">
+                    <span className="input-group-text bg-transparent border-end-0"><i className="fal fa-search text-muted"></i></span>
+                    <input 
+                      type="text" 
+                      className="form-control border-start-0 ps-0" 
+                      placeholder="Tìm mã tour / lịch trình / lịch khởi hành…" 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      style={{ boxShadow: 'none' }}
+                    />
                   </div>
                 </div>
-
-                <div className="widget widget-activity" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                  <h6 className="widget-title">Diem den</h6>
-                  <ul className="radio-filter">
-                    <li>
-                      <input className="form-check-input" type="radio" name="domain" id="id_mien_bac" value="b" />
-                      <label htmlFor="id_mien_bac">
-                        Mien Bac <span>12</span>
-                      </label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="domain" id="id_mien_trung" value="t" />
-                      <label htmlFor="id_mien_trung">
-                        Mien Trung <span>9</span>
-                      </label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="domain" id="id_mien_nam" value="n" />
-                      <label htmlFor="id_mien_nam">
-                        Mien Nam <span>8</span>
-                      </label>
-                    </li>
-                  </ul>
+                <div style={{ minWidth: '150px' }}>
+                  <select 
+                    className="form-select"
+                    value={filterDuration}
+                    onChange={(e) => setFilterDuration(e.target.value)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <option value="all">Tất cả thời gian</option>
+                    <option value="1">1 ngày</option>
+                    <option value="2">2 ngày 1 đêm</option>
+                    <option value="3">3 ngày 2 đêm</option>
+                    <option value="4">4 ngày 3 đêm</option>
+                    <option value="5">5 ngày 4 đêm</option>
+                  </select>
                 </div>
-
-                <div className="widget widget-reviews" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                  <h6 className="widget-title">Danh gia</h6>
-                  <ul className="radio-filter">
-                    <li>
-                      <input className="form-check-input" type="radio" name="filter_star" id="5star" value="5" />
-                      <label htmlFor="5star">
-                        <span className="ratting">
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                        </span>
-                      </label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="filter_star" id="4star" value="4" />
-                      <label htmlFor="4star">
-                        <span className="ratting">
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star-half-alt white"></i>
-                        </span>
-                      </label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="filter_star" id="3star" value="3" />
-                      <label htmlFor="3star">
-                        <span className="ratting">
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star white"></i>
-                          <i className="fas fa-star-half-alt white"></i>
-                        </span>
-                      </label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="filter_star" id="2star" value="2" />
-                      <label htmlFor="2star">
-                        <span className="ratting">
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star white"></i>
-                          <i className="fas fa-star white"></i>
-                          <i className="fas fa-star-half-alt white"></i>
-                        </span>
-                      </label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="filter_star" id="1star" value="1" />
-                      <label htmlFor="1star">
-                        <span className="ratting">
-                          <i className="fas fa-star"></i>
-                          <i className="fas fa-star white"></i>
-                          <i className="fas fa-star white"></i>
-                          <i className="fas fa-star white"></i>
-                          <i className="fas fa-star-half-alt white"></i>
-                        </span>
-                      </label>
-                    </li>
-                  </ul>
+                <div style={{ minWidth: '150px' }}>
+                  <select 
+                    className="form-select"
+                    value={filterTransport}
+                    onChange={(e) => setFilterTransport(e.target.value)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <option value="all">Tất cả phương tiện</option>
+                    <option value="oto">Ô tô</option>
+                    <option value="maybay">Máy bay</option>
+                  </select>
                 </div>
+              </div>
 
-                <div className="widget widget-duration" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                  <h6 className="widget-title">Thoi gian</h6>
-                  <ul className="radio-filter">
-                    <li>
-                      <input className="form-check-input" type="radio" name="duration" id="3ngay2dem" value="3n2d" />
-                      <label htmlFor="3ngay2dem">3 ngay 2 dem</label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="duration" id="4ngay3dem" value="4n3d" />
-                      <label htmlFor="4ngay3dem">4 ngay 3 dem</label>
-                    </li>
-                    <li>
-                      <input className="form-check-input" type="radio" name="duration" id="5ngay4dem" value="5n4d" />
-                      <label htmlFor="5ngay4dem">5 ngay 4 dem</label>
-                    </li>
-                  </ul>
+              <div className="shop-shorter rel z-3 mb-20 d-flex flex-wrap justify-content-between align-items-center">
+                <div className="sort-text mb-15 me-4 me-xl-auto d-flex align-items-center gap-2">
+                  <strong>Khám phá các hành trình thú vị được thiết kế riêng cho bạn</strong>
+                  <span className="badge rounded-pill bg-danger fs-6 px-3 py-2">{filteredTours.length} tour</span>
                 </div>
+                <div className="d-flex align-items-center mb-15">
+                  <div className="sort-text me-3 text-nowrap">Sắp xếp theo</div>
+                  <select id="sorting_tours" className="form-select w-auto">
+                    <option value="default">Mặc định</option>
+                    <option value="new">Mới nhất</option>
+                    <option value="old">Cũ nhất</option>
+                    <option value="hight-to-low">Giá cao đến thấp</option>
+                    <option value="low-to-high">Giá thấp đến cao</option>
+                  </select>
+                </div>
+              </div>
 
-                <div className="widget widget-tour" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                  <h6 className="widget-title">Pho bien Tours</h6>
-                  {toursPopular.map((tour) => (
-                    <div className="destination-item tour-grid style-three bgc-lighter" key={tour.id}>
-                      <div className="image">
-                        <span className="badge">10% Off</span>
-                        <img src={tour.image} alt="Tour" />
-                      </div>
-                      <div className="content">
-                        <div className="destination-header">
-                          <span className="location">
-                            <i className="fal fa-map-marker-alt"></i>
-                            {tour.destination}
-                          </span>
-                          <div className="ratting">
-                            <i className="fas fa-star"></i>
-                            <span>{tour.rating}</span>
-                          </div>
-                        </div>
-                        <h6>
-                          <a href={`/tours/${tour.id}`}>{tour.title}</a>
-                        </h6>
-                      </div>
+              {loading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="sr-only">Đang tải...</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {sortedDurations.length === 0 ? (
+                    <div className="text-center py-5">
+                      <h4 className="text-muted">Không tìm thấy tour nào.</h4>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="widget widget-cta mt-30" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                <div className="content text-white">
-                  <span className="h6">Kham Pha Viet Nam</span>
-                  <h3>Dia diem du lich tot nhat</h3>
-                  <a href="/tours" className="theme-btn style-two bgc-secondary">
-                    <span data-hover="Kham pha ngay">Kham pha ngay</span>
-                    <i className="fal fa-arrow-right"></i>
-                  </a>
-                </div>
-                <div className="image">
-                  <img src="/clients/assets/images/widgets/cta-widget.png" alt="CTA" />
-                </div>
-                <div className="cta-shape">
-                  <img src="/clients/assets/images/widgets/cta-shape2.png" alt="Shape" />
-                </div>
-              </div>
-            </div>
-
-            <div className="col-lg-9">
-              <div className="shop-shorter rel z-3 mb-20">
-                <div className="sort-text mb-15 me-4 me-xl-auto">Tours tim thay</div>
-                <div className="sort-text mb-15 me-4">Sap xep theo</div>
-                <select id="sorting_tours">
-                  <option value="default">Sap xep theo</option>
-                  <option value="new">Moi nhat</option>
-                  <option value="old">Cu nhat</option>
-                  <option value="hight-to-low">Cao den thap</option>
-                  <option value="low-to-high">Thap den cao</option>
-                </select>
-              </div>
-
-              <TourGrid tours={tours} />
+                  ) : (
+                    sortedDurations.map((days) => (
+                      <div key={days} className="mb-50">
+                        <h3 className="section-title mb-30" style={{ borderBottom: '2px solid #fd4c5c', paddingBottom: '10px', display: 'inline-block' }}>
+                          {getDurationLabel(days)}
+                        </h3>
+                        
+                        <div className="table-responsive bg-white shadow-sm rounded p-3 mb-4">
+                          <table className="table table-hover align-middle mb-0" style={{ borderCollapse: 'separate', borderSpacing: '0 10px' }}>
+                            <thead className="table-light">
+                              <tr>
+                                <th scope="col" style={{ width: '15%', border: 'none', padding: '15px' }}>Hình ảnh</th>
+                                <th scope="col" style={{ width: '45%', border: 'none', padding: '15px' }}>Tên Tour</th>
+                                <th scope="col" style={{ width: '20%', border: 'none', padding: '15px' }}>Thời gian</th>
+                                <th scope="col" style={{ width: '20%', border: 'none', padding: '15px' }} className="text-end">Giá & Đặt</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {grouped[days].map((tour) => (
+                                <tr key={tour.id} style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                                  <td style={{ padding: '15px', border: 'none', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', background: '#fff' }}>
+                                    <div className="image-wrapper" style={{ overflow: 'hidden', borderRadius: '8px' }}>
+                                      <img 
+                                        src={tour.image} 
+                                        alt={tour.title} 
+                                        loading="lazy"
+                                        className="img-fluid transition-hover" 
+                                        style={{ height: '90px', width: '100%', objectFit: 'cover', transition: 'transform 0.3s' }} 
+                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                      />
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '15px', border: 'none', background: '#fff' }}>
+                                    <h5 className="mb-1" style={{ fontSize: '18px' }}>
+                                      <a href={`/destination/${tour.id}`} className="text-dark" style={{ textDecoration: 'none' }}
+                                         onMouseOver={(e) => e.currentTarget.style.color = '#fd4c5c'}
+                                         onMouseOut={(e) => e.currentTarget.style.color = '#1a1a1a'}>
+                                        {tour.title}
+                                      </a>
+                                    </h5>
+                                    <div className="small text-muted mb-2">
+                                      <span className="me-3"><i className="fal fa-barcode text-primary me-1"></i> Mã tour: <strong>T-{tour.id}</strong></span>
+                                      <span><i className="fal fa-map-marker-alt text-primary me-1"></i> {tour.destination}</span>
+                                    </div>
+                                    <div className="small text-warning">
+                                      {[...Array(5)].map((_, i) => (
+                                        <i key={i} className={i < tour.rating ? "fas fa-star" : "far fa-star"}></i>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '15px', border: 'none', background: '#fff' }}>
+                                    <div className="text-muted fw-medium">
+                                      <i className="fal fa-clock text-primary me-2"></i> {tour.time}
+                                    </div>
+                                    <div className="text-muted small mt-1">
+                                      <i className="fal fa-car text-primary me-2"></i> Ô tô / Máy bay
+                                    </div>
+                                    <div className="text-muted small mt-1">
+                                      <i className="fal fa-calendar-alt text-primary me-2"></i> 
+                                      Khởi hành: <strong>Hàng ngày</strong>
+                                    </div>
+                                  </td>
+                                  <td className="text-end" style={{ padding: '15px', border: 'none', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', background: '#fff' }}>
+                                    <div className="text-danger fw-bold fs-4 mb-2">{tour.price} đ</div>
+                                    <a href={`/booking/${tour.id}`} className="theme-btn style-two py-2 px-3 w-100 text-center" style={{ fontSize: '14px', borderRadius: '5px' }}>
+                                      <span data-hover="Đặt Tour">Đặt Tour</span>
+                                    </a>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -338,23 +298,23 @@ export default function ToursPage() {
                 data-aos-offset="50"
               >
                 <div className="section-title counter-text-wrap mb-45">
-                  <h2>Dang ky nhan ban tin cua chung toi de nhan them nhieu uu dai & meo</h2>
+                  <h2>Đăng ký nhận bản tin của chúng tôi để nhận thêm nhiều ưu đãi & mẹo</h2>
                   <p>
                     Website{" "}
                     <span className="count-text plus" data-speed="3000" data-stop="34500">
                       0
                     </span>{" "}
-                    trai nghiem pho bien nhat ma ban se nho
+                    trải nghiệm phổ biến nhất mà bạn sẽ nhớ
                   </p>
                 </div>
                 <form className="newsletter-form mb-15" action="#">
-                  <input id="news-email" type="email" placeholder="Email Address" required />
+                  <input id="news-email" type="email" placeholder="Địa chỉ email" required />
                   <button type="submit" className="theme-btn bgc-secondary style-two">
-                    <span data-hover="Subscribe">Subscribe</span>
+                    <span data-hover="Đăng ký">Đăng ký</span>
                     <i className="fal fa-arrow-right"></i>
                   </button>
                 </form>
-                <p>Khong yeu cau the tin dung. Khong cam ket</p>
+                <p>Không yêu cầu thẻ tín dụng. Không cam kết</p>
               </div>
               <div
                 className="newsletter-bg-image"

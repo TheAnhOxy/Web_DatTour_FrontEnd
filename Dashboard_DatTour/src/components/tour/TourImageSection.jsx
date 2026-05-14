@@ -12,6 +12,7 @@ const TourImageSection = ({ tourId }) => {
   const fileRef = useRef();
   const [uploading, setUploading] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data: images = [], isLoading } = useTourImagesQuery(tourId);
   const uploadMut = useUploadImageMutation(tourId);
@@ -102,9 +103,7 @@ const TourImageSection = ({ tourId }) => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm("Xóa ảnh này? Ảnh cũng sẽ bị xóa khỏi S3.")) {
-                    deleteMut.mutate(img.id);
-                  }
+                  setDeleteTarget(img);
                 }}
                 title="Xóa ảnh"
                 className="rounded-full bg-white p-1.5 text-red-500 hover:bg-red-50"
@@ -148,6 +147,50 @@ const TourImageSection = ({ tourId }) => {
       <p className="text-[11px] text-slate-400">
         Hover vào ảnh để đặt bìa hoặc xóa. Ảnh xóa sẽ bị xóa khỏi S3.
       </p>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+            <div className="border-b border-slate-100 bg-gradient-to-r from-rose-50 to-white px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                  <FiTrash2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-slate-900">Xóa ảnh tour</h4>
+                  <p className="text-sm text-slate-500">Thao tác này không thể hoàn tác.</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-sm leading-6 text-slate-600">
+                Bạn có chắc muốn xóa ảnh này khỏi tour và S3 không?
+              </p>
+              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <img src={deleteTarget.imageUrl} alt="Ảnh sẽ bị xóa" className="h-40 w-full object-cover" />
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => {
+                    deleteMut.mutate(deleteTarget.id);
+                    setDeleteTarget(null);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                >
+                  <FiTrash2 className="h-4 w-4" />
+                  Xác nhận xóa
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

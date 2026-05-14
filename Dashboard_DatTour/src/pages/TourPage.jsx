@@ -4,6 +4,7 @@ import { MiniStatSquares } from "../components/MiniStatSquares";
 import FilterBar from "../components/tour-page/FilterBar";
 import ToursGrid from "../components/tour-page/ToursGrid";
 import DeleteConfirmModal from "../components/tour-page/DeleteConfirmModal";
+import ToggleHotConfirmModal from "../components/tour-page/ToggleHotConfirmModal";
 import { useTourListQuery, useSearchToursQuery, useTourCategoriesQuery, useDeleteTourMutation, useToggleHotMutation } from "../api/hooks/tourHooks";
 
 const useDebounce = (value, delay = 500) => {
@@ -42,6 +43,7 @@ export const TourPage = () => {
   const [page, setPage] = useState(0);
   const [tourToDelete, setTourToDelete] = useState(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [tourToToggle, setTourToToggle] = useState(null);
 
   const SIZE = 9;
   const debouncedSearchTerm = useDebounce(searchTerm);
@@ -136,8 +138,17 @@ export const TourPage = () => {
     }
   };
 
-  const handleToggleHot = (tourId) => {
-    toggleHotMutation.mutate(tourId);
+  const handleToggleHot = (tour) => {
+    if (!tour) return;
+    setTourToToggle(tour);
+  };
+
+  const handleConfirmToggleHot = () => {
+    if (!tourToToggle) return;
+    toggleHotMutation.mutate(tourToToggle.id, {
+      onSuccess: () => setTourToToggle(null),
+      onError: () => setTourToToggle(null),
+    });
   };
 
   return (
@@ -258,6 +269,13 @@ export const TourPage = () => {
         }}
         onConfirm={handleConfirmDelete}
         deletePending={deleteMutation.isPending}
+      />
+
+      <ToggleHotConfirmModal
+        tour={tourToToggle}
+        onCancel={() => setTourToToggle(null)}
+        onConfirm={handleConfirmToggleHot}
+        isPending={toggleHotMutation.isPending}
       />
     </div>
   );

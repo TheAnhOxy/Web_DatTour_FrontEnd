@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "react-toastify";
+import { toast } from "../../utils/toast";
 import * as tourApi from "../tourApi";
 import * as categoryApi from "../categoryApi";
 import * as destinationApi from "../destinationApi";
@@ -21,6 +21,16 @@ export const useAllDestinationsQuery = () =>
     queryKey: TOUR_KEYS.destinations,
     queryFn: () => destinationApi.getAll().then((response) => response.data?.content ?? response.data ?? []),
     staleTime: 1000 * 60 * 10,
+  });
+
+export const useSearchDestinationsQuery = (keyword = "") =>
+  useQuery({
+    queryKey: ["destinations", "search", keyword],
+    queryFn: () =>
+      destinationApi.search(keyword, 0, 20).then((r) => r.data?.content ?? r.data ?? []),
+    enabled: keyword.trim().length >= 1,
+    staleTime: 500,
+    keepPreviousData: true,
   });
 
 export const useTourListQuery = (filters) =>

@@ -8,7 +8,8 @@ interface Destination {
   cityName: string;
   region: string;
   country: string;
-  imageUrl: string;
+  imageUrl?: string;
+  image_url?: string;
 }
 
 export default function DestinationPage() {
@@ -20,7 +21,7 @@ export default function DestinationPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await getDestinations(0, 20);
+        const res = await getDestinations(0, 50);
         if (res.status === 200 && res.data && res.data.content) {
           setDestinations(res.data.content);
         }
@@ -131,7 +132,7 @@ export default function DestinationPage() {
                           <i className="fas fa-heart"></i>
                         </a>
                         <img 
-                          src={dest.imageUrl || "/clients/assets/images/destinations/destination-default.jpg"} 
+                          src={dest.imageUrl || dest.image_url || "/clients/assets/images/destinations/destination-default.jpg"} 
                           alt={dest.cityName} 
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />

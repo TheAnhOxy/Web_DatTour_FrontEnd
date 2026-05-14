@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FiEdit2, FiTrash2, FiSave, FiLoader } from "react-icons/fi";
-import { useTourDetailQuery, useUpdateTourMutation, useTourCategoriesQuery } from "../api/hooks/tourHooks";
+import { useTourDetailQuery, useUpdateTourMutation, useTourCategoriesQuery, useSearchDestinationsQuery } from "../api/hooks/tourHooks";
 import { useDeparturesQuery, useCreateDepartureMutation, useUpdateDepartureMutation, useDeleteDepartureMutation } from "../api/hooks/departureHooks";
 import { useAddDestinationMutation, useRemoveDestinationMutation } from "../api/hooks/tourDestinationHooks";
 import { useTransportationsQuery } from "../api/hooks/transportationHooks";
@@ -123,6 +123,84 @@ const DepEditFields = ({ form, setForm }) => (
 
 const EMPTY_DEP = { startDate: "", endDate: "", maxSlots: 20, bookedSlots: 0, status: "OPEN", pickupName: "", pickupAddress: "", pickupTime: "" };
 
+// ── Searchable destination combobox — MODULE-LEVEL (dùng API search có debounce) ─────────────
+const DestSearchSelect = ({ staticOptions = [], onSelect }) => {
+  const [search, setSearch] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+
+  // 300ms debounce
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data: apiResults = [], isFetching } = useSearchDestinationsQuery(debouncedSearch);
+
+  // When no keyword → show pre-loaded static list; when typing → show API results
+  const displayList = debouncedSearch.length >= 1 ? apiResults : staticOptions;
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative w-full">
+      {/* Search input */}
+      <div
+        className={`flex h-10 w-full cursor-text items-center gap-2 rounded-lg border px-3 text-sm bg-white transition
+          ${open ? "border-blue-400 ring-1 ring-blue-100" : "border-slate-300"}`}
+        onClick={() => setOpen(true)}
+      >
+        <span className="text-slate-400 text-sm">🔍</span>
+        <input
+          autoFocus={open}
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Tìm theo tên thành phố, quốc gia..."
+          className="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-400"
+        />
+        {isFetching && <span className="shrink-0 text-[10px] text-slate-400 animate-pulse">...</span>}
+        {search && (
+          <button onClick={e => { e.stopPropagation(); setSearch(""); }}
+            className="shrink-0 cursor-pointer text-slate-300 hover:text-red-400 text-lg leading-none">×</button>
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+          {isFetching && debouncedSearch.length >= 1 ? (
+            <p className="px-4 py-3 text-xs text-slate-400 text-center animate-pulse">Đang tìm kiếm...</p>
+          ) : displayList.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-slate-400 text-center">
+              {debouncedSearch ? `Không tìm thấy “${debouncedSearch}”` : "Chưa có điểm đến khả dụng"}
+            </p>
+          ) : (
+            displayList.map(d => (
+              <button key={d.id}
+                onClick={() => { onSelect(String(d.id)); setSearch(""); setOpen(false); }}
+                className="w-full cursor-pointer px-4 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 transition text-slate-700 group"
+              >
+                <span className="flex-1 truncate font-medium">{d.cityName ?? d.name}</span>
+                {(d.region || d.country) && (
+                  <span className="shrink-0 text-[10px] text-slate-400">{[d.region, d.country].filter(Boolean).join(" · ")}</span>
+                )}
+                <span className="shrink-0 text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition">+ Thêm</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const TourDetailPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -151,7 +229,9 @@ export const TourDetailPage = () => {
   const [selectedDestId, setSelectedDestId] = useState("");
 
   useEffect(() => {
-    if (tour) setFormData({
+    // Only init once (formData === null) — prevents destination/image
+    // mutations from re-fetching tour and wiping unsaved edits
+    if (tour && formData === null) setFormData({
       title: tour.title ?? "",
       slug: tour.slug ?? "",
       description: tour.description ?? "",
@@ -168,6 +248,11 @@ export const TourDetailPage = () => {
       transportationId: tour.transportationId ?? "",
     });
   }, [tour]);
+
+  useEffect(() => {
+    if (!tour?.slug || !formData || formData.slug === tour.slug) return;
+    setFormData((prev) => (prev ? { ...prev, slug: tour.slug ?? "" } : prev));
+  }, [tour?.slug, formData]);
 
   if (isLoading) return (
     <div className="space-y-4 animate-pulse">
@@ -212,6 +297,14 @@ export const TourDetailPage = () => {
         isHot: formData.isHot,
         categoryId: formData.categoryId ? Number(formData.categoryId) : null,
         transportationId: formData.transportationId ? Number(formData.transportationId) : null,
+      },
+    },
+    {
+      onSuccess: (response) => {
+        const savedSlug = response?.data?.slug ?? response?.slug;
+        if (savedSlug) {
+          setFormData((prev) => (prev ? { ...prev, slug: savedSlug } : prev));
+        }
       },
     });
   };
@@ -285,7 +378,7 @@ export const TourDetailPage = () => {
           <span className="truncate max-w-sm text-sm font-semibold text-slate-600">— {tour.title}</span>
         </div>
         <button onClick={handleSave} disabled={updateTour.isPending}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-60">
+          className="fixed right-6 top-26 z-50 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-5 py-2 text-sm font-bold text-white shadow-xl shadow-blue-950/20 hover:bg-blue-800 disabled:opacity-60 sm:right-8">
           {updateTour.isPending ? <><FiLoader className="animate-spin" /> Đang lưu...</> : <><FiSave /> Lưu thay đổi</>}
         </button>
       </div>
@@ -354,19 +447,20 @@ export const TourDetailPage = () => {
               {(tour.destinations ?? []).length === 0 && <p className="text-sm italic text-slate-400">Chưa có điểm đến.</p>}
             </div>
             {isAddingDest && (
-              <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
-                <Lbl>Chọn điểm đến</Lbl>
-                <div className="flex gap-2">
-                  <select value={selectedDestId} onChange={e => setSelectedDestId(e.target.value)} className={inputCls}>
-                    <option value="">-- Chọn --</option>
-                    {availableDestinations.map(d => <option key={d.id} value={d.id}>{d.cityName ?? d.name}</option>)}
-                  </select>
-                  <button onClick={handleAddDest} disabled={!selectedDestId}
-                    className="rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-40">
-                    Thêm
-                  </button>
-                  <button onClick={() => setIsAddingDest(false)} className="rounded-lg border border-slate-300 px-3 text-sm text-slate-500">Hủy</button>
+              <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-blue-700">Chọn điểm đến — nhấp vào để thêm ngay</p>
+                  <button onClick={() => setIsAddingDest(false)}
+                    className="cursor-pointer text-xs text-slate-400 hover:text-slate-600">Hủy ×</button>
                 </div>
+                <DestSearchSelect
+                  staticOptions={availableDestinations}
+                  onSelect={(destId) => {
+                    setSelectedDestId(destId);
+                    addDest.mutate(Number(destId));
+                    setIsAddingDest(false);
+                  }}
+                />
               </div>
             )}
           </Card>
@@ -377,7 +471,7 @@ export const TourDetailPage = () => {
           <Card title="Thông tin cơ bản">
             <div className="space-y-3">
               <div><Lbl>Tiêu đề Tour</Lbl><input value={formData.title} onChange={e => set("title", e.target.value)} className={inputCls} /></div>
-              <div><Lbl>Slug (URL)</Lbl><input value={formData.slug} onChange={e => set("slug", e.target.value)} className={`${inputCls} bg-slate-50 italic text-slate-500`} /></div>
+              <div><Lbl>Slug (URL)</Lbl><input value={formData.slug} readOnly className={`${inputCls} bg-slate-100 italic text-slate-500 cursor-not-allowed`} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Lbl>Danh mục</Lbl>

@@ -16,9 +16,12 @@ export default function BookingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<any>(null);
   const [selectedDepId, setSelectedDepId] = useState<string | number>(id);
+  // priceConfig của departure đang chọn (cập nhật khi chọn ngày khởi hành khác)
+  const [selectedPriceConfig, setSelectedPriceConfig] = useState<any>(null);
 
   // --- STATES ---
-  const [activeTab, setActiveTab] = useState("all");
+  // activeTab giờ dùng departure ID (string) để đồng bộ với bảng lịch
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedPackage, setSelectedPackage] = useState<string>("");
   const [numAdults, setNumAdults] = useState(2);
   const [numChildren, setNumChildren] = useState(0);
@@ -143,6 +146,10 @@ export default function BookingDetailPage() {
             setTourDetail(mergedData);
             setSelectedDate(mergedData.startDate);
             setSelectedDepId(depData.id);
+            // Cài priceConfig ban đầu cho departure được chọn
+            setSelectedPriceConfig(mergedData.priceConfig);
+            // Tab mặc định = departure ID hiện tại
+            setActiveTab(String(depData.id));
             
             // Cài đặt gói mặc định
             setSelectedPackage(mergedData.packages[0].id);
@@ -178,35 +185,44 @@ export default function BookingDetailPage() {
   // --- MOCK DATA BASED ON API ---
     // --- MOCK DATA BASED ON API ---
     // --- MOCK DATA BASED ON API ---
-  const dateTabs = useMemo(() => {
-    // Nếu chưa có dữ liệu, trả về tab mặc định
-    if (!schedules || schedules.length === 0) {
-        return [{ label: "Tất cả", value: "all" }];
+  // Hàm chọn một departure: cập nhật selectedDepId, selectedDate, priceConfig, và activeTab
+  const selectDeparture = (dep: any) => {
+    setSelectedDepId(dep.id);
+    setSelectedDate(dep.date);
+    setActiveTab(String(dep.id));
+    // Cập nhật priceConfig theo departure được chọn
+    if (dep.priceConfig) {
+      const toNum = (v: any) => { const n = Number(v); return isNaN(n) ? 0 : n; };
+      setSelectedPriceConfig({
+        adultPrice: toNum(dep.priceConfig.adultPrice),
+        child1014Price: toNum(dep.priceConfig.child1014Price),
+        child49Price: toNum(dep.priceConfig.child49Price),
+        babyPrice: toNum(dep.priceConfig.babyPrice),
+      });
+    } else {
+      // Nếu departure không có priceConfig riêng, giữ giá ban đầu
+      setSelectedPriceConfig(tourDetail?.priceConfig || null);
     }
-    
-    const tabs = schedules
-      .slice(0, 3) // Lấy 3 lịch trình đầu tiên
-      .map((s: any) => {
-        // Kiểm tra an toàn: Nếu s.date không phải là object Date hợp lệ
-        if (!(s.date instanceof Date) || isNaN(s.date.getTime())) {
-          return null;
-        }
+  };
 
+  // dateTabs: mỗi tab = 1 departure thực (dùng depId làm value để unique)
+  const dateTabs = useMemo(() => {
+    if (!schedules || schedules.length === 0) {
+      return [];
+    }
+    return schedules
+      .filter((s: any) => s.date instanceof Date && !isNaN(s.date.getTime()))
+      .slice(0, 5) // Hiện tối đa 5 tab
+      .map((s: any) => {
         const dd = String(s.date.getDate()).padStart(2, '0');
         const mm = String(s.date.getMonth() + 1).padStart(2, '0');
-        
-        return { 
-          label: `${dd}/${mm}`, 
-          value: `${dd}/${mm}`, 
-          id: s.id // Lưu lại ID để làm Key nếu cần
+        return {
+          label: `${dd}/${mm}`,
+          value: String(s.id), // Dùng ID làm key - unique
+          depId: s.id,
+          dep: s,
         };
-      })
-      .filter((tab): tab is any => tab !== null); // Loại bỏ các tab lỗi
-    
-    // Luôn thêm tab "Tất cả" vào cuối
-    tabs.push({ label: "Tất cả", value: "all" });
-    
-    return tabs;
+      });
   }, [schedules]);
 
 
@@ -239,14 +255,14 @@ export default function BookingDetailPage() {
       return pkg ? pkg.extraPrice : 0;
   };
 
-  const adultPrice = tourDetail ? (tourDetail.priceConfig?.adultPrice || 0) + getPackageExtraPrice() : 0;
-  const childPrice = tourDetail ? (tourDetail.priceConfig?.child1014Price || 0) + getPackageExtraPrice() : 0;
+  // Giá dùng selectedPriceConfig (departure đang chọn) > priceConfig gốc của tour
+  const activePriceConfig = selectedPriceConfig || tourDetail?.priceConfig;
+  const adultPrice = activePriceConfig ? (activePriceConfig.adultPrice || 0) + getPackageExtraPrice() : 0;
+  const childPrice = activePriceConfig ? (activePriceConfig.child1014Price || 0) + getPackageExtraPrice() : 0;
 
   // --- FILTER & CALCULATE ---
-  const filteredSchedules = schedules.filter(s => {
-    if (activeTab === "all") return true;
-    return formatDateShort(s.date) === activeTab;
-  });
+  // Bảng lịch luôn hiện tất cả (filter đã bị bỏ để không ẩn lịch)
+  const filteredSchedules = schedules;
 
   const displayedSchedules = filteredSchedules.slice(0, visibleRows);
 
@@ -991,19 +1007,19 @@ export default function BookingDetailPage() {
               <div className="mb-4">
                 <div className="gallery-grid">
                   <div className="gallery-main">
-                    <img src={tourDetail.images?.[0] || tourDetail.image || "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=1200&auto=format&fit=crop"} alt={tourDetail.title} className="gallery-img" />
+                    <img src={tourDetail.images?.[0]?.imageUrl || tourDetail.image || "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=1200&auto=format&fit=crop"} alt={tourDetail.images?.[0]?.altText || tourDetail.title} className="gallery-img" />
                   </div>
                   <div className="gallery-sub">
-                    <img src={tourDetail.images?.[1] || "https://images.unsplash.com/photo-1555502575-5cb391e63a32?q=80&w=800&auto=format&fit=crop"} alt="Cảnh quan 1" className="gallery-img" />
+                    <img src={tourDetail.images?.[1]?.imageUrl || "https://images.unsplash.com/photo-1555502575-5cb391e63a32?q=80&w=800&auto=format&fit=crop"} alt={tourDetail.images?.[1]?.altText || "Cảnh quan 1"} className="gallery-img" />
                   </div>
                   <div className="gallery-sub">
-                    <img src={tourDetail.images?.[2] || "https://images.unsplash.com/photo-1583417319070-4a69db38a482?q=80&w=800&auto=format&fit=crop"} alt="Cảnh quan 2" className="gallery-img" />
+                    <img src={tourDetail.images?.[2]?.imageUrl || "https://images.unsplash.com/photo-1583417319070-4a69db38a482?q=80&w=800&auto=format&fit=crop"} alt={tourDetail.images?.[2]?.altText || "Cảnh quan 2"} className="gallery-img" />
                   </div>
                   <div className="gallery-sub">
-                    <img src={tourDetail.images?.[3] || "https://images.unsplash.com/photo-1506527632616-65e3170757af?q=80&w=800&auto=format&fit=crop"} alt="Cảnh quan 3" className="gallery-img" />
+                    <img src={tourDetail.images?.[3]?.imageUrl || "https://images.unsplash.com/photo-1506527632616-65e3170757af?q=80&w=800&auto=format&fit=crop"} alt={tourDetail.images?.[3]?.altText || "Cảnh quan 3"} className="gallery-img" />
                   </div>
                   <div className="gallery-sub">
-                    <img src={tourDetail.images?.[4] || "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?q=80&w=800&auto=format&fit=crop"} alt="Ẩm thực/Hoạt động" className="gallery-img" />
+                    <img src={tourDetail.images?.[4]?.imageUrl || "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?q=80&w=800&auto=format&fit=crop"} alt={tourDetail.images?.[4]?.altText || "Ẩm thực/Hoạt động"} className="gallery-img" />
                     {tourDetail.images?.length > 5 && (
                       <div className="overlay-more">
                         <span>+{tourDetail.images.length - 5} hình ảnh</span>
@@ -1101,26 +1117,39 @@ export default function BookingDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {displayedSchedules.map((item) => (
-                          <tr key={item.id} className="schedule-row">
-                            <td className="font-weight-bold">{formatFullDate(item.date)}</td>
-                            <td>{getStatusBadge(item.status)}</td>
-                            <td className="font-weight-bold" style={{color: "#FF6B00"}}>{formatPrice(item.price || adultPrice)}</td>
-                             <td className="text-right">
-                               <button 
-                                 className="select-btn" 
-                                 disabled={item.status === "Hết chỗ"}
-                                 onClick={() => {
-                                   setSelectedDate(item.date);
-                                   setSelectedDepId(item.id);
-                                   window.scrollTo({ top: 0, behavior: 'smooth' });
-                                 }}
-                               >
-                                 Chọn
-                               </button>
-                             </td>
-                          </tr>
-                        ))}
+                        {displayedSchedules.map((item) => {
+                          const isSelected = String(item.id) === String(selectedDepId);
+                          return (
+                            <tr key={item.id} className="schedule-row" style={isSelected ? {background: "#FFF8F0", borderLeft: "3px solid #FF6B00"} : {}}>
+                              <td className="font-weight-bold">
+                                {formatFullDate(item.date)}
+                                {isSelected && <span style={{marginLeft: 8, color: "#FF6B00", fontSize: 12, fontWeight: 700}}>● Đang chọn</span>}
+                              </td>
+                              <td>
+                                {getStatusBadge(item.status)}
+                                {item.maxSlots != null && item.bookedSlots != null && (
+                                  <div style={{fontSize: '0.8rem', color: '#666', marginTop: '4px'}}>
+                                    Còn {Math.max(0, item.maxSlots - item.bookedSlots)} chỗ
+                                  </div>
+                                )}
+                              </td>
+                              <td className="font-weight-bold" style={{color: "#FF6B00"}}>{formatPrice(item.price || adultPrice)}</td>
+                              <td className="text-right">
+                                <button 
+                                  className="select-btn" 
+                                  disabled={item.status === "Hết chỗ"}
+                                  style={isSelected ? {background: "#FF6B00", color: "white", borderColor: "#FF6B00"} : {}}
+                                  onClick={() => {
+                                    selectDeparture(item);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }}
+                                >
+                                  {isSelected ? "✓ Đã chọn" : "Chọn"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1166,7 +1195,7 @@ export default function BookingDetailPage() {
                           {pkg.extraPrice === 0 && <span className="badge-discount">Tiêu chuẩn</span>}
                         </div>
                         <div className="text-muted small" style={{marginLeft: "32px"}}>
-                          NL: {formatPrice((tourDetail.priceConfig?.adultPrice || 0) + pkg.extraPrice)} - TE: {formatPrice((tourDetail.priceConfig?.child1014Price || 0) + pkg.extraPrice)}
+                          NL: {formatPrice((activePriceConfig?.adultPrice || 0) + pkg.extraPrice)} - TE: {formatPrice((activePriceConfig?.child1014Price || 0) + pkg.extraPrice)}
                         </div>
                       </div>
                     ))}
@@ -1176,17 +1205,30 @@ export default function BookingDetailPage() {
                 {/* 2. Ngày khởi hành */}
                 <div className="mb-4">
                   <h5 className="font-weight-bold mb-3" style={{fontSize: "1rem"}}>2. Ngày khởi hành</h5>
-                  <div className="date-tabs-scroll">
-                    {dateTabs.map(tab => (
-                      <div 
-                        key={tab.value}
-                        className={`date-tab ${activeTab === tab.value ? 'active' : ''}`}
-                        onClick={() => setActiveTab(tab.value)}
-                      >
-                        {tab.label}
-                      </div>
-                    ))}
-                  </div>
+                  {/* Hiện ngày đang chọn */}
+                  {selectedDate && (
+                    <div style={{fontSize: "0.85rem", color: "#FF6B00", fontWeight: 600, marginBottom: 10}}>
+                      <i className="far fa-calendar-check mr-1"></i>
+                      {formatFullDate(selectedDate)}
+                    </div>
+                  )}
+                  {dateTabs.length > 0 ? (
+                    <div className="date-tabs-scroll">
+                      {dateTabs.map(tab => (
+                        <div 
+                          key={tab.value}
+                          className={`date-tab ${activeTab === tab.value ? 'active' : ''}`}
+                          onClick={() => {
+                            selectDeparture(tab.dep);
+                          }}
+                        >
+                          {tab.label}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-muted small">Đang tải lịch khởi hành...</div>
+                  )}
                 </div>
 
                 {/* 3. Chọn số hành khách */}

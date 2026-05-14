@@ -11,9 +11,10 @@ type TourItem = {
 
 type TourGridProps = {
   tours: TourItem[];
+  hidePagination?: boolean;
 };
 
-export default function TourGrid({ tours }: TourGridProps) {
+export default function TourGrid({ tours, hidePagination = false }: TourGridProps) {
   return (
     <div className="tour-grid-wrap">
       <div className="loader"></div>
@@ -74,40 +75,42 @@ export default function TourGrid({ tours }: TourGridProps) {
           </div>
         ))}
 
-        <div className="col-lg-12">
-          <ul
-            className="pagination justify-content-center pt-15 flex-wrap pagination-tours"
-            data-aos="fade-up"
-            data-aos-duration="1500"
-            data-aos-offset="50"
-          >
-            <li className="page-item disabled">
-              <span className="page-link">
-                <i className="far fa-chevron-left"></i>
-              </span>
-            </li>
-            <li className="page-item active">
-              <a className="page-link" href="#">
-                1
-              </a>
-            </li>
-            <li className="page-item">
-              <a className="page-link" href="#">
-                2
-              </a>
-            </li>
-            <li className="page-item">
-              <a className="page-link" href="#">
-                3
-              </a>
-            </li>
-            <li className="page-item">
-              <a className="page-link" href="#">
-                <i className="far fa-chevron-right"></i>
-              </a>
-            </li>
-          </ul>
-        </div>
+        {!hidePagination && (
+          <div className="col-lg-12">
+            <ul
+              className="pagination justify-content-center pt-15 flex-wrap pagination-tours"
+              data-aos="fade-up"
+              data-aos-duration="1500"
+              data-aos-offset="50"
+            >
+              <li className="page-item disabled">
+                <span className="page-link">
+                  <i className="far fa-chevron-left"></i>
+                </span>
+              </li>
+              <li className="page-item active">
+                <a className="page-link" href="#">
+                  1
+                </a>
+              </li>
+              <li className="page-item">
+                <a className="page-link" href="#">
+                  2
+                </a>
+              </li>
+              <li className="page-item">
+                <a className="page-link" href="#">
+                  3
+                </a>
+              </li>
+              <li className="page-item">
+                <a className="page-link" href="#">
+                  <i className="far fa-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

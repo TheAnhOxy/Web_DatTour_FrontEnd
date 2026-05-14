@@ -1,88 +1,155 @@
 import React from 'react';
-import { FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiMapPin, FiClock, FiCalendar, FiEye, FiToggleLeft, FiToggleRight, FiStar, FiZap } from 'react-icons/fi';
 
 export const TourCard = ({ tour, onView, onToggleHot, onDelete, togglePending }) => {
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return null;
     try {
-      const date = new Date(dateStr);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
+      const d = new Date(dateStr);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     } catch {
-      return dateStr;
+      return null;
     }
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', {
+  const formatPrice = (price) =>
+    new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND',
       minimumFractionDigits: 0,
     }).format(price);
-  };
+
+  const isActive = tour.status === 'ACTIVE';
+  const rating = tour.rating ? Number(tour.rating) : null;
+  const departureDate = formatDate(tour.departureStartDate);
+  const location = tour.pickupName || tour.region;
 
   return (
-    <div className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg">
-      <div className="relative h-40 overflow-hidden bg-slate-100">
-        <img
-          src={tour.coverImageUrl}
-          alt={tour.title}
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900/20" />
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.07)] ring-1 ring-slate-200/80 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(59,130,246,0.15)] hover:ring-blue-200 hover:-translate-y-1">
 
+      {/* ── Image ── */}
+      <div className="relative h-44 overflow-hidden bg-slate-100">
+        {tour.coverImageUrl ? (
+          <img
+            src={tour.coverImageUrl}
+            alt={tour.title}
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-slate-100 to-blue-50">
+            <span className="text-5xl">🏖️</span>
+            <span className="text-xs text-slate-400">Chưa có ảnh</span>
+          </div>
+        )}
+
+        {/* Dark gradient bottom */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+        {/* HOT badge – top left */}
         {tour.isHot && (
-          <div className="absolute left-2.5 top-2.5">
-            <span className="inline-block rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white shadow-md">
-              🔥 HOT DEAL
+          <div className="absolute left-3 top-3">
+            <span className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-orange-500 to-rose-500 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg">
+              <FiZap className="h-3 w-3" />
+              Hot Deal
             </span>
           </div>
         )}
 
-        <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 shadow-md backdrop-blur">
-          <span>⭐</span>
-          <span className="text-xs font-bold text-slate-900">{tour.rating ? Number(tour.rating).toFixed(1) : '0.0'}</span>
-        </div>
+        {/* Rating – top right */}
+        {rating !== null && (
+          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 shadow backdrop-blur-sm">
+            <FiStar className="h-3 w-3 fill-amber-400 text-amber-400" />
+            <span className="text-xs font-bold text-slate-800">{rating.toFixed(1)}</span>
+          </div>
+        )}
+
+        {/* Location – bottom left */}
+        {location && (
+          <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5">
+            <FiMapPin className="h-3 w-3 flex-shrink-0 text-white/80" />
+            <span className="max-w-[160px] truncate text-xs font-medium text-white/90 drop-shadow">
+              {location}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col p-3.5">
-        <h3 className="mb-1 line-clamp-2 text-sm font-bold text-slate-900">{tour.title}</h3>
-        <p className="mb-2 text-xs text-slate-500">{tour.categoryName}</p>
+      {/* ── Body ── */}
+      <div className="flex flex-1 flex-col px-4 py-3.5">
 
-        <div className="mb-3 space-y-1.5 text-xs text-slate-600">
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">📍</span>
-            <span>{tour.pickupName || tour.region || '—'}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">⏱️</span>
-            <span>{tour.durationDays} Ngày {tour.durationDays - 1} Đêm</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-400">📅 Khởi hành</span>
-            <span className="text-slate-400">{formatDate(tour.departureStartDate)}</span>
-          </div>
+        {/* Category + Status row */}
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="truncate text-[11px] font-semibold uppercase tracking-widest text-blue-500">
+            {tour.categoryName || 'Tour'}
+          </span>
+          <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            isActive
+              ? 'bg-emerald-50 text-emerald-600'
+              : 'bg-slate-100 text-slate-400'
+          }`}>
+            {isActive ? '● Hoạt động' : '● Tạm dừng'}
+          </span>
         </div>
 
-        <div className="mb-3 border-t border-slate-100" />
+        {/* Title */}
+        <h3 className="mb-3 line-clamp-2 text-[14px] font-bold leading-snug text-slate-900 transition-colors group-hover:text-blue-700">
+          {tour.title}
+        </h3>
 
-        <div className="mb-3">
-          <p className="text-xs text-slate-500">Giá cơ bản</p>
-          <p className="text-lg font-bold text-blue-600">{formatPrice(tour.basePrice)}</p>
+        {/* Info row */}
+        <div className="mb-4 flex flex-wrap gap-x-3 gap-y-1.5">
+          {tour.durationDays && (
+            <div className="flex items-center gap-1 text-[11px] text-slate-500">
+              <FiClock className="h-3 w-3 text-slate-400" />
+              <span>{tour.durationDays} Ngày {tour.durationDays - 1} Đêm</span>
+            </div>
+          )}
+          {departureDate && (
+            <div className="flex items-center gap-1 text-[11px] text-slate-500">
+              <FiCalendar className="h-3 w-3 text-slate-400" />
+              <span>{departureDate}</span>
+            </div>
+          )}
         </div>
 
-        <div className="flex gap-2">
-          <button onClick={() => onView(tour.id)} className="cursor-pointer inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-blue-700">
-            <FiEdit2 /> Xem / Sửa
-          </button>
-          {/* <button onClick={() => onToggleHot(tour.id)} disabled={togglePending} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-amber-50 hover:text-amber-600">
-            ⚡ Hot
-          </button>
-          <button onClick={() => onDelete(tour)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600">
-            <FiTrash2 /> Xóa
-          </button> */}
+        {/* Spacer pushes price+actions to bottom */}
+        <div className="mt-auto" />
+
+        {/* Divider */}
+        <div className="mb-3 h-px bg-slate-100" />
+
+        {/* Price + Action buttons */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Giá từ</p>
+            <p className="truncate text-[17px] font-extrabold leading-tight text-blue-600">
+              {formatPrice(tour.basePrice)}
+            </p>
+          </div>
+
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            <button
+              onClick={() => onView(tour.id)}
+              title="Xem / Chỉnh sửa"
+              className="cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-300/40 transition hover:bg-blue-700 active:scale-95"
+            >
+              <FiEye className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => onDelete(tour)}
+              title={isActive ? 'Tạm dừng tour' : 'Kích hoạt tour'}
+              className={`cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-xl border transition active:scale-95 ${
+                isActive
+                  ? 'border-orange-200 bg-orange-50 text-orange-500 hover:bg-orange-100'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-500 hover:bg-emerald-100'
+              }`}
+            >
+              {isActive
+                ? <FiToggleRight className="h-4 w-4" />
+                : <FiToggleLeft className="h-4 w-4" />
+              }
+            </button>
+          </div>
         </div>
       </div>
     </div>

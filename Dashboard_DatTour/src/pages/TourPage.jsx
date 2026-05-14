@@ -4,7 +4,7 @@ import { MiniStatSquares } from "../components/MiniStatSquares";
 import FilterBar from "../components/tour-page/FilterBar";
 import ToursGrid from "../components/tour-page/ToursGrid";
 import DeleteConfirmModal from "../components/tour-page/DeleteConfirmModal";
-import { useTourListQuery, useTourCategoriesQuery, useDeleteTourMutation, useToggleHotMutation } from "../api/hooks/tourHooks";
+import { useTourListQuery, useSearchToursQuery, useTourCategoriesQuery, useDeleteTourMutation, useToggleHotMutation } from "../api/hooks/tourHooks";
 
 const useDebounce = (value, delay = 500) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -46,8 +46,6 @@ export const TourPage = () => {
   const SIZE = 9;
   const debouncedSearchTerm = useDebounce(searchTerm);
 
-  // Track current grid columns based on window width so we can detect
-  // when the "Add New Tour" card is the only item in its row.
   const [columns, setColumns] = useState(() => {
     if (typeof window === "undefined") return 3;
     const w = window.innerWidth;
@@ -63,8 +61,8 @@ export const TourPage = () => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Filters
-  const filters = {
+  // Base filters (shared between list and search)
+  const baseFilters = {
     status: selectedStatus || undefined,
     categoryId: selectedCategoryId ? Number(selectedCategoryId) : undefined,
     isHot: showHotOnly ? true : undefined,
@@ -72,8 +70,21 @@ export const TourPage = () => {
     size: SIZE,
   };
 
-  // Queries
-  const { data, isLoading, isFetching } = useTourListQuery(filters);
+  // Search filters include keyword
+  const searchFilters = {
+    ...baseFilters,
+    keyword: debouncedSearchTerm || undefined,
+  };
+
+  const isSearching = !!debouncedSearchTerm;
+
+  // Use search query when keyword is present, otherwise use list query
+  const listQuery = useTourListQuery(baseFilters);
+  const searchQuery = useSearchToursQuery(searchFilters);
+
+  const activeQuery = isSearching ? searchQuery : listQuery;
+  const { data, isLoading, isFetching } = activeQuery;
+
   const { data: categories = [] } = useTourCategoriesQuery();
 
   // Mutations

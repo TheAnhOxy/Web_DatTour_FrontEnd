@@ -20,7 +20,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         closeOnClick
         pauseOnFocusLoss={false}
         draggable
-        pauseOnHover
+        pauseOnHover={false}
         theme="dark"
         toastClassName={() =>
           "!rounded-2xl !border !border-white/10 !bg-slate-950/95 !shadow-[0_18px_60px_rgba(15,23,42,0.28)] !backdrop-blur-md !px-4 !py-3"

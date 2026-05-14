@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "react-toastify";
+import { toast } from "../../utils/toast";
 import tourDestinationApi from "../tourDestinationApi";
 import { TOUR_KEYS } from "./tourKeys";
 

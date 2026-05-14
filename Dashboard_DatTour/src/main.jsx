@@ -14,7 +14,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <App />
       <ToastContainer
         position="top-right"
-        autoClose={2800}
+        autoClose={1000}
         hideProgressBar={false}
         newestOnTop
         closeOnClick
@@ -22,11 +22,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         draggable
         pauseOnHover={false}
         theme="dark"
-        toastClassName={() =>
-          "!rounded-2xl !border !border-white/10 !bg-slate-950/95 !shadow-[0_18px_60px_rgba(15,23,42,0.28)] !backdrop-blur-md !px-4 !py-3"
+        toastClassName={(ctx) =>
+          `Toastify__toast Toastify__toast-theme--dark Toastify__toast--${ctx?.type ?? "default"} !rounded-2xl !border !border-white/10 !bg-slate-950/95 !shadow-[0_18px_60px_rgba(15,23,42,0.28)] !backdrop-blur-md !px-4 !py-3`
         }
-        bodyClassName={() => "!m-0 !p-0 !text-sm !font-medium !text-slate-100"}
-        progressClassName={() => "!bg-gradient-to-r !from-cyan-400 !via-blue-500 !to-indigo-500"}
+        bodyClassName={() => "Toastify__toast-body !m-0 !p-0 !text-sm !font-medium !text-slate-100"}
+        progressClassName={() => "Toastify__progress-bar !bg-gradient-to-r !from-cyan-400 !via-blue-500 !to-indigo-500"}
       />
     </QueryClientProvider>
   </React.StrictMode>,

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "react-toastify";
+import { toast } from "../../utils/toast";
 import statsApi from "../statsApi";
 
 export const STATS_KEYS = {

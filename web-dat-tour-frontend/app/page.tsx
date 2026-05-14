@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getTours, getDestinations } from "@/api/coreApi_new";
 
@@ -71,8 +72,11 @@ const getDestImage = (d: Destination) =>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Home() {
+  const router = useRouter();
   const [tours, setTours]               = useState<Tour[]>(FALLBACK_TOURS);
   const [destinations, setDestinations] = useState<Destination[]>(FALLBACK_DESTINATIONS);
+  const [allDestinations, setAllDestinations] = useState<Destination[]>([]);
+  const [selectedDestId, setSelectedDestId]   = useState<string>("");
   const [loading, setLoading]           = useState(true);
 
   useEffect(() => {
@@ -90,6 +94,11 @@ export default function Home() {
         if (destRes?.status === 200 && destRes.data?.content?.length > 0) {
           setDestinations(destRes.data.content);
         }
+        // Load thêm destinations cho select tìm kiếm (size lớn hơn)
+        const allDestRes = await getDestinations(0, 50);
+        if (allDestRes?.status === 200 && allDestRes.data?.content?.length > 0) {
+          setAllDestinations(allDestRes.data.content);
+        }
       } catch {
         // giữ nguyên fallback
       } finally {
@@ -99,16 +108,100 @@ export default function Home() {
     fetchData();
   }, []);
 
+  // Reinit jQuery plugins mỗi lần component mount (khi navigate client-side)
+  useEffect(() => {
+    const reinit = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as Record<string, any>;
+      const $ = w["$"];
+      if (!$) return;
+
+      // 1. Nice-select (thanh tìm kiếm)
+      if ($.fn.niceSelect) {
+        $("select").niceSelect("destroy");
+        $("select").niceSelect();
+      }
+
+      // 2. Datepicker
+      if ($.fn.datetimepicker) {
+        $(".datetimepicker").datetimepicker({
+          format: "d/m/Y",
+          timepicker: false,
+          scrollMonth: false,
+          scrollInput: false,
+        });
+      }
+
+      // 3. Counter - xóa class counted để cho phép chạy lại
+      $(".counter-text-wrap").removeClass("counted");
+      if ($.fn.appear && $(".counter-text-wrap").length) {
+        $(".counter-text-wrap").appear(function (this: Element) {
+          const $t = $(this);
+          const n = $t.find(".count-text").attr("data-stop");
+          const r = parseInt($t.find(".count-text").attr("data-speed"), 10) || 2000;
+          if (!$t.hasClass("counted")) {
+            $t.addClass("counted");
+            $({ countNum: 0 }).animate(
+              { countNum: n },
+              {
+                duration: r,
+                easing: "linear",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                step: function (this: Record<string, any>) {
+                  $t.find(".count-text").text(Math.floor(this["countNum"]));
+                },
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                complete: function (this: Record<string, any>) {
+                  $t.find(".count-text").text(this["countNum"]);
+                },
+              }
+            );
+          }
+        }, { accY: 0 });
+      }
+
+      // 4. AOS refresh
+      if (w["AOS"]) {
+        w["AOS"].refresh();
+      }
+    };
+
+    // Delay nhỏ để DOM render xong
+    const timer = setTimeout(reinit, 150);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Khi allDestinations load xong → destroy và reinit nice-select để dropdown hiển thị đúng options
+  useEffect(() => {
+    if (allDestinations.length === 0) return;
+    const timer = setTimeout(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as Record<string, any>;
+      const $ = w["$"];
+      if (!$ || !$.fn.niceSelect) return;
+      $("#destination").niceSelect("destroy");
+      $("#destination").niceSelect();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [allDestinations]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Đọc trực tiếp từ DOM vì nice-select cập nhật native select bằng jQuery trigger
+    // nên React onChange không nhận được event
+    const nativeSelect = document.getElementById("destination") as HTMLSelectElement | null;
+    const destId = nativeSelect?.value || "";
+    const params = new URLSearchParams();
+    if (destId) params.set("destinationId", destId);
+    router.push(`/tours?${params.toString()}`);
+  };
+
   return (
     <>
       <section className="hero-area bgc-black pt-200 rpt-120 rel z-2">
         <div className="container-fluid">
           <h1
             className="hero-title"
-            data-aos="flip-up"
-            data-aos-delay="50"
-            data-aos-duration="1500"
-            data-aos-offset="50"
           >
             Tours Du Lịch
           </h1>
@@ -117,29 +210,22 @@ export default function Home() {
             style={{ backgroundImage: "url(/clients/assets/images/hero/hero.jpg)" }}
           ></div>
         </div>
-        <form action="#" method="GET" id="search_form">
+        <form id="search_form" onSubmit={handleSearch}>
           <div className="container container-1400">
             <div className="search-filter-inner">
               <div className="filter-item clearfix">
                 <div className="icon"><i className="fal fa-map-marker-alt"></i></div>
                 <span className="title">Điểm đến</span>
-                <select name="destination" id="destination">
-                  <option value="">Chọn điểm đến</option>
-                  <option value="dn">Đà Nẵng</option>
-                  <option value="cd">Côn Đảo</option>
-                  <option value="hn">Hà Nội</option>
-                  <option value="hcm">TP. Hồ Chí Minh</option>
-                  <option value="hl">Hạ Long</option>
-                  <option value="nb">Ninh Bình</option>
-                  <option value="pq">Phú Quốc</option>
-                  <option value="dl">Đà Lạt</option>
-                  <option value="qt">Quảng Trị</option>
-                  <option value="kh">Khánh Hòa (Nha Trang)</option>
-                  <option value="ct">Cần Thơ</option>
-                  <option value="vt">Vũng Tàu</option>
-                  <option value="qn">Quảng Ninh</option>
-                  <option value="la">Lào Cai (Sa Pa)</option>
-                  <option value="bd">Bình Định (Quy Nhơn)</option>
+                <select
+                  name="destination"
+                  id="destination"
+                  value={selectedDestId}
+                  onChange={(e) => setSelectedDestId(e.target.value)}
+                >
+                  <option value="">Tất cả điểm đến</option>
+                  {allDestinations.map((d) => (
+                    <option key={d.id} value={String(d.id)}>{d.cityName}</option>
+                  ))}
                 </select>
               </div>
               <div className="filter-item clearfix">
@@ -172,9 +258,6 @@ export default function Home() {
             <div className="col-lg-12">
               <div
                 className="section-title text-white text-center counter-text-wrap mb-70"
-                data-aos="fade-up"
-                data-aos-duration="1500"
-                data-aos-offset="50"
               >
                 <h2>Khám phá kho báu Việt Nam cùng HTravel</h2>
                 <p>
@@ -198,9 +281,6 @@ export default function Home() {
                 <div className="col-xxl-3 col-xl-4 col-md-6" style={{ marginBottom: 30 }} key={tour.id}>
                   <div
                     className="destination-item block_tours"
-                    data-aos="fade-up"
-                    data-aos-duration="1500"
-                    data-aos-offset="50"
                   >
                     <div className="image" style={{ position: "relative", overflow: "hidden", height: 220 }}>
                       {getRating(tour) && (
@@ -249,7 +329,7 @@ export default function Home() {
         <div className="container">
           <div className="row align-items-center">
             <div className="col-xl-5 col-lg-6">
-              <div className="about-us-content rmb-55" data-aos="fade-left" data-aos-duration="1500" data-aos-offset="50">
+              <div className="about-us-content rmb-55">
                 <div className="section-title mb-25">
                   <h2>Du lịch với sự tự tin. Lý do hàng đầu để chọn công ty chúng tôi</h2>
                 </div>
@@ -277,7 +357,7 @@ export default function Home() {
                 </Link>
               </div>
             </div>
-            <div className="col-xl-7 col-lg-6" data-aos="fade-right" data-aos-duration="1500" data-aos-offset="50">
+            <div className="col-xl-7 col-lg-6">
               <div className="about-us-image">
                 {[1,2,3,4,5,6,7].map(n => (
                   <div className="shape" key={n}>
@@ -301,9 +381,6 @@ export default function Home() {
               <div className="col-lg-12">
                 <div
                   className="section-title text-center counter-text-wrap mb-70"
-                  data-aos="fade-up"
-                  data-aos-duration="1500"
-                  data-aos-offset="50"
                 >
                   <h2>Khám phá các điểm đến phổ biến</h2>
                   <p>
@@ -318,7 +395,7 @@ export default function Home() {
               <div className="row justify-content-center">
                 {destinations.map((dest) => (
                   <div className="col-xl-3 col-md-6 item" key={dest.id}>
-                    <div className="destination-item style-two" data-aos-duration="1500" data-aos-offset="50">
+                    <div className="destination-item style-two">
                       <div className="image" style={{ position: "relative", height: 220, overflow: "hidden", borderRadius: 12 }}>
                         <a href="#" className="heart"><i className="fas fa-heart"></i></a>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -350,7 +427,7 @@ export default function Home() {
         <div className="container">
           <div className="row align-items-center">
             <div className="col-xl-6">
-              <div className="features-content-part mb-55" data-aos="fade-left" data-aos-duration="1500" data-aos-offset="50">
+              <div className="features-content-part mb-55">
                 <div className="section-title mb-60">
                   <h2>Trải nghiệm du lịch tuyệt đỉnh mang đến sự khác biệt cho công ty chúng tôi</h2>
                 </div>
@@ -378,7 +455,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="col-xl-6" data-aos="fade-right" data-aos-duration="1500" data-aos-offset="50">
+            <div className="col-xl-6">
               <div className="row pb-25">
                 {[
                   { title: "Chinh Phục Cảnh Quan Việt Nam", desc: "Khám phá những cảnh đẹp hùng vĩ và tuyệt vời của đất nước Việt Nam." },

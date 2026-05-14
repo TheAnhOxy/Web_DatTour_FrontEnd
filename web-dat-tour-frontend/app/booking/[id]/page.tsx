@@ -212,7 +212,6 @@ export default function BookingDetailPage() {
     }
     return schedules
       .filter((s: any) => s.date instanceof Date && !isNaN(s.date.getTime()))
-      .slice(0, 5) // Hiện tối đa 5 tab
       .map((s: any) => {
         const dd = String(s.date.getDate()).padStart(2, '0');
         const mm = String(s.date.getMonth() + 1).padStart(2, '0');
@@ -541,10 +540,8 @@ export default function BookingDetailPage() {
 
         /* Tabs */
         .date-tabs-scroll {
-          display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;
+          display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 8px;
         }
-        .date-tabs-scroll::-webkit-scrollbar { height: 4px; }
-        .date-tabs-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
         .date-tab {
           padding: 8px 20px; border-radius: 20px; font-weight: 600; font-size: 14px;
           cursor: pointer; white-space: nowrap; transition: all 0.2s ease;

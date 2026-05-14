@@ -62,17 +62,23 @@ export default function BookingDetailPage() {
           // Bước 1: Lấy thông tin Lịch khởi hành (Giá, Ngày, TourId)
           const detailRes = await getDepartureDetails(id);
           
+          console.log("[DEBUG] getDepartureDetails raw response:", detailRes);
+          
           if (detailRes && detailRes.data) {
             const depData = detailRes.data;
+            console.log("[DEBUG] depData:", depData);
+            console.log("[DEBUG] depData.priceConfig:", depData.priceConfig);
             
             // Bước 2: Lấy thông tin Lịch trình chung của cả tour
             const schedulesRes = await getTourSchedules(depData.tourId);
             
             // Bước 3: Lấy thông tin Chi tiết Tour (Ảnh, Overview, Lịch trình, Chính sách)
             const tourDetailRes = await getTourDetails(depData.tourId);
+            console.log("[DEBUG] getTourDetails raw response:", tourDetailRes);
             
             // Bước 4: GHÉP DỮ LIỆU (Mapping BE fields sang FE fields)
             const tourData = tourDetailRes.data;
+            console.log("[DEBUG] tourData.basePrice:", tourData?.basePrice);
             
             // Helper to safely parse JSON strings or objects
             const safeParse = (data: any) => {
@@ -82,24 +88,41 @@ export default function BookingDetailPage() {
               return data;
             };
 
+            // Helper: Ép kiểu an toàn từ BigDecimal Java (có thể là string, number, hoặc object)
+            const toNum = (val: any): number => {
+              if (val === null || val === undefined) return 0;
+              const n = typeof val === 'object' ? Number(val.toString()) : Number(val);
+              return isNaN(n) ? 0 : n;
+            };
+
+            // Fallback giá: priceConfig > basePrice tour > 0
+            const fallbackBasePrice = toNum(tourData?.basePrice) || 0;
+            const pc = depData.priceConfig;
+            const resolvedAdultPrice = pc ? toNum(pc.adultPrice) : fallbackBasePrice;
+            const resolvedChild1014 = pc ? toNum(pc.child1014Price) : Math.round(fallbackBasePrice * 0.75);
+            const resolvedChild49 = pc ? toNum(pc.child49Price) : Math.round(fallbackBasePrice * 0.5);
+            const resolvedBaby = pc ? toNum(pc.babyPrice) : 0;
+
+            console.log("[DEBUG] Resolved prices:", { resolvedAdultPrice, resolvedChild1014, resolvedChild49, resolvedBaby });
+
             const mergedData = {
               ...tourData,
               ...depData,
               id: depData.id,
               tourId: depData.tourId,
-              title: depData.tourTitle || tourData.title,
-              image: tourData.images?.find((img: any) => img.isCover)?.imageUrl || tourData.images?.[0]?.imageUrl || tourData.coverImageUrl,
-              images: tourData.images?.map((img: any) => img.imageUrl),
+              title: depData.tourTitle || tourData?.title,
+              image: tourData?.images?.find((img: any) => img.isCover)?.imageUrl || tourData?.images?.[0]?.imageUrl || tourData?.coverImageUrl,
+              images: tourData?.images?.map((img: any) => img.imageUrl),
               
               // Map structured fields
-              overview: tourData.overview || tourData.description,
-              itinerary: safeParse(tourData.itinerary),
-              inclusions: safeParse(tourData.inclusions),
-              exclusions: safeParse(tourData.exclusions),
-              policies: safeParse(tourData.policies),
+              overview: tourData?.overview || tourData?.description,
+              itinerary: safeParse(tourData?.itinerary),
+              inclusions: safeParse(tourData?.inclusions),
+              exclusions: safeParse(tourData?.exclusions),
+              policies: safeParse(tourData?.policies),
               
               // Tạo Gói tour từ PriceConfig nếu BE không trả về packages
-              packages: tourData.packages || [
+              packages: tourData?.packages || [
                 {
                   id: "standard",
                   name: "Gói Tiêu Chuẩn",
@@ -108,12 +131,12 @@ export default function BookingDetailPage() {
                 }
               ],
 
-              // Map price config
+              // Map price config - luôn đảm bảo là số hợp lệ
               priceConfig: {
-                  adultPrice: depData.priceConfig?.adultPrice || 0,
-                  child1014Price: depData.priceConfig?.child1014Price || 0,
-                  child49Price: depData.priceConfig?.child49Price || 0,
-                  babyPrice: depData.priceConfig?.babyPrice || 0,
+                  adultPrice: resolvedAdultPrice,
+                  child1014Price: resolvedChild1014,
+                  child49Price: resolvedChild49,
+                  babyPrice: resolvedBaby,
               }
             };
 
@@ -128,11 +151,14 @@ export default function BookingDetailPage() {
             if (schedulesRes && schedulesRes.data) {
               setSchedules(schedulesRes.data.map((s: any) => {
                 const dateStr = s.startDate || s.date || s.departureDate;
+                const schedulePrice = s.priceConfig?.adultPrice 
+                  ? (typeof s.priceConfig.adultPrice === 'object' ? Number(s.priceConfig.adultPrice.toString()) : Number(s.priceConfig.adultPrice))
+                  : resolvedAdultPrice;
                 return {
                   ...s,
                   date: dateStr ? new Date(dateStr) : null,
-                  price: s.priceConfig?.adultPrice || 0,
-                  status: s.status === 'ACTIVE' || s.status === 'AVAILABLE' ? 'Còn chỗ' : 'Hết chỗ'
+                  price: isNaN(schedulePrice) ? resolvedAdultPrice : schedulePrice,
+                  status: (s.status === 'ACTIVE' || s.status === 'AVAILABLE' || s.status === 'OPEN') ? 'Còn chỗ' : 'Hết chỗ'
                 };
               }).filter((s: any) => s.date !== null));
             }

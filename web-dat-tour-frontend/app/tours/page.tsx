@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getTours } from "@/api/coreApi_new";
+import { getTours, getCategories, getDestinations } from "@/api/coreApi_new";
 
 type TourItem = {
   id: number;
@@ -20,39 +20,74 @@ export default function ToursPage() {
   const [toursPopular, setToursPopular] = useState<TourItem[]>([]);
   const [allTours, setAllTours] = useState<TourItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterDuration, setFilterDuration] = useState("all");
-  const [filterTransport, setFilterTransport] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterDestination, setFilterDestination] = useState("all");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [destinationsList, setDestinationsList] = useState<any[]>([]);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch Categories & Destinations once
+  useEffect(() => {
+    const fetchSupportData = async () => {
+      try {
+        const [catRes, destRes] = await Promise.all([getCategories(), getDestinations(0, 100)]);
+        
+        // Cấu trúc ApiResponse: { status: number, data: any, message: string }
+        if (catRes && catRes.status === 200) {
+          setCategories(catRes.data || []);
+        }
+        
+        if (destRes && destRes.status === 200 && destRes.data) {
+          // Page object có content
+          setDestinationsList(destRes.data.content || destRes.data || []);
+        }
+      } catch (err) {
+        console.error("Lỗi khi fetch dữ liệu hỗ trợ:", err);
+      }
+    };
+    fetchSupportData();
+  }, []);
+
+  // Fetch Tours based on filters
   useEffect(() => {
     const fetchAllTours = async () => {
       setLoading(true);
       try {
+        const categoryId = filterCategory === "all" ? undefined : Number(filterCategory);
+        const destinationId = filterDestination === "all" ? undefined : Number(filterDestination);
+        
         // Lấy 100 tour để bao quát hết bảng tours trong DB
-        const res = await getTours(undefined, undefined, undefined, 0, 100);
+        const res = await getTours(categoryId, undefined, destinationId, 0, 100, debouncedSearchTerm);
         if (res.status === 200 && res.data && res.data.content) {
           const fetchedTours = res.data.content;
           
-          // Lấy tất cả tours (kể cả INACTIVE để trùng khớp số lượng trên DB)
-          const allDbTours = fetchedTours;
-          
           // Map từ dữ liệu API sang kiểu TourItem
-          const mappedTours: TourItem[] = allDbTours.map((t: any) => ({
+          const mappedTours: TourItem[] = fetchedTours.map((t: any) => ({
             id: t.id,
             title: t.title,
             destination: t.region || t.categoryName || "Khác",
             time: t.durationDays === 1 ? "1 ngày" : `${t.durationDays || 1} ngày ${Math.max(1, (t.durationDays || 1) - 1)} đêm`,
-            quantity: "Khởi hành hàng tuần", // Mock
+            quantity: "Khởi hành hàng tuần",
             rating: t.rating || 5,
             price: new Intl.NumberFormat('vi-VN').format(t.basePrice || 0),
             image: t.coverImageUrl || t.cover_image_url || "/clients/assets/images/gallery-tours/destination-default.jpg",
-            durationDays: t.durationDays || 1 // Dùng để group
+            durationDays: t.durationDays || 1
           }));
 
           setAllTours(mappedTours);
 
-          // Tạo danh sách Popular (lọc các tour hot hoặc lấy 3 tour ngẫu nhiên/đầu tiên)
-          const popular = mappedTours.slice(0, 3);
-          setToursPopular(popular);
+          // Cập nhật Popular nếu chưa có
+          if (toursPopular.length === 0) {
+            setToursPopular(mappedTours.slice(0, 3));
+          }
         }
       } catch (err) {
         console.error("Lỗi khi fetch tours:", err);
@@ -61,19 +96,15 @@ export default function ToursPage() {
       }
     };
     fetchAllTours();
-  }, []);
+  }, [filterCategory, filterDestination, debouncedSearchTerm]);
 
   const getDurationLabel = (days: number) => {
     if (days === 1) return "Tour 1 ngày";
     return `Tour ${days} ngày ${days - 1} đêm`;
   };
 
-  // Lọc Tours
-  const filteredTours = allTours.filter(tour => {
-    if (searchTerm && !tour.title.toLowerCase().includes(searchTerm.toLowerCase()) && !tour.destination.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    if (filterDuration !== "all" && tour.durationDays?.toString() !== filterDuration) return false;
-    return true;
-  });
+  // Tours đã được lọc từ Backend API, không cần lọc client-side keyword nữa
+  const filteredTours = allTours;
 
   // Group by durationDays
   const grouped: Record<number, TourItem[]> = {};
@@ -145,29 +176,41 @@ export default function ToursPage() {
                 <div style={{ minWidth: '150px' }}>
                   <select 
                     className="form-select"
-                    value={filterDuration}
-                    onChange={(e) => setFilterDuration(e.target.value)}
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <option value="all">Tất cả thời gian</option>
-                    <option value="1">1 ngày</option>
-                    <option value="2">2 ngày 1 đêm</option>
-                    <option value="3">3 ngày 2 đêm</option>
-                    <option value="4">4 ngày 3 đêm</option>
-                    <option value="5">5 ngày 4 đêm</option>
+                    <option value="all">Tất cả danh mục</option>
+                    {categories.map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div style={{ minWidth: '150px' }}>
                   <select 
                     className="form-select"
-                    value={filterTransport}
-                    onChange={(e) => setFilterTransport(e.target.value)}
+                    value={filterDestination}
+                    onChange={(e) => setFilterDestination(e.target.value)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <option value="all">Tất cả phương tiện</option>
-                    <option value="oto">Ô tô</option>
-                    <option value="maybay">Máy bay</option>
+                    <option value="all">Tất cả địa danh</option>
+                    {destinationsList.map((dest: any) => (
+                      <option key={dest.id} value={dest.id}>{dest.cityName || dest.city_name || dest.name}</option>
+                    ))}
                   </select>
+                </div>
+                <div>
+                  <button 
+                    className="btn btn-outline-secondary"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setFilterCategory("all");
+                      setFilterDestination("all");
+                    }}
+                    title="Làm mới bộ lọc"
+                  >
+                    <i className="fal fa-sync"></i>
+                  </button>
                 </div>
               </div>
 

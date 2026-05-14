@@ -56,12 +56,22 @@ export const getDestinations = async (page = 0, size = 10) => {
     }
 };
 
-export const getTours = async (categoryId?: number, isHot?: boolean, destinationId?: number, page = 0, size = 10) => {
+export const getCategories = async () => {
+    try {
+        const res = await client.get(`/core/categories`);
+        return wrap(res);
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: [] };
+    }
+};
+
+export const getTours = async (categoryId?: number, isHot?: boolean, destinationId?: number, page = 0, size = 10, keyword?: string) => {
     try {
         let url = `/core/tours?page=${page}&size=${size}`;
         if (categoryId) url += `&categoryId=${categoryId}`;
         if (isHot !== undefined) url += `&isHot=${isHot}`;
         if (destinationId) url += `&destinationId=${destinationId}`;
+        if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
         const res = await client.get(url);
         return wrap(res);
     } catch (err: any) {
@@ -84,5 +94,6 @@ export default {
     getTourDetails,
     getDestinations,
     getDestinationById,
+    getCategories,
     getTours
 };

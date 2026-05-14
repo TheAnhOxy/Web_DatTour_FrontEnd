@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getDepartureDetails, getTourSchedules, getTourDetails } from "../../../api/coreApi_new";
-import { createBooking, getBookingByCode } from "../../../api/bookingApi";
+import { createBooking, getBookingByCode, type BookingRequest, type PassengerDTO } from "../../../api/bookingApi";
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -29,6 +29,9 @@ export default function BookingDetailPage() {
   const [visibleRows, setVisibleRows] = useState(10);
   const [activePolicyTab, setActivePolicyTab] = useState("inclusions");
   const [isCheckoutMode, setIsCheckoutMode] = useState(false);
+  // Booking result modal
+  const [bookingResult, setBookingResult] = useState<any>(null);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
 
   // --- CHECKOUT FORM STATES ---
   const [pickupPoint, setPickupPoint] = useState("");
@@ -303,71 +306,93 @@ export default function BookingDetailPage() {
     }
 
     if (!contactName || !contactPhone || !contactEmail) {
-      alert("Vui lòng điền đầy đủ thông tin liên hệ bắt buộc!");
+      showToast("Vui lòng điền đầy đủ thông tin liên hệ bắt buộc!", "error");
       return;
     }
-
+    if (!/^[0-9]{9,11}$/.test(contactPhone.replace(/\s/g, ""))) {
+      showToast("Số điện thoại không hợp lệ (9-11 chữ số)!", "error");
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contactEmail)) {
+      showToast("Email không đúng định dạng!", "error");
+      return;
+    }
     if (!agreedToTerms) {
-      alert("Vui lòng đồng ý điều khoản và chính sách bảo mật để tiếp tục.");
+      showToast("Vui lòng đồng ý điều khoản và chính sách bảo mật!", "error");
       return;
     }
 
-    // --- PREPARE DATA FOR BACKEND (Based on PassengerDTO & BookingRequest) ---
-    const passengerList: any[] = [];
-    
-    // 1. Map Adults
+    // --- BUILD PassengerDTO list (khớp BookingRequest.java) ---
+    const passengerList: PassengerDTO[] = [];
     for (let i = 0; i < numAdults; i++) {
       passengerList.push({
         fullName: i === 0 ? contactName : `Người lớn ${i + 1}`,
         ageGroup: "ADULT",
-        gender: "MALE",
-        dob: "1990-01-01"
+        gender: i === 0 ? "MALE" : "MALE",
+        dob: "1990-01-01",
       });
     }
-
-    // 2. Map Children
     for (let i = 0; i < numChildren; i++) {
       passengerList.push({
         fullName: `Trẻ em ${i + 1}`,
-        ageGroup: "CHILD", 
+        ageGroup: "CHILD",
         gender: "FEMALE",
-        dob: "2015-01-01"
+        dob: "2015-06-01",
       });
     }
-
-    // 3. Map Babies
     for (let i = 0; i < numBabies; i++) {
       passengerList.push({
         fullName: `Em bé ${i + 1}`,
         ageGroup: "BABY",
         gender: "MALE",
-        dob: "2024-01-01"
+        dob: "2024-01-01",
       });
     }
 
-    const requestData = {
-      userId: 1, 
+    const requestData: BookingRequest = {
+      userId: 1, // TODO: lấy từ auth store khi có login
       departureId: Number(selectedDepId || id),
-      note: contactNotes,
-      passengers: passengerList
+      note: `${paymentMethod === 'bank' ? '[Chuyển khoản]' : '[Tiền mặt]'} ${paymentRatio === 50 ? '[Đặt cọc 50%]' : '[Thanh toán 100%]'}${contactNotes ? ' - ' + contactNotes : ''}`,
+      passengers: passengerList,
     };
 
     try {
-      setLoading(true);
+      setBookingSubmitting(true);
       const res = await createBooking(requestData);
-      
+
       if (res.status === 201 || res.status === 200) {
-        alert(`Đặt tour thành công!\nMã đơn hàng: ${res.data?.bookingCode}`);
-        router.push("/booking/success?code=" + (res.data?.bookingCode || ""));
+        // Lưu kết quả để hiện Modal thành công
+        setBookingResult({
+          bookingCode: res.data?.bookingCode,
+          tourTitle: tourDetail?.title,
+          startDate: selectedDate,
+          totalAmount: finalTotal,
+          depositAmount,
+          paymentMethod,
+          paymentRatio,
+          numAdults,
+          numChildren,
+          numBabies,
+          contactName,
+          contactPhone,
+          contactEmail,
+        });
       } else {
-        alert("Lỗi khi đặt tour: " + (res.message || "Không xác định"));
+        showToast("Lỗi: " + (res.message || "Không thể đặt tour, vui lòng thử lại!"), "error");
       }
     } catch (error) {
       console.error("Booking Error:", error);
-      alert("Đã xảy ra lỗi khi gửi yêu cầu đặt tour.");
+      showToast("Đã xảy ra lỗi kết nối. Vui lòng thử lại!", "error");
     } finally {
-      setLoading(false);
+      setBookingSubmitting(false);
     }
+  };
+
+  // --- TOAST NOTIFICATION ---
+  const [toast, setToast] = useState<{msg: string; type: string} | null>(null);
+  const showToast = (msg: string, type: "error" | "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
   };
 
   const getStatusBadge = (status: string) => {
@@ -377,7 +402,21 @@ export default function BookingDetailPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-5" style={{marginTop: "100px", fontFamily: "system-ui"}}>Đang tải thông tin...</div>;
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        fontFamily: "system-ui", background: "#FAFAFA"
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: "50%",
+          border: "5px solid #F0E0D0", borderTopColor: "#FF6B00",
+          animation: "spin 0.9s linear infinite"
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <p style={{ marginTop: 20, color: "#888", fontSize: 16 }}>Đang tải thông tin tour...</p>
+      </div>
+    );
   }
 
   // --- TRƯỜNG HỢP HIỂN THỊ CHI TIẾT ĐƠN HÀNG ĐÃ ĐẶT ---
@@ -483,6 +522,146 @@ export default function BookingDetailPage() {
 
   return (
     <>
+      {/* ───── TOAST NOTIFICATION ───── */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 9999,
+          background: toast.type === "error" ? "#D32F2F" : "#2E7D32",
+          color: "white", padding: "14px 22px", borderRadius: 12,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.22)", maxWidth: 380,
+          display: "flex", alignItems: "center", gap: 12,
+          animation: "slideInRight 0.3s ease"
+        }}>
+          <i className={`fas ${toast.type === "error" ? "fa-exclamation-circle" : "fa-check-circle"}`} style={{fontSize: 20}} />
+          <span style={{fontSize: 14, fontWeight: 500}}>{toast.msg}</span>
+        </div>
+      )}
+
+      {/* ───── BOOKING SUCCESS MODAL ───── */}
+      {bookingResult && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "20px"
+        }}>
+          <div style={{
+            background: "white", borderRadius: 24, padding: "40px 36px",
+            maxWidth: 520, width: "100%", textAlign: "center",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.3)",
+            animation: "popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)"
+          }}>
+            {/* Icon thành công */}
+            <div style={{
+              width: 80, height: 80, borderRadius: "50%",
+              background: "linear-gradient(135deg, #56ab2f, #a8e063)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 20px", boxShadow: "0 8px 24px rgba(86,171,47,0.35)"
+            }}>
+              <i className="fas fa-check" style={{color: "white", fontSize: 36}} />
+            </div>
+
+            <h3 style={{fontWeight: 800, color: "#1a1a1a", marginBottom: 6, fontSize: "1.5rem"}}>
+              Đặt tour thành công! 🎉
+            </h3>
+            <p style={{color: "#888", marginBottom: 24, fontSize: 14}}>
+              Cảm ơn bạn đã tin tưởng lựa chọn HTravel
+            </p>
+
+            {/* Booking Code badge */}
+            <div style={{
+              background: "#FFF3E0", border: "2px dashed #FF6B00",
+              borderRadius: 12, padding: "14px 20px", marginBottom: 24
+            }}>
+              <div style={{fontSize: 12, color: "#888", marginBottom: 4}}>Mã đặt chỗ của bạn</div>
+              <div style={{fontSize: 28, fontWeight: 900, color: "#FF6B00", letterSpacing: 3}}>
+                {bookingResult.bookingCode}
+              </div>
+            </div>
+
+            {/* Tour info */}
+            <div style={{
+              background: "#F8F9FA", borderRadius: 12, padding: "16px 20px",
+              marginBottom: 20, textAlign: "left"
+            }}>
+              <div style={{display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+                <span style={{color: "#666", fontSize: 13}}>🗺️ Tour</span>
+                <span style={{fontWeight: 700, fontSize: 13, color: "#333", maxWidth: 240, textAlign: "right"}}>{bookingResult.tourTitle}</span>
+              </div>
+              <div style={{display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+                <span style={{color: "#666", fontSize: 13}}>📅 Ngày khởi hành</span>
+                <span style={{fontWeight: 700, fontSize: 13, color: "#333"}}>{formatFullDate(bookingResult.startDate)}</span>
+              </div>
+              <div style={{display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+                <span style={{color: "#666", fontSize: 13}}>👥 Hành khách</span>
+                <span style={{fontWeight: 700, fontSize: 13, color: "#333"}}>
+                  {bookingResult.numAdults} NL{bookingResult.numChildren > 0 ? ` · ${bookingResult.numChildren} TE` : ""}{bookingResult.numBabies > 0 ? ` · ${bookingResult.numBabies} EB` : ""}
+                </span>
+              </div>
+              <div style={{display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+                <span style={{color: "#666", fontSize: 13}}>📞 Liên hệ</span>
+                <span style={{fontWeight: 700, fontSize: 13, color: "#333"}}>{bookingResult.contactName} · {bookingResult.contactPhone}</span>
+              </div>
+              <div style={{display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 10}}>
+                <span style={{color: "#666", fontSize: 13}}>💰 {bookingResult.paymentRatio === 50 ? "Tiền cọc (50%)" : "Tổng thanh toán"}</span>
+                <span style={{fontWeight: 900, fontSize: 16, color: "#D32F2F"}}>{formatPrice(bookingResult.depositAmount)}</span>
+              </div>
+            </div>
+
+            {/* Payment info */}
+            <div style={{
+              background: bookingResult.paymentMethod === "bank" ? "#E3F2FD" : "#E8F5E9",
+              borderRadius: 10, padding: "10px 16px", marginBottom: 24,
+              fontSize: 13, color: bookingResult.paymentMethod === "bank" ? "#1565C0" : "#2E7D32",
+              fontWeight: 500
+            }}>
+              <i className={`fas ${bookingResult.paymentMethod === "bank" ? "fa-university" : "fa-money-bill-wave"} mr-2`} />
+              {bookingResult.paymentMethod === "bank"
+                ? "Vui lòng chuyển khoản trong vòng 10 phút để giữ chỗ"
+                : "Thanh toán tiền mặt tại văn phòng HTravel"}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{display: "flex", gap: 12}}>
+              <button
+                onClick={() => router.push(`/booking/${bookingResult.bookingCode}`)}
+                style={{
+                  flex: 1, padding: "13px 20px", borderRadius: 12,
+                  background: "linear-gradient(135deg, #FF6B00, #FF9A00)",
+                  color: "white", fontWeight: 700, border: "none",
+                  cursor: "pointer", fontSize: 14,
+                  boxShadow: "0 4px 16px rgba(255,107,0,0.35)"
+                }}
+              >
+                <i className="fas fa-receipt mr-2" />
+                Xem chi tiết đơn
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                style={{
+                  flex: 1, padding: "13px 20px", borderRadius: 12,
+                  background: "white", color: "#555", fontWeight: 600,
+                  border: "1.5px solid #E0E0E0", cursor: "pointer", fontSize: 14
+                }}
+              >
+                <i className="fas fa-home mr-2" />
+                Về trang chủ
+              </button>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes popIn {
+              from { transform: scale(0.7); opacity: 0; }
+              to { transform: scale(1); opacity: 1; }
+            }
+            @keyframes slideInRight {
+              from { transform: translateX(120%); opacity: 0; }
+              to { transform: translateX(0); opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
       <style>{`
         .booking-container {
           font-family: system-ui, -apple-system, sans-serif;
@@ -982,8 +1161,30 @@ export default function BookingDetailPage() {
                     </label>
                   </div>
 
-                  <button className="cta-btn" onClick={handleBooking}>
-                    Xác nhận thanh toán {formatPrice(depositAmount)}
+                  <button
+                    className="cta-btn"
+                    onClick={handleBooking}
+                    disabled={bookingSubmitting}
+                    style={{
+                      opacity: bookingSubmitting ? 0.82 : 1,
+                      cursor: bookingSubmitting ? "not-allowed" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 10
+                    }}
+                  >
+                    {bookingSubmitting ? (
+                      <>
+                        <span style={{
+                          width: 18, height: 18, borderRadius: "50%",
+                          border: "2.5px solid rgba(255,255,255,0.4)",
+                          borderTopColor: "white",
+                          animation: "spin 0.8s linear infinite",
+                          display: "inline-block", flexShrink: 0
+                        }} />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      <>Xác nhận thanh toán {formatPrice(depositAmount)}</>
+                    )}
                   </button>
                   
                   <div className="text-center mt-3">
@@ -1276,7 +1477,12 @@ export default function BookingDetailPage() {
                     <span className="font-weight-bold" style={{fontSize: "1.1rem"}}>Tổng tiền</span>
                     <span className="font-weight-bold" style={{fontSize: "1.5rem", color: "#D32F2F"}}>{formatPrice(totalAmount)}</span>
                   </div>
-                  <button className="cta-btn" onClick={handleBooking}>
+                  <button
+                    className="cta-btn"
+                    onClick={handleBooking}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
+                  >
+                    <i className="fas fa-bolt" />
                     ĐẶT TOUR NGAY
                   </button>
                 </div>

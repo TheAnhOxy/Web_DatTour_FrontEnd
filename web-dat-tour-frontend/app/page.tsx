@@ -313,9 +313,9 @@ export default function Home() {
                             : <><span>{p}</span> VND / người</>;
                         })()}
                       </span>
-                      <a href={`/tours/${tour.id}`} className="read-more">
+                      <Link href={`/booking/${tour.id}`} className="read-more">
                         Đặt ngay <i className="fal fa-angle-right"></i>
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 </div>

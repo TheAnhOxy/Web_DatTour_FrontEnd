@@ -20,6 +20,9 @@ export interface BookingRequest {
   departureId: number;
   passengers: PassengerDTO[];
   note?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 /** Khớp CancelBookingRequest.java */
@@ -30,6 +33,7 @@ export interface CancelBookingRequest {
 
 /** Khớp BookingResponse.java */
 export interface BookingResponse {
+  bookingId?: number;
   bookingCode: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | string;
   totalAmount: number;

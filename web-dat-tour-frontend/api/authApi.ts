@@ -22,6 +22,18 @@ export interface LoginResponse {
   userId: number;
 }
 
+export interface UserProfile {
+  id: number;
+  email: string;
+  fullName?: string;
+  phone?: string;
+  address?: string;
+  dob?: string;
+  gender?: string;
+  avatarUrl?: string;
+  currentPoints?: number;
+}
+
 export interface ApiResponse<T = unknown> {
   status: number;
   message?: string;
@@ -43,4 +55,10 @@ const refreshToken = (token: string) =>
 const logout = () =>
   client.post("/auth/logout", {});
 
-export default { login, register, verifyOtp, refreshToken, logout };
+const getUserProfile = (userId: number) =>
+  client.get(`/auth/profile/${userId}`);
+
+const updateProfile = (userId: number, data: Partial<Omit<UserProfile, "id" | "email" | "currentPoints">>) =>
+  client.put(`/auth/profile/${userId}`, data);
+
+export default { login, register, verifyOtp, refreshToken, logout, getUserProfile, updateProfile };

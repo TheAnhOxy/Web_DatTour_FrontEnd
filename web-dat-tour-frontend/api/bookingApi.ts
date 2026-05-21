@@ -38,6 +38,8 @@ export interface BookingResponse {
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | string;
   totalAmount: number;
   createdAt: string;
+  paymentMethod?: string;
+  paymentDueAt?: string;
   userId: number;
   message?: string;
   tourTitle?: string;

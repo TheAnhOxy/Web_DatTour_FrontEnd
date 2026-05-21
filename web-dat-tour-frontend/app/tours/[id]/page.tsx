@@ -28,7 +28,7 @@ const tourDetail = {
 const reviews = [
   {
     id: 1,
-    name: "Nguyen Minh Dien",
+    name: "Nguyen Duc Hau",
     rating: 5,
     comment: "Tour rat tuyet voi, dich vu tot va lich trinh hop ly.",
     avatar: "/clients/assets/images/user-profile/user-avatar.png",

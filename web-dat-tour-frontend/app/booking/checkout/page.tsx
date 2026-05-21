@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { cancelBooking, getBookingByCode, type BookingResponse } from "../../../api/bookingApi";
-import { getPaymentByBookingId, initiatePayment } from "../../../api/paymentApi";
+import { confirmOfficeReservation, getPaymentByBookingId, initiatePayment } from "../../../api/paymentApi";
+import {
+  OFFICE_HOURS_AFTER_BOOKING,
+  formatDueMs,
+  officePaymentDueMs,
+} from "../../../lib/officePaymentSchedule";
 
 const PAYMENT_HOLD_MINUTES = 10;
 const PAYMENT_HOLD_MS = PAYMENT_HOLD_MINUTES * 60 * 1000;
@@ -50,7 +55,9 @@ interface CheckoutPayload {
   voucherCode?: string;
   appliedVouchers?: { code: string; value: number }[];
   passengers?: { fullName: string; ageGroup: string; gender: string; idCardNumber?: string }[];
-  expiresAt?: number; // ms timestamp — set bởi booking/[id]
+  createdAt?: string;
+  expiresAt?: number; // ms — deadline đang hiển thị
+  officeExpiresAt?: number; // ms — hạn 48h quầy (sau xác nhận)
   bookingStatus?: string;
 }
 
@@ -63,6 +70,8 @@ interface State {
   promoInput: string;
   errorMsg: string;
   bookingStatus: string | null;
+  cashPaymentReady: boolean;
+  cashInitError: string;
 }
 
 type Action =
@@ -73,26 +82,89 @@ type Action =
   | { type: "COPIED"; key: string }
   | { type: "CLEAR_COPY" }
   | { type: "SET_PROMO"; value: string }
-  | { type: "BOOKING_STATUS"; status: string };
+  | { type: "BOOKING_STATUS"; status: string }
+  | { type: "CASH_PAYMENT_READY" }
+  | { type: "CASH_PAYMENT_ERROR"; message: string }
+  | { type: "CASH_PAYMENT_RETRY" }
+  | { type: "OFFICE_RESERVED"; paymentDueAt: string };
+
+/** Online (bank/stripe): 10 phút. Quầy: 10 phút trước xác nhận, 48h sau xác nhận. */
+function getExpiresAtMs(
+  payload: CheckoutPayload | null,
+  method: PaymentMethod,
+  cashPaymentReady: boolean,
+): number {
+  const createdMs = payload?.createdAt
+    ? new Date(payload.createdAt).getTime()
+    : Date.now();
+  const tenMinHold = createdMs + PAYMENT_HOLD_MS;
+
+  if (method === "bank" || method === "stripe") {
+    return tenMinHold;
+  }
+  if (cashPaymentReady) {
+    return payload?.officeExpiresAt ?? payload?.expiresAt ?? tenMinHold;
+  }
+  return tenMinHold;
+}
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
     case "INIT": {
       const m = a.payload.paymentMethod === "cash" ? "cash" : a.payload.paymentMethod === "stripe" ? "stripe" : "bank";
-      const expiresAt = a.payload.expiresAt;
-      const secs = expiresAt
-        ? Math.max(0, Math.round((expiresAt - Date.now()) / 1000))
-        : PAYMENT_HOLD_MINUTES * 60;
-      const expired = expiresAt != null && Date.now() >= expiresAt;
+      const createdMs = a.payload.createdAt ? new Date(a.payload.createdAt).getTime() : Date.now();
+      const longHold = (a.payload.expiresAt ?? 0) > createdMs + 20 * 60 * 1000;
+      const cashReady = m === "cash" && longHold;
+      const payload: CheckoutPayload = {
+        ...a.payload,
+        officeExpiresAt: cashReady ? a.payload.expiresAt : a.payload.officeExpiresAt,
+      };
+      const expiresAt = getExpiresAtMs(payload, m as PaymentMethod, cashReady);
+      const secs = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+      const expired = Date.now() >= expiresAt;
       return {
         ...s,
-        payload: a.payload,
+        payload: { ...payload, expiresAt },
         method: m as PaymentMethod,
+        cashPaymentReady: cashReady,
         secsLeft: secs,
         flow: expired ? "expired" : s.flow,
       };
     }
-    case "SET_METHOD":    return { ...s, method: a.method };
+    case "SET_METHOD": {
+      const leavingBank = a.method !== "bank" && s.flow === "checking";
+      const cashReady = a.method === "cash" && s.cashPaymentReady;
+      const expiresAt = getExpiresAtMs(s.payload, a.method, cashReady);
+      const secsLeft = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+      return {
+        ...s,
+        method: a.method,
+        flow: leavingBank ? "idle" : s.flow,
+        cashPaymentReady: s.cashPaymentReady,
+        cashInitError: a.method === "cash" ? s.cashInitError : "",
+        secsLeft,
+        payload: s.payload ? { ...s.payload, expiresAt } : s.payload,
+      };
+    }
+    case "CASH_PAYMENT_READY":
+      return { ...s, cashPaymentReady: true, cashInitError: "" };
+    case "CASH_PAYMENT_ERROR":
+      return { ...s, cashPaymentReady: false, cashInitError: a.message };
+    case "CASH_PAYMENT_RETRY":
+      return { ...s, cashPaymentReady: false, cashInitError: "" };
+    case "OFFICE_RESERVED": {
+      const dueMs = new Date(a.paymentDueAt).getTime();
+      const secsLeft = Math.max(0, Math.round((dueMs - Date.now()) / 1000));
+      return {
+        ...s,
+        cashPaymentReady: true,
+        cashInitError: "",
+        payload: s.payload
+          ? { ...s.payload, expiresAt: dueMs, officeExpiresAt: dueMs, paymentMethod: "cash" }
+          : s.payload,
+        secsLeft,
+      };
+    }
     case "SET_FLOW":      return { ...s, flow: a.flow, errorMsg: a.errorMsg ?? "" };
     case "TICK":          return { ...s, secsLeft: a.secsLeft };
     case "COPIED":        return { ...s, copiedKey: a.key };
@@ -106,6 +178,7 @@ function reducer(s: State, a: Action): State {
 const init: State = {
   payload: null, method: "bank", flow: "idle",
   secsLeft: 600, copiedKey: null, promoInput: "", errorMsg: "", bookingStatus: null,
+  cashPaymentReady: false, cashInitError: "",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,9 +195,16 @@ const fmtDate = (s?: string) => {
   return `${dn}, ${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
 };
 
-const fmtSecs = (t: number) => {
-  const m = Math.floor(t / 60), s = t % 60;
-  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+/** Đếm ngược: dưới 1 giờ → MM:SS; từ 1 giờ trở lên → HH:MM:SS */
+const fmtCountdown = (totalSec: number) => {
+  if (totalSec <= 0) return "00:00";
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
 const ageLabel = (ag: string) =>
@@ -182,7 +262,13 @@ export default function BookingCheckoutPage() {
         }
 
         const createdMs = booking.createdAt ? new Date(booking.createdAt).getTime() : Date.now();
-        const expiresAt = createdMs + PAYMENT_HOLD_MS;
+        const isOffice = booking.paymentMethod === "CASH_OFFICE";
+        const officeDueMs = isOffice && booking.paymentDueAt
+          ? new Date(booking.paymentDueAt).getTime()
+          : null;
+        const expiresAt = officeDueMs != null && officeDueMs > Date.now()
+          ? officeDueMs
+          : createdMs + PAYMENT_HOLD_MS;
 
         // Dựng lại payload tối thiểu từ dữ liệu booking API
         const partial: CheckoutPayload = {
@@ -193,7 +279,8 @@ export default function BookingCheckoutPage() {
           cityName:     booking.cityName,
           totalAmount:  booking.totalAmount ? Number(booking.totalAmount) : undefined,
           depositAmount:booking.totalAmount ? Number(booking.totalAmount) : undefined,
-          paymentMethod:"bank",
+          paymentMethod: isOffice ? "cash" : "bank",
+          createdAt: booking.createdAt,
           expiresAt,
           bookingStatus: booking.status,
           passengers:   booking.passengers?.map(p => ({
@@ -206,6 +293,9 @@ export default function BookingCheckoutPage() {
         // Lưu lại sessionStorage để tránh re-fetch khi reload
         try { window.sessionStorage.setItem("htour.checkout", JSON.stringify(partial)); } catch { /* ignore */ }
         dispatch({ type: "INIT", payload: partial });
+        if (isOffice && booking.paymentDueAt) {
+          dispatch({ type: "OFFICE_RESERVED", paymentDueAt: booking.paymentDueAt });
+        }
       } catch {
         dispatch({ type: "SET_FLOW", flow: "idle" }); // hiện empty state nếu API thất bại
       }
@@ -251,18 +341,25 @@ export default function BookingCheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.flow, s.payload?.bookingCode]);
 
-  // ── Auto-poll khi payload sẵn sàng (SePay webhook tự xác nhận) ──────────
+  // ── Auto-poll CHỈ cho chuyển khoản (SePay webhook tự xác nhận) ───────────
 
   useEffect(() => {
     if (!s.payload?.bookingCode || s.flow === "success" || s.flow === "expired") return;
-    if (pollRef.current) return; // đã chạy rồi
+
+    if (s.method !== "bank") {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+
+    if (pollRef.current) return;
 
     dispatch({ type: "SET_FLOW", flow: "checking" });
 
     const code = s.payload.bookingCode;
-    let attempts = 0;
     pollRef.current = setInterval(async () => {
-      attempts++;
       try {
         const res = await getBookingByCode(code) as { status?: number; data?: { status?: string } };
         const bookingStatus = (res?.data as { status?: string })?.status ?? "";
@@ -280,18 +377,53 @@ export default function BookingCheckoutPage() {
       } catch { /* bỏ qua lỗi mạng, thử lại lần sau */ }
     }, 5000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.payload?.bookingCode]);
+  }, [s.payload?.bookingCode, s.method]);
 
-  useEffect(() => () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } }, []);
+  // ── Poll nhẹ sau khi đã xác nhận tại quầy (chờ nhân viên thu tiền & xác nhận) ──
+  const officePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!s.cashPaymentReady || s.method !== "cash" || !s.payload?.bookingCode) return;
+    if (officePollRef.current) return;
 
-  // ── Khi user chuyển về SePay sau khi đã chọn Stripe → khôi phục payment SePay ──
+    const code = s.payload.bookingCode;
+    officePollRef.current = setInterval(async () => {
+      try {
+        const res = await getBookingByCode(code) as { data?: { status?: string } };
+        const status = res?.data?.status ?? "";
+        if (status === "CONFIRMED" || status === "SUCCESS") {
+          if (officePollRef.current) clearInterval(officePollRef.current);
+          officePollRef.current = null;
+          dispatch({ type: "SET_FLOW", flow: "success" });
+        }
+      } catch { /* ignore */ }
+    }, 15000);
+
+    return () => {
+      if (officePollRef.current) {
+        clearInterval(officePollRef.current);
+        officePollRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.cashPaymentReady, s.method, s.payload?.bookingCode]);
+
+  useEffect(() => () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (officePollRef.current) { clearInterval(officePollRef.current); officePollRef.current = null; }
+  }, []);
+
+  // ── SePay: khởi tạo payment khi chọn chuyển khoản ─────────────────────────
   useEffect(() => {
     const bookingId = s.payload?.bookingId;
-    if (!bookingId || s.flow === "success" || s.flow === "expired") return;
-    if (s.method !== "bank") return;
-    // Gọi initiate để đảm bảo payment SePay tồn tại trong DB
+    if (!bookingId || s.flow === "success" || s.flow === "expired" || s.method !== "bank") return;
+
     const payAmount = s.payload?.depositAmount ?? s.payload?.totalAmount;
-    initiatePayment({ bookingId, gateway: "SEPAY", bookingCode: s.payload?.bookingCode, amount: payAmount }).catch(() => {/* bỏ qua lỗi, QR vẫn hiển thị */});
+    initiatePayment({
+      bookingId,
+      gateway: "SEPAY",
+      bookingCode: s.payload?.bookingCode,
+      amount: payAmount,
+    }).catch(() => { /* bỏ qua lỗi, QR vẫn hiển thị */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.method, s.payload?.bookingId]);
 
@@ -346,12 +478,68 @@ export default function BookingCheckoutPage() {
     window.location.href = paymentInfo.paymentUrl;
   }, [s.payload?.bookingId, s.payload?.bookingCode, s.payload?.depositAmount, s.payload?.totalAmount]);
 
+  // ── Thanh toán tại quầy: xác nhận đặt chỗ + gửi email (24h) ───────────────
+  const [officeSubmitting, setOfficeSubmitting] = useState(false);
+
+  const handleConfirmOfficeReservation = useCallback(async () => {
+    const bookingId = s.payload?.bookingId;
+    const bookingCode = s.payload?.bookingCode;
+    const payAmount = s.payload?.depositAmount ?? s.payload?.totalAmount;
+    if (!bookingId || !bookingCode) {
+      dispatch({ type: "CASH_PAYMENT_ERROR", message: "Thiếu thông tin đặt chỗ." });
+      return;
+    }
+    if (!s.payload?.contactEmail) {
+      dispatch({ type: "CASH_PAYMENT_ERROR", message: "Thiếu email liên hệ để gửi hướng dẫn thanh toán." });
+      return;
+    }
+    if (officeSubmitting) return;
+    setOfficeSubmitting(true);
+
+    const result = await confirmOfficeReservation({
+      bookingId,
+      bookingCode,
+      amount: payAmount,
+      contactEmail: s.payload.contactEmail,
+      contactName: s.payload.contactName,
+      tourTitle: s.payload.tourTitle,
+      startDate: s.payload.startDate,
+      bookedAt: s.payload.createdAt,
+    });
+
+    setOfficeSubmitting(false);
+
+    if (result?.paymentDueAt) {
+      dispatch({ type: "OFFICE_RESERVED", paymentDueAt: result.paymentDueAt });
+      try {
+        const dueMs = new Date(result.paymentDueAt).getTime();
+        const updated = {
+          ...s.payload,
+          expiresAt: dueMs,
+          officeExpiresAt: dueMs,
+          paymentMethod: "cash" as const,
+        };
+        window.sessionStorage.setItem("htour.checkout", JSON.stringify(updated));
+      } catch { /* ignore */ }
+    } else {
+      dispatch({
+        type: "CASH_PAYMENT_ERROR",
+        message: "Không xác nhận được đặt chỗ tại quầy. Vui lòng thử lại.",
+      });
+    }
+  }, [s.payload, officeSubmitting]);
+
   // ── Derived ──────────────────────────────────────────────────────────────
 
   const p = s.payload;
   const amount = p?.depositAmount ?? p?.totalAmount ?? 0;
-  const isUrgent = s.secsLeft > 0 && s.secsLeft <= 120;
-  const isWarning = s.secsLeft > 120 && s.secsLeft <= 300;
+  const isOfficeHold = s.method === "cash" && s.cashPaymentReady;
+  const isUrgent = isOfficeHold
+    ? s.secsLeft > 0 && s.secsLeft <= 2 * 3600
+    : s.secsLeft > 0 && s.secsLeft <= 120;
+  const isWarning = isOfficeHold
+    ? s.secsLeft > 2 * 3600 && s.secsLeft <= 24 * 3600
+    : s.secsLeft > 120 && s.secsLeft <= 300;
   const timerColor = s.secsLeft === 0 ? "#ccc" : isUrgent ? "#D32F2F" : isWarning ? "#F7921E" : "#63AB45";
 
   const passengerLine = useMemo(() => {
@@ -362,6 +550,17 @@ export default function BookingCheckoutPage() {
     if (p.numBabies) parts.push(`${p.numBabies} EB`);
     return parts.join(" · ") || "—";
   }, [p]);
+
+  const officeDueLabel = useMemo(() => {
+    if (p?.expiresAt && s.cashPaymentReady) return formatDueMs(p.expiresAt);
+    if (p?.createdAt) return formatDueMs(officePaymentDueMs(new Date(p.createdAt).getTime()));
+    return null;
+  }, [p?.expiresAt, p?.createdAt, s.cashPaymentReady]);
+
+  const officeWindowExpired = useMemo(() => {
+    if (!p?.createdAt || s.cashPaymentReady) return false;
+    return officePaymentDueMs(new Date(p.createdAt).getTime()) <= Date.now();
+  }, [p?.createdAt, s.cashPaymentReady]);
 
   // ────────────────────────────────────────────────────────────────────────
   // Recovering state (đang dựng lại từ URL ?code=)
@@ -472,7 +671,10 @@ export default function BookingCheckoutPage() {
             Phiên đặt chỗ đã hết hạn
           </h2>
           <p style={{ color: "#666", lineHeight: 1.7, margin: "0 0 10px", fontSize: 15 }}>
-            Đặt chỗ <strong>{p.bookingCode}</strong> đã quá 10 phút mà chưa thanh toán.
+            Đặt chỗ <strong>{p.bookingCode}</strong> đã quá hạn
+            {s.method === "cash"
+              ? ` (${OFFICE_HOURS_AFTER_BOOKING} giờ sau khi đặt)`
+              : " 10 phút"} mà chưa thanh toán.
           </p>
           <p style={{ color: "#888", fontSize: 14, margin: "0 0 36px" }}>
             Vị trí có thể đã được người khác đặt. Vui lòng thử lại từ đầu.
@@ -569,10 +771,10 @@ export default function BookingCheckoutPage() {
                 animation: isUrgent && s.secsLeft > 0 ? "pulse 1s infinite" : "none",
               }}>
                 <i className="fas fa-clock" style={{ fontSize:12 }} />
-                {s.secsLeft > 0 ? fmtSecs(s.secsLeft) : "Hết giờ"}
+                {s.secsLeft > 0 ? fmtCountdown(s.secsLeft) : "Hết giờ"}
               </div>
               <div style={{ color:"rgba(255,255,255,.55)",fontSize:10,marginTop:5 }}>
-                Thời gian giữ chỗ còn lại
+                {isOfficeHold ? "Hạn thanh toán tại quầy" : "Thời gian giữ chỗ (10 phút)"}
               </div>
             </div>
           </div>
@@ -717,7 +919,9 @@ export default function BookingCheckoutPage() {
               <SectionHead icon="fa-clipboard-list" color="#63AB45" title="Chính sách quan trọng" />
               <div style={{ display:"grid",gap:8 }}>
                 {[
-                  { icon:"fa-clock",       text:"Giữ chỗ 10 phút. Thanh toán trễ, đặt chỗ tự hủy." },
+                  { icon:"fa-clock",       text: s.method === "cash"
+                    ? `Thanh toán tại quầy trong ${OFFICE_HOURS_AFTER_BOOKING} giờ sau khi xác nhận đặt chỗ. Quá hạn đơn tự hủy.`
+                    : "Giữ chỗ 10 phút. Thanh toán trễ, đặt chỗ tự hủy." },
                   { icon:"fa-id-badge",    text:"Mang CCCD/Passport bản gốc khi khởi hành." },
                   { icon:"fa-user-edit",   text:"Đổi tên hành khách trước 48h (phí áp dụng)." },
                   { icon:"fa-undo-alt",    text:"Hủy trước 7 ngày được hoàn tiền theo quy định." },
@@ -968,51 +1172,148 @@ export default function BookingCheckoutPage() {
                   </div>
                 )}
 
-                {/* ── CASH ── */}
+                {/* ── CASH / VĂN PHÒNG ── */}
                 {s.method === "cash" && (
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:48,marginBottom:14 }}>🏢</div>
-                    <h4 style={{ fontWeight:800,fontSize:16,margin:"0 0 8px",color:"#1C231F" }}>
-                      Thanh toán tại văn phòng
-                    </h4>
-                    <p style={{ fontSize:13,color:"#888",margin:"0 0 16px",lineHeight:1.65 }}>
-                      Mang mã đặt chỗ <strong style={{ color:"#63AB45" }}>{p.bookingCode}</strong> đến văn phòng HTravel gần nhất.
-                    </p>
+                  <div>
+                    <div style={{ textAlign:"center",marginBottom:18 }}>
+                      <div style={{ fontSize:48,marginBottom:10 }}>🏢</div>
+                      <h4 style={{ fontWeight:800,fontSize:16,margin:"0 0 8px",color:"#1C231F" }}>
+                        Thanh toán tại văn phòng
+                      </h4>
+                      <p style={{ fontSize:13,color:"#888",margin:0,lineHeight:1.65 }}>
+                        Mang mã đặt chỗ đến quầy HTravel. Nhân viên xác nhận sau khi nhận tiền mặt.
+                      </p>
+                    </div>
+
+                    <div style={{
+                      display:"flex",alignItems:"center",justifyContent:"space-between",
+                      padding:"12px 14px",background:"#E3F2FD",borderRadius:10,
+                      border:"1px solid #BBDEFB",marginBottom:14,
+                    }}>
+                      <div>
+                        <div style={{ fontSize:11,color:"#1565C0",marginBottom:2 }}>Mã đặt chỗ</div>
+                        <div style={{ fontWeight:800,fontSize:18,color:"#0D47A1",letterSpacing:1 }}>
+                          {p.bookingCode ?? "—"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => p.bookingCode && copy("code", p.bookingCode)}
+                        className="co-btn-ghost"
+                        style={{ padding:"6px 12px",fontSize:12 }}
+                      >
+                        <i className={`fas ${s.copiedKey === "code" ? "fa-check" : "fa-copy"}`} style={{ marginRight:4 }} />
+                        {s.copiedKey === "code" ? "Đã sao chép" : "Sao chép"}
+                      </button>
+                    </div>
+
                     <div style={{
                       background:"#F9FAF9",borderRadius:12,padding:"14px 16px",
-                      marginBottom:18,textAlign:"left",
+                      marginBottom:14,
                     }}>
+                      <div style={{ fontWeight:700,fontSize:13,color:"#1C231F",marginBottom:10 }}>
+                        Số tiền cần thanh toán tại quầy
+                      </div>
+                      <div style={{ fontWeight:900,fontSize:22,color:"#D32F2F",marginBottom:12 }}>
+                        {fmt(amount)}
+                      </div>
                       {[
-                        "Địa chỉ: 470 Trần Đại Nghĩa, Đà Nẵng",
+                        "Địa chỉ: Phạm Văn chiêu, Phường 9, Gò Vấp, Hồ Chí Minh",
                         "Giờ làm việc: T2–T7, 8:00–17:30",
                         "Hotline: 1900-xxxx",
-                      ].map((line,i) => (
-                        <div key={i} style={{ display:"flex",gap:8,fontSize:13,color:"#484848",marginBottom:i<2?8:0 }}>
-                          <i className="fas fa-check-circle" style={{ color:"#63AB45",marginTop:2,flexShrink:0 }} />
+                      ].map((line, i) => (
+                        <div key={i} style={{ display:"flex",gap:8,fontSize:13,color:"#484848",marginBottom:i < 2 ? 8 : 0 }}>
+                          <i className="fas fa-map-marker-alt" style={{ color:"#63AB45",marginTop:2,flexShrink:0 }} />
                           {line}
                         </div>
                       ))}
                     </div>
+
                     <div style={{
                       background:"#FFF3E8",borderRadius:10,padding:"10px 14px",
-                      fontSize:12,color:"#c96200",textAlign:"left",marginBottom:16,
+                      fontSize:12,color:"#7A4E00",lineHeight:1.6,marginBottom:14,
                     }}>
-                      <i className="fas fa-exclamation-triangle" style={{ marginRight:6 }} />
-                      Vui lòng đến thanh toán trong vòng <strong>10 phút</strong> để giữ chỗ.
+                      <i className="fas fa-clock" style={{ marginRight:6 }} />
+                      {s.cashPaymentReady ? (
+                        <>Hạn thanh toán tại quầy: còn <strong>{fmtCountdown(s.secsLeft)}</strong>{officeDueLabel ? <> (hạn lúc {officeDueLabel})</> : null} — trong {OFFICE_HOURS_AFTER_BOOKING} giờ sau khi đặt.</>
+                      ) : (
+                        <>Hoàn tất xác nhận trong <strong>{fmtCountdown(s.secsLeft)}</strong> để giữ chỗ. Sau đó bạn có {OFFICE_HOURS_AFTER_BOOKING} giờ để thanh toán tại quầy.</>
+                      )}
                     </div>
-                    <div style={{
-                      display:"flex",alignItems:"center",gap:10,
-                      padding:"12px 14px",borderRadius:12,
-                      background:"#F0F9EC",border:"1px solid #C8E6B8",
-                    }}>
+
+                    {officeWindowExpired && !s.cashPaymentReady && (
                       <div style={{
-                        width:18,height:18,borderRadius:"50%",flexShrink:0,
-                        border:"2.5px solid #C8E6B8",borderTopColor:"#63AB45",
-                        animation:"spin .8s linear infinite",
-                      }} />
-                      <div style={{ fontSize:13,color:"#2E6B1A",fontWeight:600 }}>
-                        Hệ thống sẽ tự xác nhận khi nhận được thanh toán.
+                        background:"#FFF3F3",border:"1px solid #FFCDD2",borderRadius:10,
+                        padding:"12px 14px",fontSize:13,color:"#C62828",marginBottom:14,
+                      }}>
+                        <i className="fas fa-exclamation-circle" style={{ marginRight:6 }} />
+                        Đã quá {OFFICE_HOURS_AFTER_BOOKING} giờ kể từ lúc đặt. Vui lòng đặt tour lại hoặc chọn chuyển khoản/thẻ.
                       </div>
+                    )}
+
+                    {s.cashInitError && (
+                      <div style={{
+                        background:"#FFF3F3",border:"1px solid #FFCDD2",borderRadius:10,
+                        padding:"12px 14px",fontSize:13,color:"#C62828",marginBottom:14,
+                      }}>
+                        <i className="fas fa-exclamation-circle" style={{ marginRight:6 }} />
+                        {s.cashInitError}
+                      </div>
+                    )}
+
+                    {s.cashPaymentReady ? (
+                      <div style={{
+                        display:"flex",alignItems:"flex-start",gap:12,
+                        padding:"14px 16px",borderRadius:12,
+                        background:"#E8F5E9",border:"1px solid #A5D6A7",marginBottom:14,
+                      }}>
+                        <i className="fas fa-envelope" style={{ color:"#2E7D32",fontSize:22,marginTop:2 }} />
+                        <div style={{ textAlign:"left" }}>
+                          <div style={{ fontWeight:700,fontSize:14,color:"#1B5E20",marginBottom:4 }}>
+                            Đã xác nhận đặt chỗ — email đã gửi
+                          </div>
+                          <div style={{ fontSize:13,color:"#388E3C",lineHeight:1.55 }}>
+                            Kiểm tra hộp thư <strong>{p.contactEmail}</strong> để xem địa chỉ quầy và hạn thanh toán.
+                            Sau khi nhận tiền mặt, nhân viên sẽ xác nhận đơn (không tự động như chuyển khoản).
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="co-btn-primary"
+                        style={{ width:"100%",justifyContent:"center",marginBottom:14 }}
+                        disabled={officeSubmitting || s.secsLeft === 0 || officeWindowExpired}
+                        onClick={handleConfirmOfficeReservation}
+                      >
+                        {officeSubmitting ? (
+                          <>
+                            <span style={{
+                              display:"inline-block",width:16,height:16,borderRadius:"50%",
+                              border:"2px solid rgba(255,255,255,.4)",borderTopColor:"#fff",
+                              animation:"spin .8s linear infinite",marginRight:8,
+                            }} />
+                            Đang xử lý…
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-check-circle" style={{ marginRight:8 }} />
+                            Xác nhận đặt chỗ &amp; gửi hướng dẫn qua email
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {!s.cashPaymentReady && (
+                      <p style={{ fontSize:12,color:"#888",lineHeight:1.55,margin:0 }}>
+                        Bấm nút trên để giữ chỗ và nhận email hướng dẫn. Mang mã <strong>{p.bookingCode}</strong> và CMND/CCCD khi đến quầy.
+                      </p>
+                    )}
+
+                    <div style={{ marginTop:16 }}>
+                      <Link href={p.bookingCode ? `/booking/${p.bookingCode}` : "/booking"} className="co-btn-ghost" style={{ justifyContent:"center" }}>
+                        <i className="fas fa-file-alt" style={{ marginRight:8 }} /> Xem chi tiết đơn
+                      </Link>
                     </div>
                   </div>
                 )}

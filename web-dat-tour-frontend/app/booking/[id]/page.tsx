@@ -1644,6 +1644,12 @@ export default function BookingDetailPage() {
                             <i className="fas fa-money-bill-wave mr-3 text-success" style={{fontSize: "1.2rem"}}></i>
                             <div className="font-weight-bold">Thanh toán tiền mặt tại văn phòng</div>
                           </div>
+                          {paymentMethod === 'cash' && (
+                            <div className="bank-info mt-3" style={{border: "1px dashed #2E7D32"}}>
+                              <div className="mb-1">Thanh toán tại quầy trong <strong>48 giờ</strong> sau khi xác nhận đặt chỗ.</div>
+                              <div className="mt-2 text-muted small">Sau khi xác nhận đặt chỗ trên trang thanh toán, bạn nhận email hướng dẫn và hạn cụ thể.</div>
+                            </div>
+                          )}
                         </div>
                       </div>
 

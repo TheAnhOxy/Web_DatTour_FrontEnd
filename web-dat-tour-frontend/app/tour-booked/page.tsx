@@ -1,8 +1,8 @@
 const bookingDetail = {
-  fullName: "Nguyen Minh Dien",
+  fullName: "Nguyen Duc Hau",
   email: "duchaunguyen131@gmail.com",
   phoneNumber: "0900000000",
-  address: "470 Tran Dai Nghia, Da Nang",
+  address: "Phạm Văn chiêu, Phường 9, Gò Vấp, Hồ Chí Minh",
   tourId: "T-2026-001",
   title: "Kham pha Ba Na - Hoi An",
   startDate: "12-05-2026",

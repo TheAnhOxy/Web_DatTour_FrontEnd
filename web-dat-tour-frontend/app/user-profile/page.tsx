@@ -1,6 +1,6 @@
 const user = {
-  fullName: "Nguyen Minh Dien",
-  address: "470 Tran Dai Nghia, Da Nang",
+  fullName: "Nguyen Duc Hau",
+  address: "Phạm Văn chiêu, Phường 9, Gò Vấp, Hồ Chí Minh",
   email: "duchaunguyen131@gmail.com",
   phoneNumber: "0900000000",
   avatar: "/clients/assets/images/user-profile/user_avatar.jpg",

@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import ChatbotWidget from "./components/ChatbotWidget";
 
 export const metadata: Metadata = {
   title: "HTravel",
@@ -21,10 +22,6 @@ export default function RootLayout({
           rel="shortcut icon"
           href="/clients/assets/images/logos/favicon.png"
           type="image/x-icon"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
         />
         <link rel="stylesheet" href="/clients/assets/css/flaticon.min.css" />
         <link
@@ -67,6 +64,7 @@ export default function RootLayout({
         <Header />
         {children}
         <Footer />
+        <ChatbotWidget />
         <Script
           src="/clients/assets/js/jquery-3.6.0.min.js"
           strategy="beforeInteractive"

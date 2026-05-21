@@ -2,17 +2,17 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useReducer } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getDepartureDetails, getTourSchedules, getTourDetails } from "../../../api/coreApi_new";
-import { createBooking, getBookingByCode, type BookingRequest, type PassengerDTO } from "../../../api/bookingApi";
+import { createBooking, getBookingByCode, type BookingRequest, type PassengerDTO, type PassengerGender } from "../../../api/bookingApi";
 import { useAuthStore } from "../../../store/authStore";
 
 const createPassengerDefaults = (ageGroup: PassengerDTO["ageGroup"], _index: number): PassengerDTO => ({
   fullName: "",
   ageGroup,
   dob: "",
-  gender: "",
+  gender: "" as PassengerGender,
   idCardNumber: ageGroup === "BABY" ? undefined : "",
 });
 
@@ -72,10 +72,19 @@ export default function BookingDetailPage() {
 
   // --- CHECKOUT FORM STATES ---
   const [pickupPoint, setPickupPoint] = useState("");
-  const [contactName, setContactName] = useState("Nguyen Minh Dien");
-  const [contactPhone, setContactPhone] = useState("0900000000");
-  const [contactEmail, setContactEmail] = useState("duchaunguyen131@gmail.com");
-  const [contactAddress, setContactAddress] = useState("470 Tran Dai Nghia, Da Nang");
+  type ContactForm = { name: string; phone: string; email: string; address: string };
+  const [contact, patchContact] = useReducer(
+    (prev: ContactForm, patch: Partial<ContactForm>) => ({ ...prev, ...patch }),
+    { name: "", phone: "", email: "", address: "" },
+  );
+  const contactName    = contact.name;
+  const contactPhone   = contact.phone;
+  const contactEmail   = contact.email;
+  const contactAddress = contact.address;
+  const setContactName    = (v: string) => patchContact({ name: v });
+  const setContactPhone   = (v: string) => patchContact({ phone: v });
+  const setContactEmail   = (v: string) => patchContact({ email: v });
+  const setContactAddress = (v: string) => patchContact({ address: v });
   const [contactNotes, setContactNotes] = useState("");
   const [paymentRatio, setPaymentRatio] = useState(100); // 100 or 50
   const [voucherCode, setVoucherCode] = useState("");
@@ -84,6 +93,7 @@ export default function BookingDetailPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const authUser = useAuthStore((state) => state.user);
   const authHydrated = useAuthStore((state) => state._hasHydrated);
+  const fetchProfile = useAuthStore((state) => state.fetchProfile);
 
   const changePassengerCount = (group: "adult" | "child" | "baby", delta: number) => {
     if (group === "adult") {
@@ -136,6 +146,36 @@ export default function BookingDetailPage() {
 
     return adultIncomplete || childIncomplete || babyIncomplete || adultPassengers.length !== numAdults || childPassengers.length !== numChildren || babyPassengers.length !== numBabies;
   };
+
+  // --- AUTO-FILL CONTACT TỪ USER PROFILE ---
+  useEffect(() => {
+    if (!authHydrated || !authUser?.userId) return;
+    if (authUser.fullName || authUser.phone) {
+      // Đã có profile → điền ngay (1 dispatch duy nhất)
+      patchContact({
+        name:    contact.name    || authUser.fullName || "",
+        phone:   contact.phone   || authUser.phone    || "",
+        email:   contact.email   || authUser.email    || "",
+        address: contact.address || authUser.address  || "",
+      });
+    } else {
+      // Chưa có profile → fetch, khi store cập nhật effect dưới sẽ chạy
+      fetchProfile();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authHydrated, authUser?.userId]);
+
+  // Khi fetchProfile() hoàn thành, store update → điền lần cuối (1 dispatch)
+  useEffect(() => {
+    if (!authUser?.fullName && !authUser?.phone) return;
+    patchContact({
+      name:    contact.name    || authUser.fullName || "",
+      phone:   contact.phone   || authUser.phone    || "",
+      email:   contact.email   || authUser.email    || "",
+      address: contact.address || authUser.address  || "",
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.fullName, authUser?.phone]);
 
   useEffect(() => {
     if (!bookingResult?.expiresAt) {
@@ -464,6 +504,9 @@ export default function BookingDetailPage() {
       departureId: Number(selectedDepId || id),
       note: [contactNotes, `Địa chỉ: ${contactAddress}`].filter(Boolean).join(" | ") || undefined,
       passengers: passengerList,
+      contactName: contactName || undefined,
+      contactEmail: contactEmail || undefined,
+      contactPhone: contactPhone || undefined,
     };
 
     try {
@@ -475,8 +518,10 @@ export default function BookingDetailPage() {
         const createdAtValue = bookingResponse.createdAt ? new Date(bookingResponse.createdAt).getTime() : 0;
         // Lưu kết quả để hiện Modal thành công
         setBookingResult({
+          bookingId: bookingResponse.bookingId ?? bookingResponse.id ?? null,
           bookingCode: bookingResponse.bookingCode,
           status: bookingResponse.status,
+          bookingStatus: bookingResponse.status,
           message: bookingResponse.message,
           destination: bookingResponse.destination,
           createdAt: bookingResponse.createdAt,
@@ -525,6 +570,10 @@ export default function BookingDetailPage() {
   };
 
   const continueToCheckout = () => {
+    if (bookingResult?.expiresAt && bookingResult.expiresAt <= Date.now()) {
+      showToast("Phiên giữ chỗ 10 phút đã hết. Vui lòng đặt tour lại.", "error");
+      return;
+    }
     if (bookingResult) {
       try {
         window.sessionStorage.setItem("htour.checkout", JSON.stringify(bookingResult));
@@ -535,7 +584,9 @@ export default function BookingDetailPage() {
 
     setBookingResult(null);
     setIsCheckoutMode(false);
-    router.push("/booking/checkout");
+    // Đưa bookingCode lên URL để fallback khi sessionStorage bị xóa
+    const code = bookingResult?.bookingCode ?? "";
+    router.push(`/booking/checkout${code ? `?code=${encodeURIComponent(code)}` : ""}`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -1047,13 +1098,21 @@ export default function BookingDetailPage() {
             <div style={{display: "grid", gridTemplateColumns: "1fr", gap: 12}}>
               <button
                 onClick={continueToCheckout}
+                disabled={holdRemainingMs !== null && holdRemainingMs <= 0}
                 style={{
                   width: "100%", padding: "13px 20px", borderRadius: 12,
-                  background: "#FFF8F0", color: "#FF6B00", fontWeight: 800,
-                  border: "1.5px solid #FFB57A", cursor: "pointer", fontSize: 14
+                  background: holdRemainingMs !== null && holdRemainingMs <= 0 ? "#f5f5f5" : "#FFF8F0",
+                  color: holdRemainingMs !== null && holdRemainingMs <= 0 ? "#999" : "#FF6B00",
+                  fontWeight: 800,
+                  border: "1.5px solid #FFB57A",
+                  cursor: holdRemainingMs !== null && holdRemainingMs <= 0 ? "not-allowed" : "pointer",
+                  fontSize: 14,
+                  opacity: holdRemainingMs !== null && holdRemainingMs <= 0 ? 0.7 : 1,
                 }}
               >
-                Tiếp tục nhập thông tin thanh toán
+                {holdRemainingMs !== null && holdRemainingMs <= 0
+                  ? "Đã hết thời gian giữ chỗ"
+                  : "Tiếp tục nhập thông tin thanh toán"}
               </button>
               <button
                 onClick={() => router.push(`/booking/${bookingResult.bookingCode}`)}
@@ -1585,6 +1644,12 @@ export default function BookingDetailPage() {
                             <i className="fas fa-money-bill-wave mr-3 text-success" style={{fontSize: "1.2rem"}}></i>
                             <div className="font-weight-bold">Thanh toán tiền mặt tại văn phòng</div>
                           </div>
+                          {paymentMethod === 'cash' && (
+                            <div className="bank-info mt-3" style={{border: "1px dashed #2E7D32"}}>
+                              <div className="mb-1">Thanh toán tại quầy trong <strong>48 giờ</strong> sau khi xác nhận đặt chỗ.</div>
+                              <div className="mt-2 text-muted small">Sau khi xác nhận đặt chỗ trên trang thanh toán, bạn nhận email hướng dẫn và hạn cụ thể.</div>
+                            </div>
+                          )}
                         </div>
                       </div>
 

@@ -1,12 +1,17 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import authApi, { RegisterRequest, LoginResponse } from "../api/authApi";
+import authApi, { RegisterRequest, LoginResponse, UserProfile } from "../api/authApi";
 
 export interface User {
   userId: number;
   email: string;
   token: string;
   refreshToken: string;
+  // Profile fields — được điền sau khi gọi fetchProfile()
+  fullName?: string;
+  phone?: string;
+  address?: string;
+  avatarUrl?: string;
 }
 
 export interface AuthResult {
@@ -24,6 +29,8 @@ interface AuthState {
   logout: () => Promise<void>;
   /** Gọi khi access token hết hạn (401) — trả về access token mới hoặc null nếu thất bại */
   doRefresh: () => Promise<string | null>;
+  /** Lấy profile đầy đủ (fullName, phone, address) của user đang đăng nhập */
+  fetchProfile: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -129,6 +136,28 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
         set({ user: null, isLoggedIn: false });
+      },
+
+      fetchProfile: async () => {
+        const currentUser = get().user;
+        if (!currentUser?.userId) return;
+        try {
+          const res = await authApi.getUserProfile(currentUser.userId);
+          const body = res.data as { status?: number; data?: UserProfile };
+          const profile = body?.data;
+          if (!profile) return;
+          set((s) => ({
+            user: s.user ? {
+              ...s.user,
+              fullName: profile.fullName ?? s.user.fullName,
+              phone:    profile.phone    ?? s.user.phone,
+              address:  profile.address  ?? s.user.address,
+              avatarUrl:profile.avatarUrl?? s.user.avatarUrl,
+            } : null,
+          }));
+        } catch {
+          // profile fetch thất bại — không throw, giữ state cũ
+        }
       },
     }),
     {

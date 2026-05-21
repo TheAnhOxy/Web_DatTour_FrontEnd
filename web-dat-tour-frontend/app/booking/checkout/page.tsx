@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { getBookingByCode, type BookingResponse } from "../../../api/bookingApi";
-import { getPaymentByBookingId } from "../../../api/paymentApi";
+import { cancelBooking, getBookingByCode, type BookingResponse } from "../../../api/bookingApi";
+import { getPaymentByBookingId, initiatePayment } from "../../../api/paymentApi";
+
+const PAYMENT_HOLD_MINUTES = 10;
+const PAYMENT_HOLD_MS = PAYMENT_HOLD_MINUTES * 60 * 1000;
+
+const CANCELLED_STATUSES = new Set(["CANCELLED", "CANCELLED_TIMEOUT"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bank transfer config (map với sepay config ở backend)
@@ -46,6 +51,7 @@ interface CheckoutPayload {
   appliedVouchers?: { code: string; value: number }[];
   passengers?: { fullName: string; ageGroup: string; gender: string; idCardNumber?: string }[];
   expiresAt?: number; // ms timestamp — set bởi booking/[id]
+  bookingStatus?: string;
 }
 
 interface State {
@@ -73,8 +79,18 @@ function reducer(s: State, a: Action): State {
   switch (a.type) {
     case "INIT": {
       const m = a.payload.paymentMethod === "cash" ? "cash" : a.payload.paymentMethod === "stripe" ? "stripe" : "bank";
-      const secs = a.payload.expiresAt ? Math.max(0, Math.round((a.payload.expiresAt - Date.now()) / 1000)) : 600;
-      return { ...s, payload: a.payload, method: m as PaymentMethod, secsLeft: secs };
+      const expiresAt = a.payload.expiresAt;
+      const secs = expiresAt
+        ? Math.max(0, Math.round((expiresAt - Date.now()) / 1000))
+        : PAYMENT_HOLD_MINUTES * 60;
+      const expired = expiresAt != null && Date.now() >= expiresAt;
+      return {
+        ...s,
+        payload: a.payload,
+        method: m as PaymentMethod,
+        secsLeft: secs,
+        flow: expired ? "expired" : s.flow,
+      };
     }
     case "SET_METHOD":    return { ...s, method: a.method };
     case "SET_FLOW":      return { ...s, flow: a.flow, errorMsg: a.errorMsg ?? "" };
@@ -136,7 +152,11 @@ export default function BookingCheckoutPage() {
       try {
         const raw = window.sessionStorage.getItem("htour.checkout");
         if (raw) {
-          dispatch({ type: "INIT", payload: JSON.parse(raw) as CheckoutPayload });
+          const stored = JSON.parse(raw) as CheckoutPayload;
+          dispatch({ type: "INIT", payload: stored });
+          if (stored.bookingCode && CANCELLED_STATUSES.has(stored.bookingStatus ?? "")) {
+            dispatch({ type: "SET_FLOW", flow: "expired" });
+          }
           return;
         }
       } catch { /* ignore */ }
@@ -151,6 +171,19 @@ export default function BookingCheckoutPage() {
         const booking = res?.data;
         if (!booking) return;
 
+        if (CANCELLED_STATUSES.has(booking.status ?? "")) {
+          const cancelled: CheckoutPayload = {
+            bookingCode: booking.bookingCode ?? code,
+            bookingStatus: booking.status,
+          };
+          dispatch({ type: "INIT", payload: cancelled });
+          dispatch({ type: "SET_FLOW", flow: "expired" });
+          return;
+        }
+
+        const createdMs = booking.createdAt ? new Date(booking.createdAt).getTime() : Date.now();
+        const expiresAt = createdMs + PAYMENT_HOLD_MS;
+
         // Dựng lại payload tối thiểu từ dữ liệu booking API
         const partial: CheckoutPayload = {
           bookingId:    booking.bookingId,
@@ -161,6 +194,8 @@ export default function BookingCheckoutPage() {
           totalAmount:  booking.totalAmount ? Number(booking.totalAmount) : undefined,
           depositAmount:booking.totalAmount ? Number(booking.totalAmount) : undefined,
           paymentMethod:"bank",
+          expiresAt,
+          bookingStatus: booking.status,
           passengers:   booking.passengers?.map(p => ({
             fullName:    p.fullName,
             ageGroup:    p.ageGroup as string,
@@ -182,7 +217,7 @@ export default function BookingCheckoutPage() {
   // ── Countdown timer ──────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!s.payload || s.flow === "success") return;
+    if (!s.payload || s.flow === "success" || s.flow === "expired") return;
 
     const tick = () => {
       const remaining = s.payload?.expiresAt
@@ -191,15 +226,30 @@ export default function BookingCheckoutPage() {
 
       dispatch({ type: "TICK", secsLeft: remaining });
 
-      if (remaining === 0 && s.flow === "idle") {
+      if (remaining === 0 && s.flow !== "redirecting" && s.flow !== "recovering") {
         dispatch({ type: "SET_FLOW", flow: "expired" });
       }
     };
 
+    tick();
     timerRef.current = setInterval(tick, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.payload, s.flow]);
+
+  // ── Hết giờ: dừng poll + yêu cầu hủy booking (best-effort, BE scheduler vẫn chạy) ──
+  useEffect(() => {
+    if (s.flow !== "expired" || !s.payload?.bookingCode) return;
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    cancelBooking({
+      bookingCode: s.payload.bookingCode,
+      reason: `Quá thời gian thanh toán ${PAYMENT_HOLD_MINUTES} phút`,
+    }).catch(() => { /* BE scheduler có thể đã hủy */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.flow, s.payload?.bookingCode]);
 
   // ── Auto-poll khi payload sẵn sàng (SePay webhook tự xác nhận) ──────────
 
@@ -222,14 +272,28 @@ export default function BookingCheckoutPage() {
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
           dispatch({ type: "SET_FLOW", flow: "success" });
+        } else if (CANCELLED_STATUSES.has(bookingStatus)) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          dispatch({ type: "SET_FLOW", flow: "expired" });
         }
-        // Tiếp tục poll vô thời hạn cho đến khi xác nhận hoặc hết giờ
       } catch { /* bỏ qua lỗi mạng, thử lại lần sau */ }
     }, 5000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.payload?.bookingCode]);
 
   useEffect(() => () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } }, []);
+
+  // ── Khi user chuyển về SePay sau khi đã chọn Stripe → khôi phục payment SePay ──
+  useEffect(() => {
+    const bookingId = s.payload?.bookingId;
+    if (!bookingId || s.flow === "success" || s.flow === "expired") return;
+    if (s.method !== "bank") return;
+    // Gọi initiate để đảm bảo payment SePay tồn tại trong DB
+    const payAmount = s.payload?.depositAmount ?? s.payload?.totalAmount;
+    initiatePayment({ bookingId, gateway: "SEPAY", bookingCode: s.payload?.bookingCode, amount: payAmount }).catch(() => {/* bỏ qua lỗi, QR vẫn hiển thị */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.method, s.payload?.bookingId]);
 
   // ── Copy to clipboard ────────────────────────────────────────────────────
 
@@ -244,6 +308,8 @@ export default function BookingCheckoutPage() {
 
   const handleStripePayment = useCallback(async () => {
     const bookingId = s.payload?.bookingId;
+    const bookingCode = s.payload?.bookingCode;
+    const payAmount = s.payload?.depositAmount ?? s.payload?.totalAmount;
     if (!bookingId) {
       dispatch({ type: "SET_FLOW", flow: "error", errorMsg: "Không tìm thấy mã đặt chỗ. Vui lòng thử lại." });
       return;
@@ -251,22 +317,34 @@ export default function BookingCheckoutPage() {
 
     dispatch({ type: "SET_FLOW", flow: "redirecting" });
 
-    // Retry tối đa 5 lần (payment record có thể chưa được tạo ngay do async Kafka)
-    let paymentInfo = null;
-    for (let i = 0; i < 5; i++) {
-      paymentInfo = await getPaymentByBookingId(bookingId);
-      if (paymentInfo?.paymentUrl) break;
-      await new Promise((r) => setTimeout(r, 2000)); // đợi 2s rồi thử lại
+    const isStripeReady = (info: Awaited<ReturnType<typeof getPaymentByBookingId>>) =>
+      info?.gateway === "STRIPE" && !!info.paymentUrl && info.paymentUrl.includes("checkout.stripe.com");
+
+    // Bước 1: Yêu cầu backend tạo/thay payment với gateway STRIPE
+    let paymentInfo = await initiatePayment({
+      bookingId,
+      gateway: "STRIPE",
+      bookingCode,
+      amount: payAmount,
+    });
+
+    // Bước 2: Nếu initiate thất bại, fallback poll tối đa 5 lần (chỉ chấp nhận URL Stripe)
+    if (!isStripeReady(paymentInfo)) {
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        paymentInfo = await getPaymentByBookingId(bookingId);
+        if (isStripeReady(paymentInfo)) break;
+      }
     }
 
-    if (!paymentInfo?.paymentUrl) {
-      dispatch({ type: "SET_FLOW", flow: "error", errorMsg: "Chưa tạo được link thanh toán. Vui lòng thử lại sau vài giây." });
+    if (!isStripeReady(paymentInfo) || !paymentInfo?.paymentUrl) {
+      dispatch({ type: "SET_FLOW", flow: "error", errorMsg: "Chưa tạo được link thanh toán Stripe. Vui lòng thử lại." });
       return;
     }
 
     // Redirect sang Stripe Checkout
     window.location.href = paymentInfo.paymentUrl;
-  }, [s.payload?.bookingId]);
+  }, [s.payload?.bookingId, s.payload?.bookingCode, s.payload?.depositAmount, s.payload?.totalAmount]);
 
   // ── Derived ──────────────────────────────────────────────────────────────
 
@@ -836,6 +914,8 @@ export default function BookingCheckoutPage() {
                     <p style={{ fontSize:13,color:"#888",margin:"0 0 18px",lineHeight:1.65 }}>
                       Visa, Mastercard, JCB được hỗ trợ.<br />
                       Bảo mật bởi <strong style={{ color:"#635BFF" }}>Stripe</strong>.
+                      <br />
+                      <span style={{ fontSize:12,color:"#b45309" }}>Tối thiểu 20.000đ / giao dịch (quy định Stripe).</span>
                     </p>
                     <div style={{
                       display:"flex",flexWrap:"wrap",justifyContent:"center",gap:8,

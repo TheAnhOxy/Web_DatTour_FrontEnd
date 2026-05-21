@@ -3,20 +3,29 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { getPaymentByTransactionId } from "../../../api/paymentApi";
+import { confirmStripeSession, getPaymentByTransactionId } from "../../../api/paymentApi";
 
 // ── Polling helper ─────────────────────────────────────────────────────────────
-const POLL_INTERVAL = 3000;
-const MAX_POLLS = 20; // tối đa ~60s
+const POLL_INTERVAL = 1500;
+const MAX_POLLS = 12; // backup ~18s nếu confirm lần đầu chưa kịp
 
-async function fetchPaymentStatus(sessionId: string): Promise<"SUCCESS" | "PENDING" | "FAILED" | null> {
+function mapStatus(info: { status?: string } | null): "SUCCESS" | "PENDING" | "FAILED" | null {
+  if (!info) return "PENDING";
+  const s = info.status?.toUpperCase();
+  if (s === "SUCCESS") return "SUCCESS";
+  if (s === "FAILED") return "FAILED";
+  return "PENDING";
+}
+
+async function fetchPaymentStatus(sessionId: string, syncConfirm = false): Promise<"SUCCESS" | "PENDING" | "FAILED" | null> {
   try {
+    if (syncConfirm) {
+      const confirmed = await confirmStripeSession(sessionId);
+      const fromConfirm = mapStatus(confirmed);
+      if (fromConfirm === "SUCCESS" || fromConfirm === "FAILED") return fromConfirm;
+    }
     const info = await getPaymentByTransactionId(sessionId);
-    if (!info) return "PENDING";
-    const s = info.status?.toUpperCase();
-    if (s === "SUCCESS") return "SUCCESS";
-    if (s === "FAILED") return "FAILED";
-    return "PENDING";
+    return mapStatus(info);
   } catch {
     return null;
   }
@@ -37,24 +46,34 @@ export default function StripeSuccessPage() {
     }
 
     let count = 0;
-    const timer = setInterval(async () => {
+    let stopped = false;
+
+    const tick = async (syncConfirm: boolean) => {
+      if (stopped) return;
       count++;
       setPollCount(count);
-      const status = await fetchPaymentStatus(sessionId);
+      const status = await fetchPaymentStatus(sessionId, syncConfirm);
 
       if (status === "SUCCESS") {
         setState("confirmed");
-        clearInterval(timer);
+        stopped = true;
       } else if (status === "FAILED") {
         setState("failed");
-        clearInterval(timer);
+        stopped = true;
       } else if (count >= MAX_POLLS) {
         setState("pending");
-        clearInterval(timer);
+        stopped = true;
       }
-    }, POLL_INTERVAL);
+    };
 
-    return () => clearInterval(timer);
+    // Lần 1: gọi Stripe API xác nhận ngay (không chờ webhook)
+    tick(true);
+    const timer = setInterval(() => tick(false), POLL_INTERVAL);
+
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
   }, [sessionId]);
 
   return (
@@ -68,7 +87,7 @@ export default function StripeSuccessPage() {
             <>
               <div className="ps-icon ps-icon--spin">⏳</div>
               <h1 className="ps-title">Đang xác nhận thanh toán…</h1>
-              <p className="ps-sub">Stripe đang thông báo kết quả, vui lòng chờ ({pollCount * 3}s).</p>
+              <p className="ps-sub">Đang xác nhận với Stripe, vui lòng chờ ({Math.max(1, pollCount)}s)…</p>
               <div className="ps-progress">
                 <div className="ps-progress__bar" style={{ width: `${Math.min(pollCount * 5, 95)}%` }} />
               </div>

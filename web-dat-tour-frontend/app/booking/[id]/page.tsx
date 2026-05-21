@@ -521,6 +521,7 @@ export default function BookingDetailPage() {
           bookingId: bookingResponse.bookingId ?? bookingResponse.id ?? null,
           bookingCode: bookingResponse.bookingCode,
           status: bookingResponse.status,
+          bookingStatus: bookingResponse.status,
           message: bookingResponse.message,
           destination: bookingResponse.destination,
           createdAt: bookingResponse.createdAt,
@@ -569,6 +570,10 @@ export default function BookingDetailPage() {
   };
 
   const continueToCheckout = () => {
+    if (bookingResult?.expiresAt && bookingResult.expiresAt <= Date.now()) {
+      showToast("Phiên giữ chỗ 10 phút đã hết. Vui lòng đặt tour lại.", "error");
+      return;
+    }
     if (bookingResult) {
       try {
         window.sessionStorage.setItem("htour.checkout", JSON.stringify(bookingResult));
@@ -1093,13 +1098,21 @@ export default function BookingDetailPage() {
             <div style={{display: "grid", gridTemplateColumns: "1fr", gap: 12}}>
               <button
                 onClick={continueToCheckout}
+                disabled={holdRemainingMs !== null && holdRemainingMs <= 0}
                 style={{
                   width: "100%", padding: "13px 20px", borderRadius: 12,
-                  background: "#FFF8F0", color: "#FF6B00", fontWeight: 800,
-                  border: "1.5px solid #FFB57A", cursor: "pointer", fontSize: 14
+                  background: holdRemainingMs !== null && holdRemainingMs <= 0 ? "#f5f5f5" : "#FFF8F0",
+                  color: holdRemainingMs !== null && holdRemainingMs <= 0 ? "#999" : "#FF6B00",
+                  fontWeight: 800,
+                  border: "1.5px solid #FFB57A",
+                  cursor: holdRemainingMs !== null && holdRemainingMs <= 0 ? "not-allowed" : "pointer",
+                  fontSize: 14,
+                  opacity: holdRemainingMs !== null && holdRemainingMs <= 0 ? 0.7 : 1,
                 }}
               >
-                Tiếp tục nhập thông tin thanh toán
+                {holdRemainingMs !== null && holdRemainingMs <= 0
+                  ? "Đã hết thời gian giữ chỗ"
+                  : "Tiếp tục nhập thông tin thanh toán"}
               </button>
               <button
                 onClick={() => router.push(`/booking/${bookingResult.bookingCode}`)}

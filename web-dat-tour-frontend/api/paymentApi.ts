@@ -53,5 +53,45 @@ export const getPaymentByTransactionId = async (transactionId: string): Promise<
   }
 };
 
-const paymentApi = { getPaymentByBookingId, getPaymentByTransactionId };
+/**
+ * Tạo hoặc thay thế payment với đúng gateway user chọn.
+ * Endpoint: POST /payments/initiate
+ */
+export type InitiatePaymentParams = {
+  bookingId: number;
+  gateway: string;
+  bookingCode?: string;
+  amount?: number;
+};
+
+export const initiatePayment = async (params: InitiatePaymentParams): Promise<PaymentInfo | null> => {
+  try {
+    const res = await client.post(`/payments/initiate`, params);
+    const envelope = res as ApiEnvelope;
+    return unwrap(envelope) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Xác nhận Stripe ngay sau redirect — không chờ webhook (nhanh hơn).
+ */
+export const confirmStripeSession = async (sessionId: string): Promise<PaymentInfo | null> => {
+  try {
+    const res = await client.post(
+      `/payments/stripe/confirm-session?session_id=${encodeURIComponent(sessionId)}`
+    );
+    return unwrap(res as ApiEnvelope) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const paymentApi = {
+  getPaymentByBookingId,
+  getPaymentByTransactionId,
+  initiatePayment,
+  confirmStripeSession,
+};
 export default paymentApi;

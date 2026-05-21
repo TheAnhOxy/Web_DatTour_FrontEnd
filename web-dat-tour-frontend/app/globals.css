@@ -9,6 +9,18 @@ body {
   min-height: 100%;
 }
 
-body {
-  font-family: "Outfit", sans-serif;
+:root {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --base-font: var(--font-sans);
+  --heading-font: var(--font-sans);
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-sans) !important;
 }

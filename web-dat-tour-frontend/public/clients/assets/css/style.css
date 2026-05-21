@@ -62,8 +62,8 @@ body {
   line-height: 28px;
   font-size: 16px;
   font-family: var(--base-font);
-  --base-font: 'Outfit', sans-serif;
-  --heading-font: 'Outfit', sans-serif;
+  --base-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --heading-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --primary-color: #63AB45;
   --secondary-color: #F7921E;
   --heading-color: #1C231F;

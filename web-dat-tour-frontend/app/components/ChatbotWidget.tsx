@@ -211,7 +211,7 @@ export default function ChatbotWidget() {
               flexDirection: "column",
               overflow: "hidden",
               zIndex: 9999,
-              fontFamily: '"Outfit", sans-serif',
+              fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
             }}
           >
             {/* ── Header ── */}
@@ -432,7 +432,7 @@ export default function ChatbotWidget() {
                         fontSize: 12,
                         color: "#3d7a2a",
                         cursor: "pointer",
-                        fontFamily: '"Outfit", sans-serif',
+                        fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
                         fontWeight: 500,
                         transition: "all .15s",
                         lineHeight: 1.5,
@@ -471,7 +471,7 @@ export default function ChatbotWidget() {
                   borderRadius: 14,
                   padding: "9px 13px",
                   fontSize: 13.5,
-                  fontFamily: '"Outfit", sans-serif',
+                  fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
                   color: "#1C231F",
                   background: "#F8FAF8",
                   outline: "none",

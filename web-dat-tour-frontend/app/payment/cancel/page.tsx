@@ -65,7 +65,6 @@ export default function StripePaymentCancelPage() {
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 
   .pc-page {
     min-height: 100vh;
@@ -74,7 +73,7 @@ const css = `
     align-items: center;
     justify-content: center;
     padding: 24px;
-    font-family: 'Outfit', sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   }
 
   .pc-card {
@@ -132,7 +131,7 @@ const css = `
     display: inline-flex; align-items: center; justify-content: center;
     border-radius: 12px; padding: 13px 22px;
     font-weight: 700; font-size: 15px;
-    font-family: 'Outfit', sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     text-decoration: none !important;
     transition: all .18s; border: none; cursor: pointer;
   }

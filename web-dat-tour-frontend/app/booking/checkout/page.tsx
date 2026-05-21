@@ -721,7 +721,13 @@ export default function BookingCheckoutPage() {
 
           <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:20,flexWrap:"wrap" }}>
             <div>
-              <h1 style={{ color:"#fff",fontSize:"clamp(1.5rem,3vw,2.2rem)",fontWeight:900,margin:"0 0 8px" }}>
+              <h1 style={{
+                color:"#fff",
+                fontSize:"clamp(1.5rem,3vw,2.2rem)",
+                fontWeight:700,
+                fontFamily:'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+                margin:"0 0 8px",
+              }}>
                 Hoàn tất thanh toán
               </h1>
               <p style={{ color:"rgba(255,255,255,.85)",margin:0,fontSize:14,fontWeight:500 }}>
@@ -1406,14 +1412,21 @@ function PriceRow({ label, val, valColor }: { label: string; val: string; valCol
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
 
+const FONT_SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 const shell: React.CSSProperties = {
   minHeight:"100vh",
   background:"#F5F7F5",
-  fontFamily:'"Outfit", sans-serif',
+  fontFamily: FONT_SANS,
 };
 
 const CSS = `
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; font-family: ${FONT_SANS}; }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: ${FONT_SANS} !important;
+    font-weight: 700 !important;
+  }
 
   .co-card {
     background: #fff;
@@ -1449,7 +1462,7 @@ const CSS = `
     color: #fff !important; text-decoration: none !important;
     border-radius: 12px; padding: 13px 22px;
     font-weight: 700; font-size: 15px;
-    font-family: "Outfit", sans-serif;
+    font-family: inherit;
     box-shadow: 0 6px 18px rgba(99,171,69,.32);
     transition: all .18s; border: none; cursor: pointer;
   }
@@ -1460,7 +1473,7 @@ const CSS = `
     background: #fff; color: #555 !important; text-decoration: none !important;
     border-radius: 12px; padding: 11px 18px;
     font-weight: 600; font-size: 13.5px;
-    font-family: "Outfit", sans-serif;
+    font-family: inherit;
     border: 1.5px solid #E0E0E0;
     transition: all .15s;
   }
@@ -1472,7 +1485,7 @@ const CSS = `
     background: #635BFF; color: #fff !important;
     border-radius: 12px; padding: 13px 22px;
     font-weight: 700; font-size: 15px;
-    font-family: "Outfit", sans-serif;
+    font-family: inherit;
     box-shadow: 0 6px 18px rgba(99,91,255,.3);
     transition: all .18s; border: none; cursor: pointer;
   }

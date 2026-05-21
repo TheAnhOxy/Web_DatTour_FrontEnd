@@ -23,10 +23,6 @@ export default function RootLayout({
           href="/clients/assets/images/logos/favicon.png"
           type="image/x-icon"
         />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
         <link rel="stylesheet" href="/clients/assets/css/flaticon.min.css" />
         <link
           rel="stylesheet"

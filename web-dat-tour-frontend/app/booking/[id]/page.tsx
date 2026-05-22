@@ -240,27 +240,35 @@ function BookingPageInner() {
    };
  
    const updatePassenger = (group: "adult" | "child1014" | "child49" | "baby", idx: number, field: keyof PassengerDTO, value: string) => {
-     const setter = group === "adult"
-       ? setAdultPassengers
-       : group === "child1014"
-       ? setChild1014Passengers
-       : group === "child49"
-       ? setChild49Passengers
-       : setBabyPassengers;
-     setter((cur) => {
-       const next = [...cur];
-       next[idx] = { ...next[idx], [field]: value } as PassengerDTO;
-       return next;
-     });
-   };
- 
-   const hasIncomplete = () => {
-     const aInc = adultPassengers.some((p) => !p.fullName || !p.dob || !p.gender || !p.idCardNumber);
-     const c1014Inc = numChildren1014 > 0 && child1014Passengers.some((p) => !p.fullName || !p.dob || !p.gender || !p.idCardNumber);
-     const c49Inc = numChildren49 > 0 && child49Passengers.some((p) => !p.fullName || !p.dob || !p.gender || !p.idCardNumber);
-     const bInc = numBabies > 0 && babyPassengers.some((p) => !p.fullName || !p.dob || !p.gender);
-     return aInc || c1014Inc || c49Inc || bInc;
-   };
+      const setter = group === "adult"
+        ? setAdultPassengers
+        : group === "child1014"
+        ? setChild1014Passengers
+        : group === "child49"
+        ? setChild49Passengers
+        : setBabyPassengers;
+      setter((cur) => {
+        const next = [...cur];
+        next[idx] = { ...next[idx], [field]: value } as PassengerDTO;
+        return next;
+      });
+
+      // Đồng bộ tên của người lớn đại diện vào thông tin liên hệ
+      if (group === "adult" && idx === 0 && field === "fullName") {
+        patchContact({ name: value });
+      }
+    };
+
+    const hasIncomplete = () => {
+      // Chỉ kiểm tra hành khách người lớn đại diện (index 0)
+      const leadAdult = adultPassengers[0];
+      const aInc = !leadAdult || !leadAdult.fullName || !leadAdult.dob || !leadAdult.gender || !leadAdult.idCardNumber;
+      
+      // Số điện thoại và Email là bắt buộc
+      const contactInc = !contact.phone || !contact.email;
+
+      return aInc || contactInc;
+    };
  
    // ── Apply voucher ──
    const applyVoucher = () => {
@@ -277,15 +285,77 @@ function BookingPageInner() {
    const handleBooking = async () => {
      if (!authHydrated) { showToast("Đang tải thông tin, vui lòng thử lại.", "error"); return; }
      if (!authUser?.userId) { showToast("Vui lòng đăng nhập để đặt tour!", "error"); return; }
-     if (!contact.name || !contact.phone) { showToast("Vui lòng điền đầy đủ thông tin người liên hệ.", "error"); return; }
-     if (hasIncomplete()) { showToast("Chưa đủ thông tin hành khách. Vui lòng kiểm tra lại.", "error"); return; }
+     if (!contact.name || !contact.phone || !contact.email) {
+       showToast("Vui lòng điền đầy đủ thông tin liên hệ (Họ tên, Số điện thoại, Email).", "error");
+       return;
+     }
+     if (hasIncomplete()) { showToast("Chưa đủ thông tin hành khách hoặc liên hệ. Vui lòng kiểm tra lại.", "error"); return; }
 
-    const passengerList: PassengerDTO[] = [
-      ...adultPassengers.map((p) => ({ ...p, ageGroup: "ADULT" as const })),
-      ...child1014Passengers.map((p) => ({ ...p, ageGroup: resolveChildAgeGroup(p.dob, "CHILD_10_14") })),
-      ...child49Passengers.map((p) => ({ ...p, ageGroup: resolveChildAgeGroup(p.dob, "CHILD_4_9") })),
-      ...babyPassengers.map((p) => ({ fullName: p.fullName, ageGroup: "BABY" as const, dob: p.dob, gender: p.gender, idCardNumber: p.idCardNumber })),
-    ];
+     const leadAdult = adultPassengers[0];
+     const resolvedAdults = adultPassengers.map((p, idx) => {
+       if (idx === 0) return { ...p, ageGroup: "ADULT" as const };
+       
+       // Tạo CCCD giả lập tăng dần dựa trên CCCD người đại diện
+       const baseIdCard = leadAdult.idCardNumber || "123456789012";
+       const suffix = String(idx).padStart(2, "0");
+       const fakeIdCard = baseIdCard.length >= 10 
+         ? `${baseIdCard.slice(0, 10)}${suffix}`
+         : `${baseIdCard}-${idx}`;
+
+       return {
+         fullName: `${leadAdult.fullName} (Khách đi cùng ${idx + 1})`,
+         dob: leadAdult.dob,
+         gender: leadAdult.gender || "MALE",
+         ageGroup: "ADULT" as const,
+         idCardNumber: fakeIdCard,
+       };
+     });
+
+     const resolvedChildren1014 = child1014Passengers.map((p, idx) => {
+       const leadDob = leadAdult.dob || "1990-01-01";
+       const leadYear = new Date(leadDob).getFullYear();
+       const childYear = isNaN(leadYear) ? 2013 : Math.max(2011, leadYear + 20);
+       return {
+         fullName: `${leadAdult.fullName} (Trẻ em đi cùng ${idx + 1})`,
+         dob: `${childYear}-01-01`,
+         gender: leadAdult.gender || "MALE",
+         ageGroup: "CHILD_10_14" as const,
+         idCardNumber: leadAdult.idCardNumber ? `${leadAdult.idCardNumber}-TE1-${idx}` : undefined,
+       };
+     });
+
+     const resolvedChildren49 = child49Passengers.map((p, idx) => {
+       const leadDob = leadAdult.dob || "1990-01-01";
+       const leadYear = new Date(leadDob).getFullYear();
+       const childYear = isNaN(leadYear) ? 2018 : Math.max(2016, leadYear + 25);
+       return {
+         fullName: `${leadAdult.fullName} (Trẻ em đi cùng ${idx + 1})`,
+         dob: `${childYear}-01-01`,
+         gender: leadAdult.gender || "MALE",
+         ageGroup: "CHILD_4_9" as const,
+         idCardNumber: leadAdult.idCardNumber ? `${leadAdult.idCardNumber}-TE2-${idx}` : undefined,
+       };
+     });
+
+     const resolvedBabies = babyPassengers.map((p, idx) => {
+       const leadDob = leadAdult.dob || "1990-01-01";
+       const leadYear = new Date(leadDob).getFullYear();
+       const babyYear = isNaN(leadYear) ? 2023 : Math.max(2022, leadYear + 28);
+       return {
+         fullName: `${leadAdult.fullName} (Em bé đi cùng ${idx + 1})`,
+         dob: `${babyYear}-01-01`,
+         gender: leadAdult.gender || "MALE",
+         ageGroup: "BABY" as const,
+         idCardNumber: undefined,
+       };
+     });
+
+     const passengerList: PassengerDTO[] = [
+       ...resolvedAdults,
+       ...resolvedChildren1014,
+       ...resolvedChildren49,
+       ...resolvedBabies,
+     ];
 
     const requestData: BookingRequest = {
       userId: authUser.userId,
@@ -472,42 +542,7 @@ function BookingPageInner() {
     || tourInfo?.coverImageUrl
     || "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=800&auto=format&fit=crop";
 
-  const renderPassengerSection = (
-    label: string, accentColor: string, bgColor: string,
-    list: PassengerDTO[], group: "adult" | "child1014" | "child49" | "baby",
-    showIdCard = true,
-  ) =>
-    list.map((p, idx) => (
-      <div key={`${group}-${idx}`} style={{ border: `1.5px solid ${accentColor}30`, borderRadius: 16, padding: 20, background: bgColor, marginBottom: 16 }}>
-        <h5 style={{ color: accentColor, fontWeight: 800, marginBottom: 16, fontSize: 15 }}>
-          {label} #{idx + 1}
-        </h5>
-        <div className="row">
-          <div className="col-md-6 mb-3">
-            <label className="bk-label">Họ và tên *</label>
-            <input className="bk-input" type="text" placeholder="Nguyễn Văn A" value={p.fullName || ""} onChange={(e) => updatePassenger(group, idx, "fullName", e.target.value)} />
-          </div>
-          <div className="col-md-6 mb-3">
-            <label className="bk-label">Ngày sinh *</label>
-            <input className="bk-input" type="date" value={p.dob || ""} onChange={(e) => updatePassenger(group, idx, "dob", e.target.value)} />
-          </div>
-          <div className={showIdCard ? "col-md-6 mb-3" : "col-md-12 mb-3"}>
-            <label className="bk-label">Giới tính *</label>
-            <select className="bk-input" value={p.gender || ""} onChange={(e) => updatePassenger(group, idx, "gender", e.target.value)}>
-              <option value="">Chọn giới tính</option>
-              <option value="MALE">Nam</option>
-              <option value="FEMALE">Nữ</option>
-            </select>
-          </div>
-          {showIdCard && (
-            <div className="col-md-6 mb-3">
-              <label className="bk-label">Số CCCD / CMND *</label>
-              <input className="bk-input" type="text" placeholder="123456789012" value={p.idCardNumber || ""} onChange={(e) => updatePassenger(group, idx, "idCardNumber", e.target.value)} />
-            </div>
-          )}
-        </div>
-      </div>
-    ));
+
 
   return (
     <>
@@ -686,64 +721,68 @@ function BookingPageInner() {
                 ))}
               </div>
 
-              {/* Adult passengers */}
-              {numAdults > 0 && (
-                <div className="bk-card">
-                  <div className="bk-section-title">2. Thông tin Người lớn</div>
-                  {renderPassengerSection("Người lớn", "#D65A00", "#FFFDF9", adultPassengers, "adult", true)}
-                </div>
-              )}
-
-              {/* Child 10-14 passengers */}
-              {numChildren1014 > 0 && (
-                <div className="bk-card">
-                  <div className="bk-section-title">3. Thông tin Trẻ em (10-14 tuổi)</div>
-                  {renderPassengerSection("Trẻ em (10-14T)", "#0F6C8A", "#F8FCFF", child1014Passengers, "child1014", true)}
-                </div>
-              )}
-
-              {/* Child 4-9 passengers */}
-              {numChildren49 > 0 && (
-                <div className="bk-card">
-                  <div className="bk-section-title">4. Thông tin Trẻ em (4-9 tuổi)</div>
-                  {renderPassengerSection("Trẻ em (4-9T)", "#0F6C8A", "#F8FCFF", child49Passengers, "child49", true)}
-                </div>
-              )}
-
-              {/* Baby passengers */}
-              {numBabies > 0 && (
-                <div className="bk-card">
-                  <div className="bk-section-title">5. Thông tin Em bé (Dưới 4 tuổi)</div>
-                  {renderPassengerSection("Em bé", "#2E7D32", "#F1FBF3", babyPassengers, "baby", false)}
-                </div>
-              )}
-
-              {/* Contact info */}
+              {/* 2. Thông tin khách hàng - Unified single form */}
               <div className="bk-card">
-                <div className="bk-section-title">Thông tin người liên hệ</div>
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label className="bk-label">Họ và tên *</label>
-                    <input className="bk-input" type="text" placeholder="Nguyễn Văn A" value={contact.name} onChange={(e) => patchContact({ name: e.target.value })} />
-                  </div>
-                  <div className="col-md-6 mb-3">
-                    <label className="bk-label">Số điện thoại *</label>
-                    <input className="bk-input" type="tel" placeholder="090xxxxxxx" value={contact.phone} onChange={(e) => patchContact({ phone: e.target.value })} />
-                  </div>
-                  <div className="col-md-6 mb-3">
-                    <label className="bk-label">Email</label>
-                    <input className="bk-input" type="email" placeholder="email@example.com" value={contact.email || authUser?.email || ""} onChange={(e) => patchContact({ email: e.target.value })} />
-                  </div>
-                  <div className="col-md-6 mb-3">
-                    <label className="bk-label">Địa chỉ</label>
-                    <input className="bk-input" type="text" placeholder="Địa chỉ liên hệ / nhận vé" value={contact.address} onChange={(e) => patchContact({ address: e.target.value })} />
-                  </div>
-                  <div className="col-12">
-                    <label className="bk-label">Ghi chú (không bắt buộc)</label>
-                    <textarea className="bk-input" rows={3} placeholder="Yêu cầu đặc biệt, dị ứng thực phẩm, hỗ trợ xe lăn..." value={contactNotes} onChange={(e) => setContactNotes(e.target.value)} style={{ resize: "vertical" }} />
+                <div className="bk-section-title">2. Thông tin khách hàng</div>
+                <p style={{ color: "#888", fontSize: 13, marginBottom: 20 }}>Vui lòng nhập đầy đủ thông tin người đại diện đặt tour.</p>
+                <div style={{ border: "1.5px solid #D65A0030", borderRadius: 16, padding: 20, background: "#FFFDF9" }}>
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <label className="bk-label">Họ và tên *</label>
+                      <input
+                        className="bk-input"
+                        type="text"
+                        placeholder="Nguyễn Văn A"
+                        value={contact.name}
+                        onChange={(e) => {
+                          patchContact({ name: e.target.value });
+                          setAdultPassengers((cur) => {
+                            if (cur.length === 0) return cur;
+                            const next = [...cur];
+                            next[0] = { ...next[0], fullName: e.target.value };
+                            return next;
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="bk-label">Số điện thoại *</label>
+                      <input className="bk-input" type="tel" placeholder="090xxxxxxx" value={contact.phone} onChange={(e) => patchContact({ phone: e.target.value })} />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="bk-label">Email *</label>
+                      <input className="bk-input" type="email" placeholder="email@example.com" value={contact.email || ""} onChange={(e) => patchContact({ email: e.target.value })} />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="bk-label">Ngày sinh *</label>
+                      <input className="bk-input" type="date" value={adultPassengers[0]?.dob || ""} onChange={(e) => updatePassenger("adult", 0, "dob", e.target.value)} />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="bk-label">Giới tính *</label>
+                      <select className="bk-input" value={adultPassengers[0]?.gender || ""} onChange={(e) => updatePassenger("adult", 0, "gender", e.target.value)}>
+                        <option value="">Chọn giới tính</option>
+                        <option value="MALE">Nam</option>
+                        <option value="FEMALE">Nữ</option>
+                      </select>
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="bk-label">Số CCCD / CMND *</label>
+                      <input className="bk-input" type="text" placeholder="123456789012" value={adultPassengers[0]?.idCardNumber || ""} onChange={(e) => updatePassenger("adult", 0, "idCardNumber", e.target.value)} />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="bk-label">Địa chỉ</label>
+                      <input className="bk-input" type="text" placeholder="Địa chỉ liên hệ / nhận vé" value={contact.address} onChange={(e) => patchContact({ address: e.target.value })} />
+                    </div>
+                    <div className="col-md-6 mb-3" />
+                    <div className="col-12">
+                      <label className="bk-label">Ghi chú (không bắt buộc)</label>
+                      <textarea className="bk-input" rows={3} placeholder="Yêu cầu đặc biệt, dị ứng thực phẩm, hỗ trợ xe lăn..." value={contactNotes} onChange={(e) => setContactNotes(e.target.value)} style={{ resize: "vertical" }} />
+                    </div>
                   </div>
                 </div>
               </div>
+
+
 
               {/* Voucher */}
               <div className="bk-card">

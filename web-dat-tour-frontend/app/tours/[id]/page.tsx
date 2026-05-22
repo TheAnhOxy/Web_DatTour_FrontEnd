@@ -89,19 +89,34 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
               const dateStr = s.startDate || s.date || s.departureDate;
               const pc = s.priceConfig || {};
               const adultP = toNum(pc.adultPrice) || toNum(pc.adult_price);
+              
+              const maxS = toNum(s.maxSlots);
+              const bookedS = toNum(s.bookedSlots);
+              const remaining = maxS - bookedS;
+              
+              let compStatus = "Hết chỗ";
+              if (s.status === "OPEN" && remaining > 0) {
+                if (remaining <= 5) {
+                  compStatus = "Chỉ còn chỗ";
+                } else {
+                  compStatus = "Còn chỗ";
+                }
+              }
+
               return {
                 ...s,
                 date: dateStr ? new Date(dateStr) : null,
                 price: adultP || toNum(tourRes?.data?.basePrice) || 0,
-                status: (s.status === "ACTIVE" || s.status === "AVAILABLE" || s.status === "OPEN")
-                  ? "Còn chỗ" : "Hết chỗ",
+                status: compStatus,
               };
             })
-            .filter((s: any) => s.date !== null && !isNaN(s.date.getTime()));
+            .filter((s: any) => s.date !== null && !isNaN(s.date.getTime()))
+            .sort((a: any, b: any) => a.date.getTime() - b.date.getTime());
+
           setSchedules(mapped);
 
           // Pre-select first available departure
-          const first = mapped.find((s: any) => s.status === "Còn chỗ");
+          const first = mapped.find((s: any) => s.status === "Còn chỗ" || s.status === "Chỉ còn chỗ");
           if (first) {
             setSelectedDepId(String(first.id));
             setSelectedDate(first.date);
@@ -155,10 +170,33 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
     numChildren49 * child49Price +
     numBabies * babyPrice;
 
+  const selectedDep = useMemo(() => {
+    return schedules.find((s) => String(s.id) === String(selectedDepId));
+  }, [schedules, selectedDepId]);
+
+  const remainingSlots = useMemo(() => {
+    if (!selectedDep) return 999;
+    const maxS = toNum(selectedDep.maxSlots);
+    const bookedS = toNum(selectedDep.bookedSlots);
+    return Math.max(0, maxS - bookedS);
+  }, [selectedDep]);
+
+  const totalSeatsSelected = useMemo(() => {
+    return numAdults + numChildren1014 + numChildren49;
+  }, [numAdults, numChildren1014, numChildren49]);
+
+  const isBookingDisabled = useMemo(() => {
+    if (!selectedDepId) return true;
+    if (selectedDep?.status === "Hết chỗ") return true;
+    if (totalSeatsSelected > remainingSlots) return true;
+    return false;
+  }, [selectedDepId, selectedDep, totalSeatsSelected, remainingSlots]);
+
   // ─── Departure table rows ─────────────────────────────────────────────────
   const displayedSchedules = schedules.slice(0, visibleRows);
 
   const handleSelectDeparture = (dep: any) => {
+    if (dep.status === "Hết chỗ") return;
     setSelectedDepId(String(dep.id));
     setSelectedDate(dep.date);
     setSelectedPriceConfig(dep.priceConfig || null);
@@ -680,12 +718,17 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
                         {schedules.slice(0, 12).map((dep: any) => {
                           const dd = String(dep.date.getDate()).padStart(2, "0");
                           const mm = String(dep.date.getMonth() + 1).padStart(2, "0");
+                          const isHetCho = dep.status === "Hết chỗ";
                           return (
                             <div
                               key={dep.id}
                               className={`td-date-tab ${String(dep.id) === String(selectedDepId) ? "active" : ""}`}
-                              onClick={() => handleSelectDeparture(dep)}
-                              style={dep.status === "Hết chỗ" ? { opacity: 0.4, cursor: "not-allowed" } : {}}
+                              onClick={() => {
+                                if (!isHetCho) {
+                                  handleSelectDeparture(dep);
+                                }
+                              }}
+                              style={isHetCho ? { opacity: 0.4, cursor: "not-allowed", borderColor: "#E0E0E0", color: "#999" } : {}}
                             >
                               {dd}/{mm}
                             </div>
@@ -701,11 +744,41 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
                   <div className="mb-4">
                     <div className="td-card-title" style={{ marginBottom: 14 }}>3. Số hành khách</div>
 
+                    {/* Warning if total seats exceeds remaining slots */}
+                    {selectedDepId && totalSeatsSelected > remainingSlots && (
+                      <div style={{
+                        background: "#FFF0F0", border: "1px solid #FFC1C1", borderRadius: 8,
+                        padding: "10px 12px", color: "#D32F2F", fontSize: 13,
+                        fontWeight: 600, display: "flex", alignItems: "flex-start", gap: 8,
+                        marginBottom: 16
+                      }}>
+                        <i className="fas fa-exclamation-triangle" style={{ marginTop: 2, fontSize: 14 }} />
+                        <div>
+                          Số lượng khách ({totalSeatsSelected} ghế) vượt quá số chỗ còn trống của chuyến đi ({remainingSlots} chỗ).
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Info if remaining slots is small but not exceeded */}
+                    {selectedDepId && totalSeatsSelected <= remainingSlots && remainingSlots <= 5 && (
+                      <div style={{
+                        background: "#FFF8F0", border: "1px solid #FFE0C2", borderRadius: 8,
+                        padding: "10px 12px", color: "#E65100", fontSize: 13,
+                        fontWeight: 600, display: "flex", alignItems: "flex-start", gap: 8,
+                        marginBottom: 16
+                      }}>
+                        <i className="fas fa-info-circle" style={{ marginTop: 2, fontSize: 14 }} />
+                        <div>
+                          Lịch này chỉ còn {remainingSlots} chỗ trống. Vui lòng nhanh tay đặt chỗ!
+                        </div>
+                      </div>
+                    )}
+
                     {[
-                      { label: "Người lớn (NL)", sublabel: "Từ 15 tuổi: " + formatPrice(adultPrice), value: numAdults, min: 1, onChange: (n: number) => setNumAdults(n) },
-                      { label: "Trẻ em lớn (TE)", sublabel: "10-14 tuổi: " + formatPrice(child1014Price), value: numChildren1014, min: 0, onChange: (n: number) => setNumChildren1014(n) },
-                      { label: "Trẻ em nhỏ (TE)", sublabel: "4-9 tuổi: " + formatPrice(child49Price), value: numChildren49, min: 0, onChange: (n: number) => setNumChildren49(n) },
-                      { label: "Em bé (EB)", sublabel: "Dưới 4 tuổi: " + (babyPrice > 0 ? formatPrice(babyPrice) : "Miễn phí"), value: numBabies, min: 0, onChange: (n: number) => setNumBabies(n) },
+                      { label: "Người lớn (NL)", sublabel: "Từ 15 tuổi: " + formatPrice(adultPrice), value: numAdults, min: 1, isSeat: true, onChange: (n: number) => setNumAdults(n) },
+                      { label: "Trẻ em lớn (TE)", sublabel: "10-14 tuổi: " + formatPrice(child1014Price), value: numChildren1014, min: 0, isSeat: true, onChange: (n: number) => setNumChildren1014(n) },
+                      { label: "Trẻ em nhỏ (TE)", sublabel: "4-9 tuổi: " + formatPrice(child49Price), value: numChildren49, min: 0, isSeat: true, onChange: (n: number) => setNumChildren49(n) },
+                      { label: "Em bé (EB)", sublabel: "Dưới 4 tuổi: " + (babyPrice > 0 ? formatPrice(babyPrice) : "Miễn phí"), value: numBabies, min: 0, isSeat: false, onChange: (n: number) => setNumBabies(n) },
                     ].map((row) => (
                       <div key={row.label} className="d-flex justify-content-between align-items-center mb-3">
                         <div>
@@ -715,7 +788,11 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
                         <div className="td-counter">
                           <button className="td-counter-btn" disabled={row.value <= row.min} onClick={() => row.onChange(Math.max(row.min, row.value - 1))}>−</button>
                           <div className="td-counter-val">{row.value}</div>
-                          <button className="td-counter-btn" onClick={() => row.onChange(row.value + 1)}>+</button>
+                          <button
+                            className="td-counter-btn"
+                            disabled={row.isSeat && totalSeatsSelected >= remainingSlots}
+                            onClick={() => row.onChange(row.value + 1)}
+                          >+</button>
                         </div>
                       </div>
                     ))}
@@ -754,9 +831,19 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
 
                   {/* CTA Button */}
-                  <button className="td-cta" onClick={handleBookNow} disabled={!selectedDepId}>
+                  <button
+                    className="td-cta"
+                    onClick={handleBookNow}
+                    disabled={isBookingDisabled}
+                  >
                     <i className="fas fa-bolt mr-2" />
-                    {selectedDepId ? "ĐẶT TOUR NGAY" : "Chọn ngày khởi hành"}
+                    {!selectedDepId
+                      ? "Chọn ngày khởi hành"
+                      : selectedDep?.status === "Hết chỗ"
+                      ? "HẾT CHỖ"
+                      : totalSeatsSelected > remainingSlots
+                      ? "VƯỢT QUÁ SỐ CHỖ TRỐNG"
+                      : "ĐẶT TOUR NGAY"}
                   </button>
 
                   <div style={{ textAlign: "center", marginTop: 12 }}>

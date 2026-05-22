@@ -88,7 +88,7 @@ export default function ToursPage() {
             price: new Intl.NumberFormat('vi-VN').format(t.basePrice || 0),
             image: t.coverImageUrl || t.cover_image_url || "/clients/assets/images/gallery-tours/destination-default.jpg",
             durationDays: t.durationDays || 1,
-            isHot: t.isHot ?? t.is_hot ?? false
+            isHot: t.isHot ?? false
           }));
 
           setAllTours(mappedTours);

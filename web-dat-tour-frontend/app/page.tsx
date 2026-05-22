@@ -309,7 +309,7 @@ export default function Home() {
                       </span>
                       <h5 style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <a href={`/tours/${tour.id}`}>{getTourName(tour)}</a>
-                        {(tour.isHot || tour.is_hot) && (
+                        {tour.isHot && (
                           <span style={{
                             background: '#FFF0F0',
                             color: '#fd4c5c',

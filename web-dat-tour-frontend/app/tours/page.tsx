@@ -13,6 +13,7 @@ type TourItem = {
   price: string;
   image: string;
   durationDays?: number;
+  isHot?: boolean;
 };
 
 export default function ToursPage() {
@@ -79,7 +80,8 @@ export default function ToursPage() {
             rating: t.rating || 5,
             price: new Intl.NumberFormat('vi-VN').format(t.basePrice || 0),
             image: t.coverImageUrl || t.cover_image_url || "/clients/assets/images/gallery-tours/destination-default.jpg",
-            durationDays: t.durationDays || 1
+            durationDays: t.durationDays || 1,
+            isHot: t.isHot ?? t.is_hot ?? false
           }));
 
           setAllTours(mappedTours);
@@ -121,6 +123,12 @@ export default function ToursPage() {
 
   return (
     <>
+      <style>{`
+        @keyframes flicker-hot {
+          0% { opacity: 0.6; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1.15); }
+        }
+      `}</style>
       <section
         className="page-banner-area pt-50 pb-35 rel z-1 bgs-cover"
         style={{ backgroundImage: "url(/clients/assets/images/banner/banner.jpg)" }}
@@ -258,7 +266,27 @@ export default function ToursPage() {
                               {grouped[days].map((tour) => (
                                 <tr key={tour.id} style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
                                   <td style={{ padding: '15px', border: 'none', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', background: '#fff' }}>
-                                    <div className="image-wrapper" style={{ overflow: 'hidden', borderRadius: '8px' }}>
+                                    <div className="image-wrapper" style={{ overflow: 'hidden', borderRadius: '8px', position: 'relative' }}>
+                                      {tour.isHot && (
+                                        <div style={{
+                                          position: 'absolute',
+                                          top: '6px',
+                                          left: '6px',
+                                          background: 'linear-gradient(135deg, #fd4c5c 0%, #f97316 100%)',
+                                          color: 'white',
+                                          padding: '3px 8px',
+                                          borderRadius: '20px',
+                                          fontSize: '10px',
+                                          fontWeight: 'bold',
+                                          zIndex: 10,
+                                          boxShadow: '0 3px 8px rgba(253, 76, 92, 0.5)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '3px'
+                                        }}>
+                                          <i className="fas fa-fire" style={{ fontSize: '9px' }}></i> HOT
+                                        </div>
+                                      )}
                                       <img 
                                         src={tour.image} 
                                         alt={tour.title} 
@@ -271,12 +299,29 @@ export default function ToursPage() {
                                     </div>
                                   </td>
                                   <td style={{ padding: '15px', border: 'none', background: '#fff' }}>
-                                    <h5 className="mb-1" style={{ fontSize: '18px' }}>
-                                      <a href={`/destination/${tour.id}`} className="text-dark" style={{ textDecoration: 'none' }}
+                                    <h5 className="mb-1" style={{ fontSize: '18px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                      <a href={`/tours/${tour.id}`} className="text-dark" style={{ textDecoration: 'none' }}
                                          onMouseOver={(e) => e.currentTarget.style.color = '#fd4c5c'}
                                          onMouseOut={(e) => e.currentTarget.style.color = '#1a1a1a'}>
                                         {tour.title}
                                       </a>
+                                      {tour.isHot && (
+                                        <span style={{
+                                          background: '#FFF0F0',
+                                          color: '#fd4c5c',
+                                          fontSize: '11px',
+                                          fontWeight: 700,
+                                          padding: '2px 8px',
+                                          borderRadius: '4px',
+                                          border: '1px solid #FFD4D7',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px'
+                                        }}>
+                                          <i className="fas fa-fire" style={{ animation: 'flicker-hot 1s infinite alternate' }}></i>
+                                          HOT
+                                        </span>
+                                      )}
                                     </h5>
                                     <div className="small text-muted mb-2">
                                       <span className="me-3"><i className="fal fa-barcode text-primary me-1"></i> Mã tour: <strong>T-{tour.id}</strong></span>
@@ -302,7 +347,7 @@ export default function ToursPage() {
                                   </td>
                                   <td className="text-end" style={{ padding: '15px', border: 'none', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', background: '#fff' }}>
                                     <div className="text-danger fw-bold fs-4 mb-2">{tour.price} đ</div>
-                                    <a href={`/booking/${tour.id}`} className="theme-btn style-two py-2 px-3 w-100 text-center" style={{ fontSize: '14px', borderRadius: '5px' }}>
+                                    <a href={`/tours/${tour.id}`} className="theme-btn style-two py-2 px-3 w-100 text-center" style={{ fontSize: '14px', borderRadius: '5px' }}>
                                       <span data-hover="Đặt Tour">Đặt Tour</span>
                                     </a>
                                   </td>

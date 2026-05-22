@@ -1,435 +1,790 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { useState, useMemo, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
+import { getTourDetails, getTourSchedules } from "../../../api/coreApi_new";
 import ReviewsSection from "../../components/ReviewsSection";
 
-const tourDetail = {
-  destination: "Da Nang",
-  title: "Kham pha Ba Na - Hoi An",
-  rating: 4,
-  time: "3 ngay 2 dem",
-  startDate: "12-05-2026",
-  endDate: "14-05-2026",
-  priceAdult: "2.900.000",
-  priceChild: "1.800.000",
-  description:
-    "Hanh trinh kham pha nhung diem den noi bat, pho co Hoi An va Ba Na Hills voi trai nghiem dac sac.",
-  images: [
-    "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-1.png",
-    "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-2.png",
-    "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-3.png",
-    "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-4.png",
-    "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-5.png",
-  ],
-  timeline: [
-    { id: 1, title: "Da Nang - Son Tra", description: "Tham quan Son Tra, chua Linh Ung va bien My Khe." },
-    { id: 2, title: "Ba Na Hills", description: "Trai nghiem cap treo, Cau Vang va lang Phap." },
-    { id: 3, title: "Hoi An", description: "Pho co Hoi An, den long va am thuc dia phuong." },
-  ],
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const toNum = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  const n = typeof val === "object" ? Number(val.toString()) : Number(val);
+  return isNaN(n) ? 0 : n;
 };
 
-const reviews = [
-  {
-    id: 1,
-    name: "Nguyen Duc Hau",
-    rating: 5,
-    comment: "Tour rat tuyet voi, dich vu tot va lich trinh hop ly.",
-    avatar: "/clients/assets/images/user-profile/user-avatar.png",
-  },
-  {
-    id: 2,
-    name: "Bao Ngan",
-    rating: 4,
-    comment: "Canh dep, huong dan vien than thien, gia hop ly.",
-    avatar: "/clients/assets/images/user-profile/user-avatar.png",
-  },
-];
+const safeParse = (data: any) => {
+  if (typeof data === "string") {
+    try { return JSON.parse(data); } catch { return data; }
+  }
+  return data;
+};
 
-const tourRecommendations = [
-  {
-    id: 1,
-    title: "Mien Trung 4N3D",
-    destination: "Hoi An",
-    rating: "4.8",
-    image:
-      "/clients/assets/images/gallery-tours/mien-trung-4n3d-da-nang-hoi-an-ba-na-hue-1.png",
-  },
-  {
-    id: 2,
-    title: "Bien Dao Phu Quoc",
-    destination: "Phu Quoc",
-    rating: "4.7",
-    image: "/clients/assets/images/gallery-tours/bien-dao-3n2d-phu-quoc-1.jpg",
-  },
-];
+const formatPrice = (price: number) =>
+  new Intl.NumberFormat("vi-VN").format(price) + "đ";
 
-export default function TourDetailPage() {
+const formatFullDate = (dateInput: any) => {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (!d || isNaN(d.getTime())) return "Ngày chưa xác định";
+  const days = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${days[d.getDay()]}, ${dd}/${mm}/${yyyy}`;
+};
+
+// ─── Page Component ───────────────────────────────────────────────────────────
+export default function TourDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const router = useRouter();
+
+  const [tour, setTour] = useState<any>(null);
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activePolicyTab, setActivePolicyTab] = useState("inclusions");
+  const [selectedDepId, setSelectedDepId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedPriceConfig, setSelectedPriceConfig] = useState<any>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>("");
+  const [numAdults, setNumAdults] = useState(2);
+  const [numChildren1014, setNumChildren1014] = useState(0);
+  const [numChildren49, setNumChildren49] = useState(0);
+  const [numBabies, setNumBabies] = useState(0);
+  const [visibleRows, setVisibleRows] = useState(8);
+
+  // ─── Fetch data ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!id) return;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [tourRes, schedulesRes] = await Promise.all([
+          getTourDetails(id),
+          getTourSchedules(id),
+        ]);
+
+        if (tourRes?.data) {
+          const t = tourRes.data;
+          const parsed = {
+            ...t,
+            itinerary: safeParse(t.itinerary),
+            inclusions: safeParse(t.inclusions),
+            exclusions: safeParse(t.exclusions),
+            policies: safeParse(t.policies),
+            images: t.images || [],
+            packages: t.packages || [
+              { id: "standard", name: "Gói Tiêu Chuẩn", extraPrice: 0,
+                description: "Bao gồm đầy đủ các dịch vụ cơ bản theo chương trình tour." },
+              { id: "vip", name: "Gói Cao Cấp (VIP)", extraPrice: 500000,
+                description: "Bao gồm xe đưa đón VIP, khách sạn 5 sao và buffet ẩm thực cao cấp." }
+            ],
+          };
+          setTour(parsed);
+          setSelectedPackageId(parsed.packages[0]?.id ?? "standard");
+        }
+
+        if (schedulesRes?.data && Array.isArray(schedulesRes.data)) {
+          const mapped = schedulesRes.data
+            .map((s: any) => {
+              const dateStr = s.startDate || s.date || s.departureDate;
+              const pc = s.priceConfig || {};
+              const adultP = toNum(pc.adultPrice) || toNum(pc.adult_price);
+              return {
+                ...s,
+                date: dateStr ? new Date(dateStr) : null,
+                price: adultP || toNum(tourRes?.data?.basePrice) || 0,
+                status: (s.status === "ACTIVE" || s.status === "AVAILABLE" || s.status === "OPEN")
+                  ? "Còn chỗ" : "Hết chỗ",
+              };
+            })
+            .filter((s: any) => s.date !== null && !isNaN(s.date.getTime()));
+          setSchedules(mapped);
+
+          // Pre-select first available departure
+          const first = mapped.find((s: any) => s.status === "Còn chỗ");
+          if (first) {
+            setSelectedDepId(String(first.id));
+            setSelectedDate(first.date);
+            setSelectedPriceConfig(first.priceConfig || null);
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải thông tin tour:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
+
+  // ─── Computed prices ─────────────────────────────────────────────────────
+  const packageExtraPrice = useMemo(() => {
+    if (!tour?.packages) return 0;
+    const pkg = tour.packages.find((p: any) => p.id === selectedPackageId);
+    return pkg ? toNum(pkg.extraPrice) : 0;
+  }, [tour, selectedPackageId]);
+
+  const baseAdultPrice = useMemo(() => {
+    if (!selectedPriceConfig) return toNum(tour?.basePrice);
+    return toNum(selectedPriceConfig.adultPrice) || toNum(selectedPriceConfig.adult_price) || toNum(tour?.basePrice);
+  }, [selectedPriceConfig, tour]);
+
+  const baseChild1014Price = useMemo(() => {
+    if (!selectedPriceConfig) return Math.round(baseAdultPrice * 0.75);
+    return toNum(selectedPriceConfig.child1014Price) || toNum(selectedPriceConfig.child_10_14_price) || Math.round(baseAdultPrice * 0.75);
+  }, [selectedPriceConfig, baseAdultPrice]);
+
+  const baseChild49Price = useMemo(() => {
+    if (!selectedPriceConfig) return Math.round(baseAdultPrice * 0.5);
+    return toNum(selectedPriceConfig.child49Price) || toNum(selectedPriceConfig.child_4_9_price) || Math.round(baseAdultPrice * 0.5);
+  }, [selectedPriceConfig, baseAdultPrice]);
+
+  const baseBabyPrice = useMemo(() => {
+    if (!selectedPriceConfig) return 0;
+    return toNum(selectedPriceConfig.babyPrice) || toNum(selectedPriceConfig.baby_price) || 0;
+  }, [selectedPriceConfig]);
+
+  const adultPrice = baseAdultPrice + packageExtraPrice;
+  const child1014Price = baseChild1014Price + packageExtraPrice;
+  const child49Price = baseChild49Price + packageExtraPrice;
+  const babyPrice = baseBabyPrice;
+
+  const estimatedTotal =
+    numAdults * adultPrice +
+    numChildren1014 * child1014Price +
+    numChildren49 * child49Price +
+    numBabies * babyPrice;
+
+  // ─── Departure table rows ─────────────────────────────────────────────────
+  const displayedSchedules = schedules.slice(0, visibleRows);
+
+  const handleSelectDeparture = (dep: any) => {
+    setSelectedDepId(String(dep.id));
+    setSelectedDate(dep.date);
+    setSelectedPriceConfig(dep.priceConfig || null);
+  };
+
+  const handleBookNow = () => {
+    if (!selectedDepId) {
+      alert("Vui lòng chọn ngày khởi hành!");
+      return;
+    }
+    const params = new URLSearchParams({
+      adults: String(numAdults),
+      children1014: String(numChildren1014),
+      children49: String(numChildren49),
+      babies: String(numBabies),
+      package: selectedPackageId,
+    });
+    router.push(`/booking/${selectedDepId}?${params.toString()}`);
+  };
+
+  // ─── Loading state ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        fontFamily: "system-ui", background: "#FAFAFA",
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: "50%",
+          border: "5px solid #F0E0D0", borderTopColor: "#FF6B00",
+          animation: "spin 0.9s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <p style={{ marginTop: 20, color: "#888", fontSize: 16 }}>Đang tải thông tin tour...</p>
+      </div>
+    );
+  }
+
+  if (!tour) {
+    return (
+      <div style={{ minHeight: "60vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <h3>Không tìm thấy tour</h3>
+        <a href="/tours" style={{ color: "#FF6B00", marginTop: 12 }}>← Quay lại danh sách tour</a>
+      </div>
+    );
+  }
+
+  const coverImage = tour.images?.find((img: any) => img.isCover)?.imageUrl
+    || tour.images?.[0]?.imageUrl
+    || tour.coverImageUrl
+    || "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=1200&auto=format&fit=crop";
+
+  const getStatusBadge = (status: string) => {
+    if (status === "Còn chỗ") return <span className="td-badge td-badge-success">Còn chỗ</span>;
+    if (status === "Chỉ còn chỗ") return <span className="td-badge td-badge-warning">Chỉ còn chỗ</span>;
+    return <span className="td-badge td-badge-disabled">Hết chỗ</span>;
+  };
+
   return (
     <>
+      <style>{`
+        /* ── Tour Detail Page Styles ── */
+        .td-container {
+          font-family: system-ui, -apple-system, sans-serif;
+          color: #333;
+          background: #F7F8FA;
+          padding-bottom: 80px;
+        }
 
-      <section className="page-banner-two rel z-1">
-        <div className="container-fluid">
-          <hr className="mt-0" />
-          <div className="container">
-            <div className="banner-inner pt-15 pb-25">
-              <h2
-                className="page-title mb-10"
-                data-aos="fade-left"
-                data-aos-duration="1500"
-                data-aos-offset="50"
-              >
-                {tourDetail.destination}
-              </h2>
-              <nav aria-label="breadcrumb">
-                <ol
-                  className="breadcrumb justify-content-center mb-20"
-                  data-aos="fade-right"
-                  data-aos-delay="200"
-                  data-aos-duration="1500"
-                  data-aos-offset="50"
-                >
-                  <li className="breadcrumb-item">
-                    <a href="/">Trang chu</a>
-                  </li>
-                  <li className="breadcrumb-item active">Tour detail</li>
-                </ol>
-              </nav>
+        /* Gallery */
+        .td-gallery {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr;
+          grid-template-rows: 200px 200px;
+          gap: 8px;
+          border-radius: 0 0 16px 16px;
+          overflow: hidden;
+          max-height: 408px;
+        }
+        .td-gallery-main { grid-column: 1 / 2; grid-row: 1 / 3; position: relative; overflow: hidden; }
+        .td-gallery-sub { position: relative; overflow: hidden; }
+        .td-gallery img {
+          width: 100%; height: 100%; object-fit: cover;
+          transition: transform 0.4s ease; cursor: pointer;
+        }
+        .td-gallery-main:hover img, .td-gallery-sub:hover img { transform: scale(1.07); }
+        .td-gallery-overlay {
+          position: absolute; inset: 0; background: rgba(0,0,0,0.4);
+          display: flex; align-items: center; justify-content: center;
+          color: white; font-weight: 700; font-size: 1.1rem;
+        }
+        @media (max-width: 768px) {
+          .td-gallery { grid-template-columns: 1fr 1fr; grid-template-rows: 220px 120px; }
+          .td-gallery-main { grid-column: 1 / 3; grid-row: 1 / 2; }
+          .td-gallery-sub:nth-child(n+4) { display: none; }
+        }
+
+        /* Card */
+        .td-card {
+          background: white; border-radius: 16px;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+          padding: 28px; margin-bottom: 20px;
+        }
+        .td-card-title {
+          font-size: 1.2rem; font-weight: 700; margin-bottom: 20px;
+          color: #1A1A1A; border-left: 4px solid #FF6B00; padding-left: 12px;
+        }
+
+        /* Sticky sidebar */
+        .td-sidebar { position: sticky; top: 100px; }
+
+        /* Package radio cards */
+        .td-pkg-card {
+          border: 1.5px solid #E8E8E8; border-radius: 12px;
+          padding: 14px 16px; cursor: pointer;
+          transition: all 0.2s; margin-bottom: 10px; background: white;
+        }
+        .td-pkg-card.selected { border-color: #FF6B00; background: #FFF8F0; }
+        .td-pkg-card:hover:not(.selected) { border-color: #FFB57A; }
+
+        /* Date tabs */
+        .td-date-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .td-date-tab {
+          padding: 7px 16px; border-radius: 20px; font-weight: 600; font-size: 13px;
+          cursor: pointer; border: 1.5px solid #E0E0E0; background: white; color: #666;
+          transition: all 0.2s; white-space: nowrap;
+        }
+        .td-date-tab.active { background: #FF6B00; color: white; border-color: #FF6B00; }
+        .td-date-tab:hover:not(.active) { border-color: #FF6B00; color: #FF6B00; }
+
+        /* Counter */
+        .td-counter { display: flex; align-items: center; gap: 10px; }
+        .td-counter-btn {
+          width: 34px; height: 34px; border-radius: 50%;
+          border: 1.5px solid #DDD; background: white; cursor: pointer;
+          font-size: 18px; font-weight: 600; color: #333;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.2s; padding: 0;
+        }
+        .td-counter-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .td-counter-btn:not(:disabled):hover { border-color: #FF6B00; color: #FF6B00; }
+        .td-counter-val { width: 28px; text-align: center; font-weight: 700; font-size: 15px; }
+
+        /* Book CTA */
+        .td-cta {
+          width: 100%; padding: 15px; border: none; border-radius: 14px;
+          background: linear-gradient(135deg, #FF6B00 0%, #E55A00 100%);
+          color: white; font-weight: 700; font-size: 16px;
+          cursor: pointer; transition: all 0.2s;
+          box-shadow: 0 4px 14px rgba(229,90,0,0.3);
+        }
+        .td-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(229,90,0,0.4); }
+        .td-cta:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* Timeline */
+        .td-timeline { position: relative; padding-left: 24px; }
+        .td-timeline::before {
+          content: ''; position: absolute; left: 0; top: 8px; bottom: 0;
+          width: 2px; background: linear-gradient(to bottom, #FF6B00, #FFD1B3);
+        }
+        .td-timeline-item { position: relative; margin-bottom: 28px; }
+        .td-timeline-item::before {
+          content: ''; position: absolute; left: -29px; top: 5px;
+          width: 12px; height: 12px; border-radius: 50%;
+          background: #FF6B00; border: 2px solid white;
+          box-shadow: 0 0 0 2px #FF6B00;
+        }
+        .td-timeline-day { color: #FF6B00; font-weight: 700; margin-bottom: 4px; font-size: 0.88rem; }
+        .td-timeline-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; }
+        .td-timeline-desc { color: #555; line-height: 1.65; font-size: 0.95rem; }
+
+        /* Policy tabs */
+        .td-policy-tabs {
+          display: flex; border-bottom: 2px solid #EEE; margin-bottom: 20px;
+          overflow-x: auto; white-space: nowrap; scrollbar-width: thin;
+        }
+        .td-policy-tab {
+          padding: 11px 18px; cursor: pointer; font-weight: 600;
+          color: #666; border-bottom: 3px solid transparent; font-size: 13.5px;
+          transition: all 0.2s; flex-shrink: 0;
+        }
+        .td-policy-tab.active { color: #FF6B00; border-bottom-color: #FF6B00; }
+
+        /* Inclusions / Exclusions */
+        .td-list-check li, .td-list-cross li {
+          position: relative; padding-left: 28px; margin-bottom: 10px;
+          color: #444; font-size: 0.95rem; line-height: 1.55;
+        }
+        .td-list-check li::before { content: '✓'; position: absolute; left: 0; top: 0; color: #2E7D32; font-weight: 700; font-size: 17px; line-height: 1.2; }
+        .td-list-cross li::before { content: '✕'; position: absolute; left: 0; top: 0; color: #D32F2F; font-weight: 700; font-size: 17px; line-height: 1.2; }
+
+        /* Schedule table */
+        .td-table { width: 100%; border-collapse: collapse; }
+        .td-table th { color: #888; font-weight: 600; font-size: 13px; border-bottom: 2px solid #EEE; padding: 10px 8px; text-align: left; }
+        .td-table td { padding: 14px 8px; border-bottom: 1px solid #F0F0F0; vertical-align: middle; font-size: 14px; }
+        .td-table tr:last-child td { border-bottom: none; }
+        .td-table tr.selected-row { background: #FFF8F0; }
+        .td-table tr.selected-row td:first-child { border-left: 3px solid #FF6B00; }
+
+        /* Badges */
+        .td-badge { padding: 5px 11px; border-radius: 6px; font-size: 12.5px; font-weight: 600; display: inline-block; }
+        .td-badge-success { background: #E8F5E9; color: #2E7D32; }
+        .td-badge-warning { background: #FFF3E0; color: #E65100; }
+        .td-badge-disabled { background: #EEEEEE; color: #9E9E9E; }
+
+        /* Select btn */
+        .td-select-btn {
+          border: 1.5px solid #FF6B00; color: #FF6B00; background: white;
+          padding: 5px 16px; border-radius: 20px; font-weight: 600; font-size: 13px;
+          cursor: pointer; transition: all 0.2s;
+        }
+        .td-select-btn.selected-dep { background: #FF6B00; color: white; }
+        .td-select-btn:disabled { border-color: #DDD; color: #999; background: #F5F5F5; cursor: not-allowed; }
+
+        /* Summary price row */
+        .td-summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.93rem; }
+        .td-summary-total { display: flex; justify-content: space-between; padding-top: 12px; margin-top: 12px; border-top: 1px solid #EEE; font-weight: 700; font-size: 1.2rem; color: #D32F2F; }
+      `}</style>
+
+      <div className="td-container">
+
+        {/* ── HERO BANNER ── */}
+        <section className="page-banner-two rel z-1">
+          <div className="container-fluid">
+            <hr className="mt-0" />
+            <div className="container">
+              <div className="banner-inner pt-15 pb-25">
+                <h2 className="page-title mb-10" data-aos="fade-left" data-aos-duration="1500" data-aos-offset="50">
+                  {tour.destinationName || tour.categoryName || "Tour Du Lịch"}
+                </h2>
+                <nav aria-label="breadcrumb">
+                  <ol className="breadcrumb justify-content-center mb-20" data-aos="fade-right" data-aos-delay="200" data-aos-duration="1500" data-aos-offset="50">
+                    <li className="breadcrumb-item"><a href="/">Trang chủ</a></li>
+                    <li className="breadcrumb-item"><a href="/tours">Tours</a></li>
+                    <li className="breadcrumb-item active">Chi tiết tour</li>
+                  </ol>
+                </nav>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="tour-gallery">
-        <div className="container-fluid">
-          <div className="row gap-10 justify-content-center rel">
-            <div className="col-lg-4 col-md-6">
-              <div className="gallery-item">
-                <img src={tourDetail.images[0]} alt="Destination" />
+        {/* ── GALLERY ── */}
+        <div className="container-fluid px-0">
+          <div className="td-gallery">
+            <div className="td-gallery-main">
+              <img src={coverImage} alt={tour.title} />
+            </div>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="td-gallery-sub">
+                <img
+                  src={tour.images?.[i]?.imageUrl || `https://images.unsplash.com/photo-${1528127269322 + i * 100000}-?q=80&w=800&auto=format&fit=crop`}
+                  alt={tour.images?.[i]?.altText || `Ảnh ${i + 1}`}
+                />
+                {i === 4 && tour.images?.length > 5 && (
+                  <div className="td-gallery-overlay">+{tour.images.length - 5} ảnh</div>
+                )}
               </div>
-              <div className="gallery-item">
-                <img src={tourDetail.images[1]} alt="Destination" />
+            ))}
+          </div>
+        </div>
+
+        {/* ── MAIN CONTENT ── */}
+        <div className="container mt-5">
+          {/* Tour Title + Meta */}
+          <div className="mb-4">
+            <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "#1A1A1A", marginBottom: 8 }}>
+              {tour.title}
+            </h1>
+            <div className="d-flex flex-wrap align-items-center" style={{ gap: 16 }}>
+              {tour.destinationName && (
+                <span style={{ color: "#888", fontSize: 14 }}>
+                  <i className="fal fa-map-marker-alt mr-1" style={{ color: "#FF6B00" }} />
+                  {tour.destinationName}
+                </span>
+              )}
+              {tour.durationDays && (
+                <span style={{ color: "#888", fontSize: 14 }}>
+                  <i className="fal fa-clock mr-1" style={{ color: "#FF6B00" }} />
+                  {tour.durationDays} ngày {Math.max(0, (tour.durationDays || 1) - 1)} đêm
+                </span>
+              )}
+              <div style={{ color: "#FFB800", display: "flex", gap: 2, alignItems: "center" }}>
+                {[...Array(5)].map((_, i) => (
+                  <i key={i} className={i < Math.floor(tour.rating || 5) ? "fas fa-star" : "far fa-star"} style={{ fontSize: 14 }} />
+                ))}
+                <span style={{ color: "#333", marginLeft: 6, fontWeight: 700, fontSize: 14 }}>
+                  {(tour.rating || 5).toFixed ? (tour.rating || 5) : tour.rating}/5
+                </span>
               </div>
             </div>
-            <div className="col-lg-4 col-md-6">
-              <div className="gallery-item gallery-between">
-                <img src={tourDetail.images[2]} alt="Destination" />
+          </div>
+
+          <div className="row">
+            {/* ── LEFT COLUMN ── */}
+            <div className="col-lg-8">
+
+              {/* Overview */}
+              {(tour.overview || tour.description) && (
+                <div className="td-card">
+                  <div className="td-card-title">Tổng quan chuyến đi</div>
+                  <p style={{ color: "#555", lineHeight: 1.75, marginBottom: 0 }}>
+                    {tour.overview || tour.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Itinerary */}
+              {Array.isArray(tour.itinerary) && tour.itinerary.length > 0 && (
+                <div className="td-card">
+                  <div className="td-card-title">Lịch trình chi tiết</div>
+                  <div className="td-timeline">
+                    {tour.itinerary.map((item: any, idx: number) => (
+                      <div key={idx} className="td-timeline-item">
+                        {item.time && <div className="td-timeline-day">Ngày {idx + 1}{item.time ? ` — ${item.time}` : ""}</div>}
+                        {!item.time && <div className="td-timeline-day">Ngày {idx + 1}</div>}
+                        <div className="td-timeline-title">{item.title}</div>
+                        <div className="td-timeline-desc">{item.description || item.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Policies */}
+              <div className="td-card">
+                <div className="td-card-title">Điều kiện & Chính sách</div>
+                <div className="td-policy-tabs">
+                  {[
+                    { key: "inclusions", label: "Tour bao gồm" },
+                    { key: "exclusions", label: "Không bao gồm" },
+                    { key: "children", label: "Điều kiện trẻ em" },
+                    { key: "cancel", label: "Quy định hủy" },
+                    { key: "notes", label: "Lưu ý" },
+                  ].map((tab) => (
+                    <div
+                      key={tab.key}
+                      className={`td-policy-tab ${activePolicyTab === tab.key ? "active" : ""}`}
+                      onClick={() => setActivePolicyTab(tab.key)}
+                    >
+                      {tab.label}
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  {activePolicyTab === "inclusions" && (
+                    <ul className="list-unstyled td-list-check mb-0">
+                      {Array.isArray(tour.inclusions)
+                        ? tour.inclusions.map((inc: string, i: number) => <li key={i}>{inc}</li>)
+                        : <li>{tour.inclusions || "Đang cập nhật thông tin..."}</li>}
+                    </ul>
+                  )}
+                  {activePolicyTab === "exclusions" && (
+                    <ul className="list-unstyled td-list-cross mb-0">
+                      {Array.isArray(tour.exclusions)
+                        ? tour.exclusions.map((exc: string, i: number) => <li key={i}>{exc}</li>)
+                        : <li>{tour.exclusions || "Đang cập nhật thông tin..."}</li>}
+                    </ul>
+                  )}
+                  {activePolicyTab === "children" && (
+                    <p style={{ color: "#555", lineHeight: 1.7, marginBottom: 0 }}>
+                      {tour.policies?.childPolicy || tour.childPolicy || "Trẻ em từ 5-11 tuổi: 75% giá người lớn. Trẻ em dưới 5 tuổi: miễn phí (không chiếm chỗ ngồi)."}
+                    </p>
+                  )}
+                  {activePolicyTab === "cancel" && (
+                    <p style={{ color: "#555", lineHeight: 1.7, marginBottom: 0 }}>
+                      {tour.policies?.cancellationPolicy || tour.cancellationPolicy || "Hủy trước 15 ngày: hoàn 80%. Hủy trước 7 ngày: hoàn 50%. Hủy dưới 7 ngày: không hoàn tiền."}
+                    </p>
+                  )}
+                  {activePolicyTab === "notes" && (
+                    <p style={{ color: "#555", lineHeight: 1.7, marginBottom: 0 }}>
+                      {tour.policies?.notes || tour.notes || "Vui lòng mang theo CCCD/Passport khi khởi hành. Tập hợp trước giờ khởi hành 30 phút tại điểm đón."}
+                    </p>
+                  )}
+                </div>
               </div>
+
+              {/* Departure Schedule Table */}
+              <div className="td-card">
+                <div className="td-card-title">Lịch khởi hành & Giá tour</div>
+                <p style={{ color: "#888", fontSize: 13, marginBottom: 20 }}>
+                  {schedules.length} lịch khởi hành khả dụng
+                </p>
+
+                {schedules.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "40px 0", color: "#888" }}>
+                    <i className="fal fa-calendar-times" style={{ fontSize: 32, marginBottom: 12 }} />
+                    <p>Chưa có lịch khởi hành nào đang mở.</p>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="td-table">
+                      <thead>
+                        <tr>
+                          <th>Ngày khởi hành</th>
+                          <th>Tình trạng</th>
+                          <th>Giá từ</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayedSchedules.map((dep: any) => {
+                          const isSelected = String(dep.id) === String(selectedDepId);
+                          return (
+                            <tr key={dep.id} className={isSelected ? "selected-row" : ""}>
+                              <td style={{ fontWeight: 600 }}>
+                                {formatFullDate(dep.date)}
+                                {isSelected && (
+                                  <span style={{ marginLeft: 8, color: "#FF6B00", fontSize: 11, fontWeight: 700 }}>
+                                    ● Đang chọn
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                {getStatusBadge(dep.status)}
+                                {dep.maxSlots != null && dep.bookedSlots != null && (
+                                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                                    Còn {Math.max(0, dep.maxSlots - dep.bookedSlots)} chỗ
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ fontWeight: 700, color: "#FF6B00" }}>
+                                {dep.price ? formatPrice(dep.price) : "Liên hệ"}
+                              </td>
+                              <td>
+                                <button
+                                  className={`td-select-btn ${isSelected ? "selected-dep" : ""}`}
+                                  disabled={dep.status === "Hết chỗ"}
+                                  onClick={() => {
+                                    handleSelectDeparture(dep);
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                  }}
+                                >
+                                  {isSelected ? "✓ Đã chọn" : "Chọn"}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {schedules.length > visibleRows && (
+                  <div style={{ textAlign: "center", marginTop: 16 }}>
+                    <button
+                      onClick={() => setVisibleRows((v) => v + 8)}
+                      style={{
+                        border: "1.5px solid #DDD", background: "white", borderRadius: 20,
+                        padding: "8px 24px", cursor: "pointer", fontWeight: 600, color: "#555",
+                      }}
+                    >
+                      Xem thêm
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Reviews */}
+              <div className="td-card">
+                <ReviewsSection
+                  averageRating={tour.rating || 5}
+                  reviewCount={tour.reviewCount || 0}
+                  reviews={[]}
+                  timeLabel={tour.durationDays ? `${tour.durationDays} ngày` : ""}
+                />
+              </div>
+
             </div>
-            <div className="col-lg-4 col-md-6">
-              <div className="gallery-item">
-                <img src={tourDetail.images[3]} alt="Destination" />
-              </div>
-              <div className="gallery-item">
-                <img src={tourDetail.images[4]} alt="Destination" />
+
+            {/* ── RIGHT SIDEBAR ── */}
+            <div className="col-lg-4">
+              <div className="td-sidebar">
+                <div className="td-card">
+                  {/* Package selection */}
+                  <div className="mb-4">
+                    <div className="td-card-title" style={{ marginBottom: 14 }}>1. Chọn gói tour</div>
+                    {(tour.packages || []).map((pkg: any) => (
+                      <div
+                        key={pkg.id}
+                        className={`td-pkg-card ${selectedPackageId === pkg.id ? "selected" : ""}`}
+                        onClick={() => setSelectedPackageId(pkg.id)}
+                      >
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{pkg.name}</span>
+                          {pkg.extraPrice === 0 && (
+                            <span style={{
+                              background: "#FFE0CC", color: "#D65A00", fontSize: 11,
+                              fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+                            }}>Tiêu chuẩn</span>
+                          )}
+                          {pkg.extraPrice > 0 && (
+                            <span style={{ color: "#FF6B00", fontWeight: 700, fontSize: 13 }}>
+                              +{formatPrice(pkg.extraPrice)}
+                            </span>
+                          )}
+                        </div>
+                        {pkg.description && (
+                          <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>{pkg.description}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Date selection */}
+                  <div className="mb-4">
+                    <div className="td-card-title" style={{ marginBottom: 14 }}>2. Ngày khởi hành</div>
+                    {selectedDate && (
+                      <div style={{ fontSize: 13, color: "#FF6B00", fontWeight: 600, marginBottom: 10 }}>
+                        <i className="far fa-calendar-check mr-1" />
+                        {formatFullDate(selectedDate)}
+                      </div>
+                    )}
+                    {schedules.length > 0 ? (
+                      <div className="td-date-tabs">
+                        {schedules.slice(0, 12).map((dep: any) => {
+                          const dd = String(dep.date.getDate()).padStart(2, "0");
+                          const mm = String(dep.date.getMonth() + 1).padStart(2, "0");
+                          return (
+                            <div
+                              key={dep.id}
+                              className={`td-date-tab ${String(dep.id) === String(selectedDepId) ? "active" : ""}`}
+                              onClick={() => handleSelectDeparture(dep)}
+                              style={dep.status === "Hết chỗ" ? { opacity: 0.4, cursor: "not-allowed" } : {}}
+                            >
+                              {dd}/{mm}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ color: "#888", fontSize: 13 }}>Đang tải lịch khởi hành...</div>
+                    )}
+                  </div>
+
+                  {/* Passenger selection */}
+                  <div className="mb-4">
+                    <div className="td-card-title" style={{ marginBottom: 14 }}>3. Số hành khách</div>
+
+                    {[
+                      { label: "Người lớn (NL)", sublabel: "Từ 15 tuổi: " + formatPrice(adultPrice), value: numAdults, min: 1, onChange: (n: number) => setNumAdults(n) },
+                      { label: "Trẻ em lớn (TE)", sublabel: "10-14 tuổi: " + formatPrice(child1014Price), value: numChildren1014, min: 0, onChange: (n: number) => setNumChildren1014(n) },
+                      { label: "Trẻ em nhỏ (TE)", sublabel: "4-9 tuổi: " + formatPrice(child49Price), value: numChildren49, min: 0, onChange: (n: number) => setNumChildren49(n) },
+                      { label: "Em bé (EB)", sublabel: "Dưới 4 tuổi: " + (babyPrice > 0 ? formatPrice(babyPrice) : "Miễn phí"), value: numBabies, min: 0, onChange: (n: number) => setNumBabies(n) },
+                    ].map((row) => (
+                      <div key={row.label} className="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{row.label}</div>
+                          <div style={{ color: "#888", fontSize: 12 }}>{row.sublabel}</div>
+                        </div>
+                        <div className="td-counter">
+                          <button className="td-counter-btn" disabled={row.value <= row.min} onClick={() => row.onChange(Math.max(row.min, row.value - 1))}>−</button>
+                          <div className="td-counter-val">{row.value}</div>
+                          <button className="td-counter-btn" onClick={() => row.onChange(row.value + 1)}>+</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Price summary */}
+                  <div style={{ background: "#F7F8FA", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
+                    {numAdults > 0 && (
+                      <div className="td-summary-row">
+                        <span>{numAdults} Người lớn</span>
+                        <span style={{ fontWeight: 600 }}>{formatPrice(numAdults * adultPrice)}</span>
+                      </div>
+                    )}
+                    {numChildren1014 > 0 && (
+                      <div className="td-summary-row">
+                        <span>{numChildren1014} Trẻ em (10-14T)</span>
+                        <span style={{ fontWeight: 600 }}>{formatPrice(numChildren1014 * child1014Price)}</span>
+                      </div>
+                    )}
+                    {numChildren49 > 0 && (
+                      <div className="td-summary-row">
+                        <span>{numChildren49} Trẻ em (4-9T)</span>
+                        <span style={{ fontWeight: 600 }}>{formatPrice(numChildren49 * child49Price)}</span>
+                      </div>
+                    )}
+                    {numBabies > 0 && (
+                      <div className="td-summary-row">
+                        <span>{numBabies} Em bé</span>
+                        <span style={{ fontWeight: 600 }}>{babyPrice > 0 ? formatPrice(numBabies * babyPrice) : "Miễn phí"}</span>
+                      </div>
+                    )}
+                    <div className="td-summary-total">
+                      <span>Dự tính</span>
+                      <span>{formatPrice(estimatedTotal)}</span>
+                    </div>
+                  </div>
+
+                  {/* CTA Button */}
+                  <button className="td-cta" onClick={handleBookNow} disabled={!selectedDepId}>
+                    <i className="fas fa-bolt mr-2" />
+                    {selectedDepId ? "ĐẶT TOUR NGAY" : "Chọn ngày khởi hành"}
+                  </button>
+
+                  <div style={{ textAlign: "center", marginTop: 12 }}>
+                    <a href="/contact" style={{ color: "#888", fontSize: 13 }}>
+                      <i className="far fa-phone-volume mr-1" /> Cần tư vấn? Gọi ngay
+                    </a>
+                  </div>
+                </div>
+
+                {/* Contact widget */}
+                <div className="td-card">
+                  <div className="td-card-title" style={{ marginBottom: 14 }}>Hỗ trợ & Liên hệ</div>
+                  <ul className="list-unstyled mb-0">
+                    <li className="mb-2" style={{ fontSize: 14 }}>
+                      <i className="far fa-envelope mr-2" style={{ color: "#FF6B00" }} />
+                      <a href="mailto:support@htravel.vn">support@htravel.vn</a>
+                    </li>
+                    <li style={{ fontSize: 14 }}>
+                      <i className="far fa-phone-volume mr-2" style={{ color: "#FF6B00" }} />
+                      <a href="tel:+84909000000">+84 909 000 000</a>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      <section className="tour-header-area pt-70 rel z-1">
-        <div className="container">
-          <div className="row justify-content-between">
-            <div className="col-xl-6 col-lg-7">
-              <div className="tour-header-content mb-15" data-aos="fade-left" data-aos-duration="1500" data-aos-offset="50">
-                <span className="location d-inline-block mb-10">
-                  <i className="fal fa-map-marker-alt"></i>
-                  {tourDetail.destination}
-                </span>
-                <div className="section-title pb-5">
-                  <h2>{tourDetail.title}</h2>
-                </div>
-                <div className="ratting">
-                  {[...Array(5)].map((_, index) => (
-                    <i
-                      className={index < tourDetail.rating ? "fas fa-star" : "far fa-star"}
-                      key={`rating-${index}`}
-                    ></i>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="col-xl-4 col-lg-5 text-lg-end" data-aos="fade-right" data-aos-duration="1500" data-aos-offset="50">
-              <div className="tour-header-social mb-10">
-                <a href="#">
-                  <i className="far fa-share-alt"></i>Share tours
-                </a>
-                <a href="#">
-                  <i className="fas fa-heart bgc-secondary"></i>Wish list
-                </a>
-              </div>
-            </div>
-          </div>
-          <hr className="mt-50 mb-70" />
-        </div>
-      </section>
-
-      <section className="tour-details-page pb-100">
-        <div className="container">
-          <div className="row">
-            <div className="col-lg-8">
-              <div className="tour-details-content">
-                <h3>Kham pha Tours</h3>
-                <p>{tourDetail.description}</p>
-                <div className="row pb-55">
-                  <div className="col-md-6">
-                    <div className="tour-include-exclude mt-30">
-                      <h5>Bao gom va khong bao gom</h5>
-                      <ul className="list-style-one check mt-25">
-                        <li>
-                          <i className="far fa-check"></i> Dich vu don va tra khach
-                        </li>
-                        <li>
-                          <i className="far fa-check"></i> 1 bua an moi ngay
-                        </li>
-                        <li>
-                          <i className="far fa-check"></i> Bua toi tren du thuyen va su kien am nhac
-                        </li>
-                        <li>
-                          <i className="far fa-check"></i> Tham quan 7 dia diem tuyet voi nhat trong thanh pho
-                        </li>
-                        <li>
-                          <i className="far fa-check"></i> Nuoc dong chai tren xe buyt
-                        </li>
-                        <li>
-                          <i className="far fa-check"></i> Phuong tien di chuyen xe buyt du lich hang sang
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                  <div className="col-md-6">
-                    <div className="tour-include-exclude mt-30">
-                      <h5>Khong bao gom</h5>
-                      <ul className="list-style-one mt-25">
-                        <li>
-                          <i className="far fa-times"></i> Tien boa
-                        </li>
-                        <li>
-                          <i className="far fa-times"></i> Don va tra khach tai khach san
-                        </li>
-                        <li>
-                          <i className="far fa-times"></i> Bua trua, do an va do uong
-                        </li>
-                        <li>
-                          <i className="far fa-times"></i> Nang cap tuy chon len mot ly
-                        </li>
-                        <li>
-                          <i className="far fa-times"></i> Dich vu bo sung
-                        </li>
-                        <li>
-                          <i className="far fa-times"></i> Bao hiem
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <h3>Lich trinh</h3>
-              <div className="accordion-two mt-25 mb-60" id="faq-accordion-two">
-                {tourDetail.timeline.map((item, index) => (
-                  <div className="accordion-item" key={item.id}>
-                    <h5 className="accordion-header">
-                      <button
-                        className="accordion-button collapsed"
-                        data-bs-toggle="collapse"
-                        data-bs-target={`#collapseTwo${item.id}`}
-                      >
-                        Ngay {index + 1} - {item.title}
-                      </button>
-                    </h5>
-                    <div
-                      id={`collapseTwo${item.id}`}
-                      className="accordion-collapse collapse"
-                      data-bs-parent="#faq-accordion-two"
-                    >
-                      <div className="accordion-body">
-                        <p>{item.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <ReviewsSection
-                averageRating={tourDetail.rating}
-                reviewCount={reviews.length}
-                reviews={reviews}
-                timeLabel={tourDetail.time}
-              />
-
-              <h3>Them danh gia</h3>
-              <form className="comment-form bgc-lighter z-1 rel mt-30" name="review-form" action="#" method="post">
-                <div className="comment-review-wrap">
-                  <div className="comment-ratting-item">
-                    <span className="title">Danh gia</span>
-                    <div className="ratting" id="rating-stars">
-                      <i className="far fa-star" data-value="1"></i>
-                      <i className="far fa-star" data-value="2"></i>
-                      <i className="far fa-star" data-value="3"></i>
-                      <i className="far fa-star" data-value="4"></i>
-                      <i className="far fa-star" data-value="5"></i>
-                    </div>
-                  </div>
-                </div>
-                <hr className="mt-30 mb-40" />
-                <h5>De lai phan hoi</h5>
-                <div className="row gap-20 mt-20">
-                  <div className="col-md-12">
-                    <div className="form-group">
-                      <label htmlFor="message">Noi dung</label>
-                      <textarea name="message" id="message" className="form-control" rows={5} required></textarea>
-                    </div>
-                  </div>
-                  <div className="col-md-12">
-                    <div className="form-group mb-0">
-                      <button type="submit" className="theme-btn bgc-secondary style-two" id="submit-reviews">
-                        <span data-hover="Gui danh gia">Gui danh gia</span>
-                        <i className="fal fa-arrow-right"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-
-            <div className="col-lg-4 col-md-8 col-sm-10 rmt-75">
-              <div className="blog-sidebar tour-sidebar">
-                <div className="widget widget-booking" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                  <h5 className="widget-title">Tour Booking</h5>
-                  <form action="#" method="POST">
-                    <div className="date mb-25">
-                      <b>Ngay bat dau</b>
-                      <input type="text" value={tourDetail.startDate} name="startdate" disabled />
-                    </div>
-                    <hr />
-                    <div className="date mb-25">
-                      <b>Ngay ket thuc</b>
-                      <input type="text" value={tourDetail.endDate} name="enddate" disabled />
-                    </div>
-                    <hr />
-                    <div className="time py-5">
-                      <b>Thoi gian :</b>
-                      <p>{tourDetail.time}</p>
-                      <input type="hidden" name="time" />
-                    </div>
-                    <hr className="mb-25" />
-                    <h6>Ve:</h6>
-                    <ul className="tickets clearfix">
-                      <li>
-                        Nguoi lon <span className="price">{tourDetail.priceAdult} VND</span>
-                      </li>
-                      <li>
-                        Tre em <span className="price">{tourDetail.priceChild} VND</span>
-                      </li>
-                    </ul>
-                    <button type="submit" className="theme-btn style-two w-100 mt-15 mb-5">
-                      <span data-hover="Dat ngay">Dat ngay</span>
-                      <i className="fal fa-arrow-right"></i>
-                    </button>
-                    <div className="text-center">
-                      <a href="/contact">Ban can tro giup khong?</a>
-                    </div>
-                  </form>
-                </div>
-
-                <div className="widget widget-contact" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                  <h5 className="widget-title">Can tro giup?</h5>
-                  <ul className="list-style-one">
-                    <li>
-                      <i className="far fa-envelope"></i> <a href="mailto:duchaunguyen131@gmail.com">duchaunguyen131@gmail.com</a>
-                    </li>
-                    <li>
-                      <i className="far fa-phone-volume"></i> <a href="callto:+000(123)45688">+000 (123) 456 88</a>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="widget widget-tour" data-aos="fade-up" data-aos-duration="1500" data-aos-offset="50">
-                  <h6 className="widget-title">Tours tuong tu</h6>
-                  {tourRecommendations.map((tour) => (
-                    <div className="destination-item tour-grid style-three bgc-lighter" key={tour.id}>
-                      <div className="image">
-                        <img src={tour.image} alt="Tour" style={{ maxHeight: 137 }} />
-                      </div>
-                      <div className="content">
-                        <div className="destination-header">
-                          <span className="location">
-                            <i className="fal fa-map-marker-alt"></i>
-                            {tour.destination}
-                          </span>
-                          <div className="ratting">
-                            <i className="fas fa-star"></i>
-                            <span>({tour.rating})</span>
-                          </div>
-                        </div>
-                        <h6>
-                          <a href={`/tours/${tour.id}`}>{tour.title}</a>
-                        </h6>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        className="newsletter-three bgc-primary py-100 rel z-1"
-        style={{ backgroundImage: "url(/clients/assets/images/newsletter/newsletter-bg-lines.png)" }}
-      >
-        <div className="container container-1500">
-          <div className="row">
-            <div className="col-lg-6">
-              <div
-                className="newsletter-content-part text-white rmb-55"
-                data-aos="zoom-in-right"
-                data-aos-duration="1500"
-                data-aos-offset="50"
-              >
-                <div className="section-title counter-text-wrap mb-45">
-                  <h2>Dang ky nhan ban tin cua chung toi de nhan them nhieu uu dai & meo</h2>
-                  <p>
-                    Website{" "}
-                    <span className="count-text plus" data-speed="3000" data-stop="34500">
-                      0
-                    </span>{" "}
-                    trai nghiem pho bien nhat ma ban se nho
-                  </p>
-                </div>
-                <form className="newsletter-form mb-15" action="#">
-                  <input id="news-email" type="email" placeholder="Email Address" required />
-                  <button type="submit" className="theme-btn bgc-secondary style-two">
-                    <span data-hover="Subscribe">Subscribe</span>
-                    <i className="fal fa-arrow-right"></i>
-                  </button>
-                </form>
-                <p>Khong yeu cau the tin dung. Khong cam ket</p>
-              </div>
-              <div
-                className="newsletter-bg-image"
-                data-aos="zoom-in-up"
-                data-aos-delay="100"
-                data-aos-duration="1500"
-                data-aos-offset="50"
-              >
-                <img src="/clients/assets/images/newsletter/newsletter-bg-image.png" alt="Newsletter" />
-              </div>
-            </div>
-            <div className="col-lg-6">
-              <div
-                className="newsletter-image-part bgs-cover"
-                style={{
-                  backgroundImage:
-                    "url(/clients/assets/images/newsletter/newsletter-two-right.jpg)",
-                }}
-                data-aos="fade-left"
-                data-aos-duration="1500"
-                data-aos-offset="50"
-              ></div>
-            </div>
-          </div>
-        </div>
-      </section>
     </>
   );
 }

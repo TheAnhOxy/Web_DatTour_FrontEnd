@@ -198,6 +198,12 @@ export default function Home() {
 
   return (
     <>
+      <style>{`
+        @keyframes flicker-hot {
+          0% { opacity: 0.6; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1.15); }
+        }
+      `}</style>
       <section className="hero-area bgc-black pt-200 rpt-120 rel z-2">
         <div className="container-fluid">
           <h1
@@ -301,7 +307,28 @@ export default function Home() {
                         <i className="fal fa-map-marker-alt"></i>
                         {getDestName(tour)}
                       </span>
-                      <h5><a href={`/tours/${tour.id}`}>{getTourName(tour)}</a></h5>
+                      <h5 style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <a href={`/tours/${tour.id}`}>{getTourName(tour)}</a>
+                        {(tour.isHot || tour.is_hot) && (
+                          <span style={{
+                            background: '#FFF0F0',
+                            color: '#fd4c5c',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid #FFD4D7',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            height: '20px',
+                            lineHeight: '16px'
+                          }}>
+                            <i className="fas fa-fire" style={{ animation: 'flicker-hot 1s infinite alternate' }}></i>
+                            HOT
+                          </span>
+                        )}
+                      </h5>
                       <span className="time">{getDuration(tour)}</span>
                     </div>
                     <div className="destination-footer">
@@ -313,7 +340,7 @@ export default function Home() {
                             : <><span>{p}</span> VND / người</>;
                         })()}
                       </span>
-                      <Link href={`/booking/${tour.id}`} className="read-more">
+                      <Link href={`/tours/${tour.id}`} className="read-more">
                         Đặt ngay <i className="fal fa-angle-right"></i>
                       </Link>
                     </div>

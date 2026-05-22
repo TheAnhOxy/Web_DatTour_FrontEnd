@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getTours, getCategories, getDestinations } from "@/api/coreApi_new";
 
 type TourItem = {
@@ -16,9 +18,14 @@ type TourItem = {
   isHot?: boolean;
 };
 
+const toRating = (value: unknown) => {
+  const rating = Number(value ?? 0);
+  if (!Number.isFinite(rating)) return 0;
+  return Math.min(5, Math.max(0, rating));
+};
+
 export default function ToursPage() {
   const [loading, setLoading] = useState(true);
-  const [toursPopular, setToursPopular] = useState<TourItem[]>([]);
   const [allTours, setAllTours] = useState<TourItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -77,7 +84,7 @@ export default function ToursPage() {
             destination: t.region || t.categoryName || "Khác",
             time: t.durationDays === 1 ? "1 ngày" : `${t.durationDays || 1} ngày ${Math.max(1, (t.durationDays || 1) - 1)} đêm`,
             quantity: "Khởi hành hàng tuần",
-            rating: t.rating || 5,
+            rating: toRating(t.rating),
             price: new Intl.NumberFormat('vi-VN').format(t.basePrice || 0),
             image: t.coverImageUrl || t.cover_image_url || "/clients/assets/images/gallery-tours/destination-default.jpg",
             durationDays: t.durationDays || 1,
@@ -86,10 +93,6 @@ export default function ToursPage() {
 
           setAllTours(mappedTours);
 
-          // Cập nhật Popular nếu chưa có
-          if (toursPopular.length === 0) {
-            setToursPopular(mappedTours.slice(0, 3));
-          }
         }
       } catch (err) {
         console.error("Lỗi khi fetch tours:", err);
@@ -146,7 +149,7 @@ export default function ToursPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb justify-content-center mb-20">
                 <li className="breadcrumb-item">
-                  <a href="/">Trang chủ</a>
+                  <Link href="/">Trang chủ</Link>
                 </li>
                 <li className="breadcrumb-item active">Bảng Giá Tours</li>
               </ol>
@@ -327,10 +330,11 @@ export default function ToursPage() {
                                       <span className="me-3"><i className="fal fa-barcode text-primary me-1"></i> Mã tour: <strong>T-{tour.id}</strong></span>
                                       <span><i className="fal fa-map-marker-alt text-primary me-1"></i> {tour.destination}</span>
                                     </div>
-                                    <div className="small text-warning">
+                                    <div className="small text-warning d-flex align-items-center" style={{ gap: 4 }}>
                                       {[...Array(5)].map((_, i) => (
-                                        <i key={i} className={i < tour.rating ? "fas fa-star" : "far fa-star"}></i>
+                                        <i key={i} className={i < Math.round(tour.rating) ? "fas fa-star" : "far fa-star"}></i>
                                       ))}
+                                      <span style={{ color: "#666", marginLeft: 4 }}>{tour.rating.toFixed(1)}/5</span>
                                     </div>
                                   </td>
                                   <td style={{ padding: '15px', border: 'none', background: '#fff' }}>

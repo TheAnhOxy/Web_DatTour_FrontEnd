@@ -1,4 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import client from "../utils/apiClient";
+
+const API_GATEWAY = process.env.NEXT_PUBLIC_API_GATEWAY || "http://localhost:8080";
 
 const wrap = (res: any) => {
   if (
@@ -12,6 +15,60 @@ const wrap = (res: any) => {
     return res.data;
   }
   return { status: res?.status || 200, message: null, data: res?.data ?? null };
+};
+
+const optionalGet = async (endpoint: string) => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${API_GATEWAY}${endpoint}`, { method: "GET", headers });
+    const text = await res.text();
+    let body: any = {};
+    try {
+        body = text ? JSON.parse(text) : {};
+    } catch {
+        body = text;
+    }
+
+    if (!res.ok) {
+        return {
+            status: res.status,
+            message: body?.message || res.statusText,
+            data: [],
+        };
+    }
+
+    return wrap({ status: res.status, data: body });
+};
+
+const optionalPost = async (endpoint: string, payload: unknown) => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${API_GATEWAY}${endpoint}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    let body: any = {};
+    try {
+        body = text ? JSON.parse(text) : {};
+    } catch {
+        body = text;
+    }
+
+    if (!res.ok) {
+        return {
+            status: res.status,
+            message: body?.message || res.statusText,
+            data: null,
+        };
+    }
+
+    return wrap({ status: res.status, data: body });
 };
 
 export const getDepartureDetails = async (id: string | number) => {
@@ -35,6 +92,33 @@ export const getTourSchedules = async (tourId: string | number) => {
         return wrap(res);
     } catch (err: any) {
         return { status: 500, message: err.message, data: [] };
+    }
+};
+
+export const getTourReviews = async (tourId: string | number) => {
+    try {
+        return await optionalGet(`/core/tour-reviews?tourId=${tourId}`);
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: [] };
+    }
+};
+
+export const getTourQuestions = async (tourId: string | number) => {
+    try {
+        return await optionalGet(`/core/questions?tourId=${tourId}`);
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: [] };
+    }
+};
+
+export const createTourQuestion = async (tourId: string | number, question: string) => {
+    try {
+        return await optionalPost(`/core/questions`, {
+            tourId: Number(tourId),
+            question,
+        });
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: null };
     }
 };
 
@@ -91,6 +175,9 @@ export const getDestinationById = async (id: number) => {
 export default {
     getDepartureDetails,
     getTourSchedules,
+    getTourReviews,
+    getTourQuestions,
+    createTourQuestion,
     getTourDetails,
     getDestinations,
     getDestinationById,

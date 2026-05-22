@@ -2,8 +2,15 @@
 "use client";
 
 import { useState, useMemo, useEffect, use } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getTourDetails, getTourSchedules } from "../../../api/coreApi_new";
+import {
+  createTourQuestion,
+  getTourDetails,
+  getTourQuestions,
+  getTourReviews,
+  getTourSchedules,
+} from "../../../api/coreApi_new";
 import ReviewsSection from "../../components/ReviewsSection";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -19,6 +26,31 @@ const safeParse = (data: any) => {
   }
   return data;
 };
+
+const apiList = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.content)) return data.content;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+};
+
+const normalizeReview = (item: any, index: number) => ({
+  id: item.id ?? item.reviewId ?? `review-${index}`,
+  name: item.name ?? item.customerName ?? item.userName ?? item.fullName ?? "Khách hàng",
+  rating: toNum(item.rating ?? item.stars ?? item.score),
+  comment: item.comment ?? item.content ?? item.message ?? item.review ?? "",
+  avatar: item.avatar ?? item.avatarUrl ?? item.imageUrl,
+  createdAt: item.createdAt ?? item.created_at ?? item.createdDate,
+});
+
+const normalizeQuestion = (item: any, index: number) => ({
+  id: item.id ?? item.questionId ?? `question-${index}`,
+  question: item.question ?? item.content ?? item.message ?? "",
+  answer: item.answer ?? item.reply ?? item.response,
+  name: item.name ?? item.customerName ?? item.userName ?? item.fullName,
+  createdAt: item.createdAt ?? item.created_at ?? item.createdDate,
+});
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("vi-VN").format(price) + "đ";
@@ -51,6 +83,11 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
   const [numChildren49, setNumChildren49] = useState(0);
   const [numBabies, setNumBabies] = useState(0);
   const [visibleRows, setVisibleRows] = useState(8);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [questionText, setQuestionText] = useState("");
+  const [questionStatus, setQuestionStatus] = useState("");
+  const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
 
   // ─── Fetch data ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -58,9 +95,11 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [tourRes, schedulesRes] = await Promise.all([
+        const [tourRes, schedulesRes, reviewsRes, questionsRes] = await Promise.all([
           getTourDetails(id),
           getTourSchedules(id),
+          getTourReviews(id),
+          getTourQuestions(id),
         ]);
 
         if (tourRes?.data) {
@@ -72,15 +111,10 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
             exclusions: safeParse(t.exclusions),
             policies: safeParse(t.policies),
             images: t.images || [],
-            packages: t.packages || [
-              { id: "standard", name: "Gói Tiêu Chuẩn", extraPrice: 0,
-                description: "Bao gồm đầy đủ các dịch vụ cơ bản theo chương trình tour." },
-              { id: "vip", name: "Gói Cao Cấp (VIP)", extraPrice: 500000,
-                description: "Bao gồm xe đưa đón VIP, khách sạn 5 sao và buffet ẩm thực cao cấp." }
-            ],
+            packages: Array.isArray(t.packages) ? t.packages : [],
           };
           setTour(parsed);
-          setSelectedPackageId(parsed.packages[0]?.id ?? "standard");
+          setSelectedPackageId(parsed.packages[0]?.id ?? "");
         }
 
         if (schedulesRes?.data && Array.isArray(schedulesRes.data)) {
@@ -123,6 +157,24 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
             setSelectedPriceConfig(first.priceConfig || null);
           }
         }
+
+        const reviewSource = apiList(reviewsRes?.data).length > 0
+          ? apiList(reviewsRes?.data)
+          : apiList(tourRes?.data?.reviews);
+        setReviews(
+          reviewSource
+            .map(normalizeReview)
+            .filter((review) => review.comment)
+        );
+
+        const questionSource = apiList(questionsRes?.data).length > 0
+          ? apiList(questionsRes?.data)
+          : apiList(tourRes?.data?.questions);
+        setQuestions(
+          questionSource
+            .map(normalizeQuestion)
+            .filter((question) => question.question)
+        );
       } catch (err) {
         console.error("Lỗi khi tải thông tin tour:", err);
       } finally {
@@ -217,6 +269,30 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
     router.push(`/booking/${selectedDepId}?${params.toString()}`);
   };
 
+  const handleSubmitQuestion = async () => {
+    const text = questionText.trim();
+    if (!text) return;
+
+    setIsSubmittingQuestion(true);
+    setQuestionStatus("");
+    try {
+      const res = await createTourQuestion(id, text);
+      if (res?.status === 200 || res?.status === 201) {
+        const savedQuestion = normalizeQuestion(res.data || { question: text }, questions.length);
+        setQuestions((current) => [savedQuestion, ...current].filter((question) => question.question));
+        setQuestionText("");
+        setQuestionStatus("Đã gửi câu hỏi. Bộ phận tư vấn sẽ phản hồi sớm.");
+        return;
+      }
+
+      setQuestionStatus(res?.message || "Chưa gửi được câu hỏi. Vui lòng thử lại sau.");
+    } catch {
+      setQuestionStatus("Chưa gửi được câu hỏi. Vui lòng thử lại sau.");
+    } finally {
+      setIsSubmittingQuestion(false);
+    }
+  };
+
   // ─── Loading state ────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -240,7 +316,7 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
     return (
       <div style={{ minHeight: "60vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <h3>Không tìm thấy tour</h3>
-        <a href="/tours" style={{ color: "#FF6B00", marginTop: 12 }}>← Quay lại danh sách tour</a>
+        <Link href="/tours" style={{ color: "#FF6B00", marginTop: 12 }}>← Quay lại danh sách tour</Link>
       </div>
     );
   }
@@ -430,8 +506,8 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
                 </h2>
                 <nav aria-label="breadcrumb">
                   <ol className="breadcrumb justify-content-center mb-20" data-aos="fade-right" data-aos-delay="200" data-aos-duration="1500" data-aos-offset="50">
-                    <li className="breadcrumb-item"><a href="/">Trang chủ</a></li>
-                    <li className="breadcrumb-item"><a href="/tours">Tours</a></li>
+                    <li className="breadcrumb-item"><Link href="/">Trang chủ</Link></li>
+                    <li className="breadcrumb-item"><Link href="/tours">Tours</Link></li>
                     <li className="breadcrumb-item active">Chi tiết tour</li>
                   </ol>
                 </nav>
@@ -482,10 +558,10 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
               )}
               <div style={{ color: "#FFB800", display: "flex", gap: 2, alignItems: "center" }}>
                 {[...Array(5)].map((_, i) => (
-                  <i key={i} className={i < Math.floor(tour.rating || 5) ? "fas fa-star" : "far fa-star"} style={{ fontSize: 14 }} />
+                  <i key={i} className={i < Math.round(toNum(tour.rating)) ? "fas fa-star" : "far fa-star"} style={{ fontSize: 14 }} />
                 ))}
                 <span style={{ color: "#333", marginLeft: 6, fontWeight: 700, fontSize: 14 }}>
-                  {(tour.rating || 5).toFixed ? (tour.rating || 5) : tour.rating}/5
+                  {toNum(tour.rating).toFixed(1)}/5
                 </span>
               </div>
             </div>
@@ -661,10 +737,16 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
               {/* Reviews */}
               <div className="td-card">
                 <ReviewsSection
-                  averageRating={tour.rating || 5}
+                  averageRating={toNum(tour.rating)}
                   reviewCount={tour.reviewCount || 0}
-                  reviews={[]}
+                  reviews={reviews}
+                  questions={questions}
                   timeLabel={tour.durationDays ? `${tour.durationDays} ngày` : ""}
+                  questionText={questionText}
+                  questionStatus={questionStatus}
+                  isSubmittingQuestion={isSubmittingQuestion}
+                  onQuestionChange={setQuestionText}
+                  onQuestionSubmit={handleSubmitQuestion}
                 />
               </div>
 
@@ -677,6 +759,11 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
                   {/* Package selection */}
                   <div className="mb-4">
                     <div className="td-card-title" style={{ marginBottom: 14 }}>1. Chọn gói tour</div>
+                    {(tour.packages || []).length === 0 && (
+                      <div style={{ color: "#888", fontSize: 13 }}>
+                        Tour chưa có gói dịch vụ riêng từ hệ thống.
+                      </div>
+                    )}
                     {(tour.packages || []).map((pkg: any) => (
                       <div
                         key={pkg.id}

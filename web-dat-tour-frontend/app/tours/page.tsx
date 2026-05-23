@@ -16,12 +16,26 @@ type TourItem = {
   image: string;
   durationDays?: number;
   isHot?: boolean;
+  transportationType?: string;
 };
 
 const toRating = (value: unknown) => {
   const rating = Number(value ?? 0);
   if (!Number.isFinite(rating)) return 0;
   return Math.min(5, Math.max(0, rating));
+};
+
+const getTransportationDisplay = (type?: string) => {
+  switch (type?.toUpperCase()) {
+    case "BUS":
+      return { label: "Ô tô", icon: "fal fa-bus" };
+    case "PLANE":
+      return { label: "Máy bay", icon: "fal fa-plane" };
+    case "TRAIN":
+      return { label: "Tàu hỏa", icon: "fal fa-train" };
+    default:
+      return { label: type || "Ô tô / Máy bay", icon: "fal fa-car" };
+  }
 };
 
 export default function ToursPage() {
@@ -48,13 +62,11 @@ export default function ToursPage() {
       try {
         const [catRes, destRes] = await Promise.all([getCategories(), getDestinations(0, 100)]);
         
-        // Cấu trúc ApiResponse: { status: number, data: any, message: string }
         if (catRes && catRes.status === 200) {
           setCategories(catRes.data || []);
         }
         
         if (destRes && destRes.status === 200 && destRes.data) {
-          // Page object có content
           setDestinationsList(destRes.data.content || destRes.data || []);
         }
       } catch (err) {
@@ -72,12 +84,10 @@ export default function ToursPage() {
         const categoryId = filterCategory === "all" ? undefined : Number(filterCategory);
         const destinationId = filterDestination === "all" ? undefined : Number(filterDestination);
         
-        // Lấy 100 tour để bao quát hết bảng tours trong DB
         const res = await getTours(categoryId, undefined, destinationId, 0, 100, debouncedSearchTerm);
         if (res.status === 200 && res.data && res.data.content) {
           const fetchedTours = res.data.content;
           
-          // Map từ dữ liệu API sang kiểu TourItem
           const mappedTours: TourItem[] = fetchedTours.map((t: any) => ({
             id: t.id,
             title: t.title,
@@ -88,11 +98,11 @@ export default function ToursPage() {
             price: new Intl.NumberFormat('vi-VN').format(t.basePrice || 0),
             image: t.coverImageUrl || t.cover_image_url || "/clients/assets/images/gallery-tours/destination-default.jpg",
             durationDays: t.durationDays || 1,
-            isHot: t.isHot ?? false
+            isHot: t.isHot ?? false,
+            transportationType: t.transportationType
           }));
 
           setAllTours(mappedTours);
-
         }
       } catch (err) {
         console.error("Lỗi khi fetch tours:", err);
@@ -108,10 +118,8 @@ export default function ToursPage() {
     return `Tour ${days} ngày ${days - 1} đêm`;
   };
 
-  // Tours đã được lọc từ Backend API, không cần lọc client-side keyword nữa
   const filteredTours = allTours;
 
-  // Group by durationDays
   const grouped: Record<number, TourItem[]> = {};
   filteredTours.forEach((tour: any) => {
     const days = tour.durationDays;
@@ -119,7 +127,6 @@ export default function ToursPage() {
     grouped[days].push(tour);
   });
 
-  // Sắp xếp các nhóm theo số ngày (1 ngày -> 2 ngày -> 3 ngày...)
   const sortedDurations = Object.keys(grouped)
     .map(Number)
     .sort((a, b) => a - b);
@@ -161,9 +168,7 @@ export default function ToursPage() {
       <section className="tour-grid-page py-100 rel z-1">
         <div className="container">
           <div className="row">
-            {/* Main Content Area - Full width */}
             <div className="col-lg-12">
-              {/* Search Bar matching tourbonphuong */}
               <div className="search-filter-bar bg-white shadow-sm rounded p-3 mb-4 d-flex flex-wrap gap-3 align-items-center" style={{ border: '1px solid #eee' }}>
                 <div className="flex-grow-1" style={{ minWidth: '250px' }}>
                   <div className="input-group">
@@ -266,97 +271,100 @@ export default function ToursPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {grouped[days].map((tour) => (
-                                <tr key={tour.id} style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                                  <td style={{ padding: '15px', border: 'none', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', background: '#fff' }}>
-                                    <div className="image-wrapper" style={{ overflow: 'hidden', borderRadius: '8px', position: 'relative' }}>
-                                      {tour.isHot && (
-                                        <div style={{
-                                          position: 'absolute',
-                                          top: '6px',
-                                          left: '6px',
-                                          background: 'linear-gradient(135deg, #fd4c5c 0%, #f97316 100%)',
-                                          color: 'white',
-                                          padding: '3px 8px',
-                                          borderRadius: '20px',
-                                          fontSize: '10px',
-                                          fontWeight: 'bold',
-                                          zIndex: 10,
-                                          boxShadow: '0 3px 8px rgba(253, 76, 92, 0.5)',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: '3px'
-                                        }}>
-                                          <i className="fas fa-fire" style={{ fontSize: '9px' }}></i> HOT
-                                        </div>
-                                      )}
-                                      <img 
-                                        src={tour.image} 
-                                        alt={tour.title} 
-                                        loading="lazy"
-                                        className="img-fluid transition-hover" 
-                                        style={{ height: '90px', width: '100%', objectFit: 'cover', transition: 'transform 0.3s' }} 
-                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                      />
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '15px', border: 'none', background: '#fff' }}>
-                                    <h5 className="mb-1" style={{ fontSize: '18px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                                      <a href={`/tours/${tour.id}`} className="text-dark" style={{ textDecoration: 'none' }}
-                                         onMouseOver={(e) => e.currentTarget.style.color = '#fd4c5c'}
-                                         onMouseOut={(e) => e.currentTarget.style.color = '#1a1a1a'}>
-                                        {tour.title}
+                              {grouped[days].map((tour) => {
+                                const trans = getTransportationDisplay(tour.transportationType);
+                                return (
+                                  <tr key={tour.id} style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                                    <td style={{ padding: '15px', border: 'none', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px', background: '#fff' }}>
+                                      <div className="image-wrapper" style={{ overflow: 'hidden', borderRadius: '8px', position: 'relative' }}>
+                                        {tour.isHot && (
+                                          <div style={{
+                                            position: 'absolute',
+                                            top: '6px',
+                                            left: '6px',
+                                            background: 'linear-gradient(135deg, #fd4c5c 0%, #f97316 100%)',
+                                            color: 'white',
+                                            padding: '3px 8px',
+                                            borderRadius: '20px',
+                                            fontSize: '10px',
+                                            fontWeight: 'bold',
+                                            zIndex: 10,
+                                            boxShadow: '0 3px 8px rgba(253, 76, 92, 0.5)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                          }}>
+                                            <i className="fas fa-fire" style={{ fontSize: '9px' }}></i> HOT
+                                          </div>
+                                        )}
+                                        <img 
+                                          src={tour.image} 
+                                          alt={tour.title} 
+                                          loading="lazy"
+                                          className="img-fluid transition-hover" 
+                                          style={{ height: '90px', width: '100%', objectFit: 'cover', transition: 'transform 0.3s' }} 
+                                          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                        />
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '15px', border: 'none', background: '#fff' }}>
+                                      <h5 className="mb-1" style={{ fontSize: '18px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                        <a href={`/tours/${tour.id}`} className="text-dark" style={{ textDecoration: 'none' }}
+                                           onMouseOver={(e) => e.currentTarget.style.color = '#fd4c5c'}
+                                           onMouseOut={(e) => e.currentTarget.style.color = '#1a1a1a'}>
+                                          {tour.title}
+                                        </a>
+                                        {tour.isHot && (
+                                          <span style={{
+                                            background: '#FFF0F0',
+                                            color: '#fd4c5c',
+                                            fontSize: '11px',
+                                            fontWeight: 700,
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #FFD4D7',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                          }}>
+                                            <i className="fas fa-fire" style={{ animation: 'flicker-hot 1s infinite alternate' }}></i>
+                                            HOT
+                                          </span>
+                                        )}
+                                      </h5>
+                                      <div className="small text-muted mb-2">
+                                        <span className="me-3"><i className="fal fa-barcode text-primary me-1"></i> Mã tour: <strong>T-{tour.id}</strong></span>
+                                        <span><i className="fal fa-map-marker-alt text-primary me-1"></i> {tour.destination}</span>
+                                      </div>
+                                      <div className="small text-warning d-flex align-items-center" style={{ gap: 4 }}>
+                                        {[...Array(5)].map((_, i) => (
+                                          <i key={i} className={i < Math.round(tour.rating) ? "fas fa-star" : "far fa-star"}></i>
+                                        ))}
+                                        <span style={{ color: "#666", marginLeft: 4 }}>{tour.rating.toFixed(1)}/5</span>
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '15px', border: 'none', background: '#fff' }}>
+                                      <div className="text-muted fw-medium">
+                                        <i className="fal fa-clock text-primary me-2"></i> {tour.time}
+                                      </div>
+                                      <div className="text-muted small mt-1">
+                                        <i className={`${trans.icon} text-primary me-2`}></i> {trans.label}
+                                      </div>
+                                      <div className="text-muted small mt-1">
+                                        <i className="fal fa-calendar-alt text-primary me-2"></i> 
+                                        Khởi hành: <strong>Hàng ngày</strong>
+                                      </div>
+                                    </td>
+                                    <td className="text-end" style={{ padding: '15px', border: 'none', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', background: '#fff' }}>
+                                      <div className="text-danger fw-bold fs-4 mb-2">{tour.price} đ</div>
+                                      <a href={`/tours/${tour.id}`} className="theme-btn style-two py-2 px-3 w-100 text-center" style={{ fontSize: '14px', borderRadius: '5px' }}>
+                                        <span data-hover="Đặt Tour">Đặt Tour</span>
                                       </a>
-                                      {tour.isHot && (
-                                        <span style={{
-                                          background: '#FFF0F0',
-                                          color: '#fd4c5c',
-                                          fontSize: '11px',
-                                          fontWeight: 700,
-                                          padding: '2px 8px',
-                                          borderRadius: '4px',
-                                          border: '1px solid #FFD4D7',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '3px'
-                                        }}>
-                                          <i className="fas fa-fire" style={{ animation: 'flicker-hot 1s infinite alternate' }}></i>
-                                          HOT
-                                        </span>
-                                      )}
-                                    </h5>
-                                    <div className="small text-muted mb-2">
-                                      <span className="me-3"><i className="fal fa-barcode text-primary me-1"></i> Mã tour: <strong>T-{tour.id}</strong></span>
-                                      <span><i className="fal fa-map-marker-alt text-primary me-1"></i> {tour.destination}</span>
-                                    </div>
-                                    <div className="small text-warning d-flex align-items-center" style={{ gap: 4 }}>
-                                      {[...Array(5)].map((_, i) => (
-                                        <i key={i} className={i < Math.round(tour.rating) ? "fas fa-star" : "far fa-star"}></i>
-                                      ))}
-                                      <span style={{ color: "#666", marginLeft: 4 }}>{tour.rating.toFixed(1)}/5</span>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '15px', border: 'none', background: '#fff' }}>
-                                    <div className="text-muted fw-medium">
-                                      <i className="fal fa-clock text-primary me-2"></i> {tour.time}
-                                    </div>
-                                    <div className="text-muted small mt-1">
-                                      <i className="fal fa-car text-primary me-2"></i> Ô tô / Máy bay
-                                    </div>
-                                    <div className="text-muted small mt-1">
-                                      <i className="fal fa-calendar-alt text-primary me-2"></i> 
-                                      Khởi hành: <strong>Hàng ngày</strong>
-                                    </div>
-                                  </td>
-                                  <td className="text-end" style={{ padding: '15px', border: 'none', borderTopRightRadius: '8px', borderBottomRightRadius: '8px', background: '#fff' }}>
-                                    <div className="text-danger fw-bold fs-4 mb-2">{tour.price} đ</div>
-                                    <a href={`/tours/${tour.id}`} className="theme-btn style-two py-2 px-3 w-100 text-center" style={{ fontSize: '14px', borderRadius: '5px' }}>
-                                      <span data-hover="Đặt Tour">Đặt Tour</span>
-                                    </a>
-                                  </td>
-                                </tr>
-                              ))}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>

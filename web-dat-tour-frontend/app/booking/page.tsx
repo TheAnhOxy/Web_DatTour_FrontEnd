@@ -1,9 +1,10 @@
 'use client';
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import type { FormEvent } from "react";
 import { useAuthStore } from "../../store/authStore";
+import bookingApi, { PassengerDTO } from "@/api/bookingApi";
 
 const tour = {
   tourId: "T-2026-001",
@@ -13,6 +14,7 @@ const tour = {
   quantity: 18,
   priceAdult: 2900000,
   priceChild: 1800000,
+  departureId: 1, // Add departureId for API
 };
 
 const profileFallback = {
@@ -31,16 +33,47 @@ type BookingFormProps = {
 };
 
 function BookingForm({ authUser }: BookingFormProps) {
+  // Contact Info
   const [fullName, setFullName] = useState(profileFallback.fullName);
   const [email, setEmail] = useState(authUser?.email || profileFallback.email);
   const [phoneNumber, setPhoneNumber] = useState(profileFallback.phoneNumber);
   const [address, setAddress] = useState(profileFallback.address);
+
+  // Passenger Counts (for pricing)
   const [adultCount, setAdultCount] = useState(1);
   const [childCount, setChildCount] = useState(0);
+
+  // Representative Passenger (Only 1 form, multiple counted for pricing)
+  const [representative, setRepresentative] = useState<PassengerDTO>({
+    fullName: "",
+    dob: "",
+    gender: "MALE",
+    ageGroup: "ADULT",
+    idCardNumber: ""
+  });
+
+  // Other
   const [voucherCode, setVoucherCode] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"office-payment" | "paypal-payment" | "momo-payment">("office-payment");
-  const [agree, setAgree] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<"BANK_TRANSFER" | "STRIPE" | "CASH_OFFICE">("CASH_OFFICE");
+  const [agree, setAgree] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const totalPassengerCount = adultCount + childCount;
+
+  // Update representative field
+  const updateRepresentative = (field: keyof PassengerDTO, value: any) => {
+    setRepresentative({ ...representative, [field]: value });
+  };
+
+  const handleAdultCountChange = (newCount: number) => {
+    setAdultCount(Math.max(1, newCount));
+  };
+
+  const handleChildCountChange = (newCount: number) => {
+    setChildCount(Math.max(0, newCount));
+  };
 
   const discountAmount = useMemo(() => {
     const code = voucherCode.trim().toUpperCase();
@@ -50,211 +83,394 @@ function BookingForm({ authUser }: BookingFormProps) {
     return 0;
   }, [voucherCode]);
 
+  // Calculate price for all passengers (but only 1 form to fill)
   const subtotal = adultCount * tour.priceAdult + childCount * tour.priceChild;
   const discountValue = typeof discountAmount === "number" && discountAmount < 1 ? Math.round(subtotal * discountAmount) : discountAmount;
   const totalAmount = Math.max(0, subtotal - discountValue);
   const depositAmount = Math.max(0, Math.round(totalAmount * 0.2));
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log("🔄 Form submit triggered");
+    
+    setErrorMessage(null);
+    setSubmitMessage(null);
 
+    // Validation
+    console.log("✅ Step 1: Check auth", { userId: authUser?.userId });
     if (!authUser?.userId) {
-      setSubmitMessage("Ban can dang nhap de dat tour.");
+      console.log("❌ Validation failed: no userId");
+      setErrorMessage("Bạn cần đăng nhập để đặt tour.");
       return;
     }
 
-    if (!fullName.trim() || !email.trim() || !phoneNumber.trim() || !address.trim()) {
-      setSubmitMessage("Vui long dien day du thong tin lien lac.");
+    // Validate representative
+    console.log("✅ Step 2: Check representative", representative);
+    if (!representative.fullName.trim()) {
+      console.log("❌ Validation failed: no fullName");
+      setErrorMessage("Vui lòng nhập tên đầy đủ.");
+      return;
+    }
+    if (!representative.dob) {
+      console.log("❌ Validation failed: no dob");
+      setErrorMessage("Vui lòng nhập ngày sinh.");
+      return;
+    }
+    if (!representative.gender) {
+      console.log("❌ Validation failed: no gender");
+      setErrorMessage("Vui lòng chọn giới tính.");
+      return;
+    }
+    if (!representative.ageGroup) {
+      console.log("❌ Validation failed: no ageGroup");
+      setErrorMessage("Vui lòng chọn nhóm tuổi.");
       return;
     }
 
+    // Contact info validation
+    const contactEmailToUse = email.trim();
+    const contactPhoneToUse = phoneNumber.trim();
+
+    console.log("✅ Step 3: Check contact info", { email: contactEmailToUse, phone: contactPhoneToUse });
+    if (!contactEmailToUse || !contactPhoneToUse) {
+      console.log("❌ Validation failed: no email or phone");
+      setErrorMessage("Vui lòng điền đầy đủ: Email, Số điện thoại.");
+      return;
+    }
+
+    console.log("✅ Step 4: Check agree", { agree });
     if (!agree) {
-      setSubmitMessage("Ban can dong y voi dieu khoan thanh toan.");
+      console.log("❌ Validation failed: not agree");
+      setErrorMessage("Bạn cần đồng ý với điều khoản thanh toán.");
       return;
     }
 
-    setSubmitMessage(`Da san sang gui dat tour cho userId ${authUser.userId}.`);
+    console.log("✅ All validations passed, preparing to submit...");
+
+    try {
+      setSubmitting(true);
+
+      // Send only 1 representative passenger
+      const bookingPayload = {
+        userId: authUser.userId,
+        departureId: tour.departureId,
+        passengers: [
+          {
+            fullName: representative.fullName.trim(),
+            dob: representative.dob,
+            gender: representative.gender,
+            ageGroup: representative.ageGroup,
+            idCardNumber: representative.idCardNumber || "",
+          }
+        ],
+        contactName: fullName.trim() || representative.fullName.trim(),
+        contactEmail: contactEmailToUse,
+        contactPhone: contactPhoneToUse,
+      };
+
+      console.log("📤 Booking Payload:", JSON.stringify(bookingPayload, null, 2));
+
+      const response = await bookingApi.createBooking(bookingPayload);
+
+      console.log("📥 API Response:", response);
+
+      if (response.status === 201 || response.status === 200) {
+        setSubmitMessage(`✅ Đặt tour thành công! Mã đặt tour: ${response.data?.bookingCode}`);
+        // Reset form
+        setTimeout(() => {
+          window.location.href = `/my-tours`;
+        }, 2000);
+      } else {
+        setErrorMessage(response.message || "Lỗi khi đặt tour. Vui lòng thử lại.");
+      }
+    } catch (err) {
+      console.error("❌ Error:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Lỗi không xác định");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="booking-container" style={{ alignItems: "flex-start" }}>
       <div className="booking-info" style={{ flex: 1, minWidth: 0 }}>
+        {/* Contact Info */}
         <div className="booking-card p-4 mb-4" style={{ borderRadius: 16, boxShadow: "0 10px 32px rgba(0,0,0,0.06)" }}>
           <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
             <div>
-              <h2 className="booking-header mb-2">Thong Tin Lien Lac</h2>
-              <p className="text-muted mb-0">Thong tin dang nhap va dia chi duoc lay tu ho so cua ban.</p>
+              <h2 className="booking-header mb-2">Thông tin liên hệ</h2>
+              <p className="text-muted mb-0">Nếu để trống, sẽ lấy từ thông tin hành khách đại diện (Hành khách 1)</p>
             </div>
             <div className="badge" style={{ background: "#FFF2E8", color: "#FF6B00", fontSize: 13, padding: "10px 14px" }}>
-              User ID: {authUser?.userId ?? "Chua co"}
+              User ID: {authUser?.userId ?? "Chưa có"}
             </div>
           </div>
 
           <div className="booking__infor">
             <div className="form-group">
-              <label htmlFor="username">Ho va ten*</label>
+              <label htmlFor="username">Họ và tên (tùy chọn)</label>
               <input
                 type="text"
                 id="username"
-                placeholder="Nhap ho va ten"
-                name="fullName"
+                placeholder="Để trống sẽ dùng tên từ hành khách đại diện"
                 value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                required
+                onChange={(e) => setFullName(e.target.value)}
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="email">Email*</label>
+              <label htmlFor="email">Email (bắt buộc)</label>
               <input
                 type="email"
                 id="email"
                 placeholder="sample@gmail.com"
-                name="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="tel">So dien thoai*</label>
+              <label htmlFor="tel">Số điện thoại (bắt buộc)</label>
               <input
                 type="text"
                 id="tel"
-                placeholder="Nhap so dien thoai lien he"
-                name="tel"
+                placeholder="Nhập số điện thoại liên hệ"
                 value={phoneNumber}
-                onChange={(event) => setPhoneNumber(event.target.value)}
+                onChange={(e) => setPhoneNumber(e.target.value)}
                 required
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="address">Dia chi*</label>
+              <label htmlFor="address">Địa chỉ (tùy chọn)</label>
               <input
                 type="text"
                 id="address"
-                placeholder="Nhap dia chi lien he"
-                name="address"
+                placeholder="Nhập địa chỉ liên hệ"
                 value={address}
-                onChange={(event) => setAddress(event.target.value)}
-                required
+                onChange={(e) => setAddress(e.target.value)}
               />
             </div>
           </div>
         </div>
 
+        {/* Passenger Count Selection */}
         <div className="booking-card p-4 mb-4" style={{ borderRadius: 16, boxShadow: "0 10px 32px rgba(0,0,0,0.06)" }}>
-          <h2 className="booking-header mb-4">Hanh Khach</h2>
+          <h2 className="booking-header mb-4">Số lượng hành khách</h2>
 
-          <div className="booking__quantity" style={{ marginBottom: 16 }}>
-            <div className="form-group quantity-selector" style={{ flex: 1 }}>
-              <label>Nguoi lon</label>
+          <div className="booking__quantity" style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            <div className="form-group quantity-selector">
+              <label>Người lớn *</label>
               <div className="input__quanlity">
-                <button type="button" className="quantity-btn" onClick={() => setAdultCount((value) => Math.max(1, value - 1))}>
-                  -
+                <button type="button" className="quantity-btn" onClick={() => handleAdultCountChange(adultCount - 1)}>
+                  −
                 </button>
                 <input type="number" className="quantity-input" value={adultCount} min={1} readOnly />
-                <button type="button" className="quantity-btn" onClick={() => setAdultCount((value) => value + 1)}>
+                <button type="button" className="quantity-btn" onClick={() => handleAdultCountChange(adultCount + 1)}>
                   +
                 </button>
               </div>
             </div>
 
-            <div className="form-group quantity-selector" style={{ flex: 1 }}>
-              <label>Tre em</label>
+            <div className="form-group quantity-selector">
+              <label>Trẻ em</label>
               <div className="input__quanlity">
-                <button type="button" className="quantity-btn" onClick={() => setChildCount((value) => Math.max(0, value - 1))}>
-                  -
+                <button type="button" className="quantity-btn" onClick={() => handleChildCountChange(childCount - 1)}>
+                  −
                 </button>
                 <input type="number" className="quantity-input" value={childCount} min={0} readOnly />
-                <button type="button" className="quantity-btn" onClick={() => setChildCount((value) => value + 1)}>
+                <button type="button" className="quantity-btn" onClick={() => handleChildCountChange(childCount + 1)}>
                   +
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="privacy-section" style={{ textAlign: "left" }}>
-            <p style={{ marginBottom: 0 }}>
-              Bang cach nhap chuot vao nut DONG Y duoi day, Khach hang dong y rang cac dieu kien dieu khoan nay se
-              duoc ap dung. Vui long doc ky dieu kien dieu khoan truoc khi lua chon su dung dich vu cua HTravel.
-            </p>
-            <div className="privacy-checkbox" style={{ justifyContent: "flex-start" }}>
-              <input type="checkbox" id="agree" name="agree" checked={agree} onChange={(event) => setAgree(event.target.checked)} />
-              <label htmlFor="agree">
-                Toi da doc va dong y voi <a href="#">Dieu khoan thanh toan</a>
-              </label>
+          <p style={{ fontSize: "13px", color: "#999", marginBottom: 0 }}>
+            Tổng: {totalPassengerCount} hành khách
+          </p>
+        </div>
+
+        {/* Representative Passenger Form */}
+        <div className="booking-card p-4 mb-4" style={{ borderRadius: 16, boxShadow: "0 10px 32px rgba(0,0,0,0.06)" }}>
+          <h3 className="booking-header mb-3" style={{ fontSize: "16px" }}>
+            Thông tin đại diện hành khách <span style={{ color: "#FF6B00", marginLeft: "8px", fontSize: "14px" }}>*</span>
+          </h3>
+
+          <p style={{ fontSize: "13px", color: "#666", marginBottom: "16px", fontStyle: "italic" }}>
+            ℹ️ Vui lòng điền thông tin cho 1 người đại diện đại diện cho tất cả {totalPassengerCount} hành khách
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            <div className="form-group">
+              <label>Họ và tên *</label>
+              <input
+                type="text"
+                placeholder="Nhập tên đầy đủ"
+                value={representative.fullName}
+                onChange={(e) => updateRepresentative("fullName", e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Ngày sinh *</label>
+              <input
+                type="date"
+                value={representative.dob}
+                onChange={(e) => updateRepresentative("dob", e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Giới tính *</label>
+              <select
+                value={representative.gender}
+                onChange={(e) => updateRepresentative("gender", e.target.value)}
+                required
+              >
+                <option value="MALE">Nam</option>
+                <option value="FEMALE">Nữ</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Nhóm tuổi *</label>
+              <select
+                value={representative.ageGroup}
+                onChange={(e) => updateRepresentative("ageGroup", e.target.value)}
+                required
+              >
+                <option value="ADULT">Người lớn</option>
+                <option value="CHILD_10_14">Trẻ em (10-14 tuổi)</option>
+                <option value="CHILD_4_9">Trẻ em (4-9 tuổi)</option>
+                <option value="BABY">Trẻ sơ sinh</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <label>CMND/CCCD (tùy chọn)</label>
+              <input
+                type="text"
+                placeholder="Nhập số CMND/CCCD"
+                value={representative.idCardNumber || ""}
+                onChange={(e) => updateRepresentative("idCardNumber", e.target.value)}
+              />
             </div>
           </div>
         </div>
 
+        {/* Terms & Conditions */}
+        <div className="booking-card p-4 mb-4" style={{ borderRadius: 16, boxShadow: "0 10px 32px rgba(0,0,0,0.06)" }}>
+          <div className="privacy-section">
+            <div className="privacy-checkbox" style={{ justifyContent: "flex-start", marginBottom: "12px" }}>
+              <input
+                type="checkbox"
+                id="agree"
+                checked={agree}
+                onChange={(e) => setAgree(e.target.checked)}
+              />
+              <label htmlFor="agree" style={{ marginBottom: 0 }}>
+                Tôi đã đọc và đồng ý với <a href="#">Điều khoản thanh toán</a> *
+              </label>
+            </div>
+            <p style={{ fontSize: "12px", color: "#999", marginBottom: 0 }}>
+              Bằng cách nhấn chuột vào nút ĐỒNG Ý dưới đây, Khách hàng đồng ý rằng các điều kiện điều khoản này sẽ được áp dụng.
+            </p>
+          </div>
+        </div>
+
+        {/* Payment Method */}
         <div className="booking-card p-4" style={{ borderRadius: 16, boxShadow: "0 10px 32px rgba(0,0,0,0.06)" }}>
-          <h2 className="booking-header mb-4">Phuong Thuc Thanh Toan</h2>
+          <h2 className="booking-header mb-4">Phương thức thanh toán</h2>
 
-          <label className="payment-option" style={paymentMethod === "office-payment" ? { borderColor: "#FF6B00", background: "#FFF8F0" } : undefined}>
-            <input type="radio" name="payment" value="office-payment" checked={paymentMethod === "office-payment"} onChange={() => setPaymentMethod("office-payment")} />
-            <img src="/clients/assets/images/contact/icon.png" alt="Office Payment" />
-            Thanh toan tai van phong
+          <label className="payment-option" style={paymentMethod === "CASH_OFFICE" ? { borderColor: "#FF6B00", background: "#FFF8F0" } : undefined}>
+            <input
+              type="radio"
+              name="payment"
+              value="CASH_OFFICE"
+              checked={paymentMethod === "CASH_OFFICE"}
+              onChange={() => setPaymentMethod("CASH_OFFICE")}
+            />
+            <span style={{ marginLeft: "8px" }}>Thanh toán tại văn phòng</span>
           </label>
 
-          <label className="payment-option" style={paymentMethod === "paypal-payment" ? { borderColor: "#FF6B00", background: "#FFF8F0" } : undefined}>
-            <input type="radio" name="payment" value="paypal-payment" checked={paymentMethod === "paypal-payment"} onChange={() => setPaymentMethod("paypal-payment")} />
-            <img src="/clients/assets/images/booking/cong-thanh-toan-paypal.jpg" alt="PayPal" />
-            Thanh toan bang PayPal
+          <label className="payment-option" style={paymentMethod === "STRIPE" ? { borderColor: "#FF6B00", background: "#FFF8F0" } : undefined}>
+            <input
+              type="radio"
+              name="payment"
+              value="STRIPE"
+              checked={paymentMethod === "STRIPE"}
+              onChange={() => setPaymentMethod("STRIPE")}
+            />
+            <span style={{ marginLeft: "8px" }}>Thanh toán bằng Stripe</span>
           </label>
 
-          <label className="payment-option" style={paymentMethod === "momo-payment" ? { borderColor: "#FF6B00", background: "#FFF8F0" } : undefined}>
-            <input type="radio" name="payment" value="momo-payment" checked={paymentMethod === "momo-payment"} onChange={() => setPaymentMethod("momo-payment")} />
-            <img src="/clients/assets/images/booking/thanh-toan-momo.jpg" alt="MoMo" />
-            Thanh toan bang Momo
+          <label className="payment-option" style={paymentMethod === "BANK_TRANSFER" ? { borderColor: "#FF6B00", background: "#FFF8F0" } : undefined}>
+            <input
+              type="radio"
+              name="payment"
+              value="BANK_TRANSFER"
+              checked={paymentMethod === "BANK_TRANSFER"}
+              onChange={() => setPaymentMethod("BANK_TRANSFER")}
+            />
+            <span style={{ marginLeft: "8px" }}>Chuyển khoản ngân hàng</span>
           </label>
         </div>
       </div>
 
+      {/* Summary Sidebar */}
       <aside className="booking-summary" style={{ width: 400, maxWidth: "100%", marginLeft: "auto" }}>
-        <div className="summary-section booking-card p-4" style={{ borderRadius: 16, boxShadow: "0 10px 32px rgba(0,0,0,0.08)", position: "sticky", top: 32 }}>
+        <div
+          className="summary-section booking-card p-4"
+          style={{ borderRadius: 16, boxShadow: "0 10px 32px rgba(0,0,0,0.08)", position: "sticky", top: 32 }}
+        >
           <div className="mb-4">
-            <p className="text-uppercase text-muted small mb-2">Thong tin tour</p>
-            <p className="mb-1">Ma tour : {tour.tourId}</p>
+            <p className="text-uppercase text-muted small mb-2">Thông tin tour</p>
+            <p className="mb-1">Mã tour: {tour.tourId}</p>
             <h5 className="widget-title mb-2">{tour.title}</h5>
-            <p className="mb-1">Ngay khoi hanh : {tour.startDate}</p>
-            <p className="mb-1">Ngay ket thuc : {tour.endDate}</p>
-            <p className="quantityAvailable mb-0">So cho con nhan : {tour.quantity}</p>
+            <p className="mb-1">Ngày khởi hành: {tour.startDate}</p>
+            <p className="mb-1">Ngày kết thúc: {tour.endDate}</p>
+            <p className="quantityAvailable mb-0">Số chỗ còn nhận: {tour.quantity}</p>
           </div>
 
           <div className="order-summary">
             <div className="summary-item">
-              <span>Nguoi lon:</span>
+              <span>Người lớn:</span>
               <div>
                 <span className="quantity__adults">{adultCount}</span>
                 <span> x </span>
                 <span className="total-price">{formatCurrency(tour.priceAdult)}</span>
               </div>
             </div>
-            <div className="summary-item">
-              <span>Tre em:</span>
-              <div>
-                <span className="quantity__children">{childCount}</span>
-                <span> x </span>
-                <span className="total-price">{formatCurrency(tour.priceChild)}</span>
+            {childCount > 0 && (
+              <div className="summary-item">
+                <span>Trẻ em:</span>
+                <div>
+                  <span className="quantity__children">{childCount}</span>
+                  <span> x </span>
+                  <span className="total-price">{formatCurrency(tour.priceChild)}</span>
+                </div>
               </div>
-            </div>
-            <div className="summary-item">
-              <span>Giam gia:</span>
-              <div>
-                <span className="total-price" style={{ color: "#2E7D32" }}>
-                  -{formatCurrency(discountValue)}
-                </span>
+            )}
+            {discountValue > 0 && (
+              <div className="summary-item">
+                <span>Giảm giá:</span>
+                <div>
+                  <span className="total-price" style={{ color: "#2E7D32" }}>
+                    -{formatCurrency(discountValue)}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
             <div className="summary-item total-price" style={{ marginTop: 8 }}>
-              <span>Tong cong:</span>
+              <span>Tổng cộng:</span>
               <span>{formatCurrency(totalAmount)}</span>
             </div>
             <div className="summary-item" style={{ marginTop: 6 }}>
-              <span>Dat coc:</span>
+              <span>Đặt cọc:</span>
               <span>{formatCurrency(depositAmount)}</span>
             </div>
           </div>
@@ -262,22 +478,27 @@ function BookingForm({ authUser }: BookingFormProps) {
           <div className="order-coupon">
             <input
               type="text"
-              placeholder="Ma giam gia"
+              placeholder="Mã giảm giá"
               style={{ width: "65%" }}
               value={voucherCode}
-              onChange={(event) => setVoucherCode(event.target.value)}
+              onChange={(e) => setVoucherCode(e.target.value)}
             />
             <button type="button" style={{ width: "30%" }} className="booking-btn btn-coupon">
-              Ap dung
+              Áp dụng
             </button>
           </div>
 
           <div className="mb-3" style={{ background: "#FFF8F0", borderRadius: 12, padding: 16, fontSize: 14, color: "#7A4A00" }}>
-            <div className="font-weight-bold mb-1">Thong tin se duoc gui kem khi dat tour</div>
-            <div>User ID: {authUser?.userId ?? "Chua dang nhap"}</div>
-            <div>Email: {email}</div>
-            <div>Dia chi: {address}</div>
+            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>Thông tin sẽ được gửi kèm khi đặt tour</div>
+            <div>User ID: {authUser?.userId ?? "Chưa đăng nhập"}</div>
+            <div>Email: {email}</div>            <div>Hành khách: {totalPassengerCount} người</div>            <div>Đại diện: {representative.fullName || "Chưa nhập"}</div>
           </div>
+
+          {errorMessage && (
+            <div className="mb-3" style={{ borderRadius: 12, background: "#FFE8E8", color: "#FF4D4F", padding: 14, fontSize: 14 }}>
+              ⚠️ {errorMessage}
+            </div>
+          )}
 
           {submitMessage && (
             <div className="mb-3" style={{ borderRadius: 12, background: "#EEF7EE", color: "#2E7D32", padding: 14, fontSize: 14 }}>
@@ -285,13 +506,19 @@ function BookingForm({ authUser }: BookingFormProps) {
             </div>
           )}
 
-          <button type="submit" className="booking-btn btn-submit-booking">
-            Xac Nhan Dat Tour
+          <button
+            type="submit"
+            disabled={submitting || !agree}
+            className="booking-btn btn-submit-booking"
+            style={{ opacity: submitting || !agree ? 0.6 : 1, cursor: submitting || !agree ? "not-allowed" : "pointer" }}
+            onClick={() => console.log("🔘 Button clicked", { submitting, agree, authUserId: authUser?.userId })}
+          >
+            {submitting ? "Đang xử lý..." : "Xác nhận đặt tour"}
           </button>
 
-          <button type="button" className="booking-btn" style={{ marginTop: 12, background: "#fff", color: "#FF6B00", border: "1px solid #FF6B00" }}>
-            Luu thong tin khach hang
-          </button>
+          <p style={{ fontSize: "12px", color: "#999", marginTop: "12px", textAlign: "center", marginBottom: 0 }}>
+            {submitting || !agree ? `⚠️ ${!agree ? "Cần tick \"Tôi đồng ý\"" : "Đang xử lý..."}` : "* Các trường bắt buộc phải điền"}
+          </p>
         </div>
       </aside>
     </form>
@@ -307,7 +534,7 @@ export default function BookingPage() {
       <section className="container" style={{ padding: "72px 16px", textAlign: "center" }}>
         <div className="booking-card p-5" style={{ maxWidth: 720, margin: "0 auto" }}>
           <h2 className="font-weight-bold mb-3">Booking</h2>
-          <p className="text-muted mb-0">Dang tai thong tin tai khoan...</p>
+          <p className="text-muted mb-0">Đang tải thông tin tài khoản...</p>
         </div>
       </section>
     );
@@ -333,7 +560,7 @@ export default function BookingPage() {
                 data-aos-offset="50"
               >
                 <li className="breadcrumb-item">
-                  <Link href="/">Trang chu</Link>
+                  <Link href="/">Trang chủ</Link>
                 </li>
                 <li className="breadcrumb-item active">Booking</li>
               </ol>

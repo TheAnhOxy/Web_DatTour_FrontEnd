@@ -283,8 +283,6 @@ function BookingPageInner() {
  
    // ── Handle Booking ──
    const handleBooking = async () => {
-     if (!authHydrated) { showToast("Đang tải thông tin, vui lòng thử lại.", "error"); return; }
-     if (!authUser?.userId) { showToast("Vui lòng đăng nhập để đặt tour!", "error"); return; }
      if (!contact.name || !contact.phone || !contact.email) {
        showToast("Vui lòng điền đầy đủ thông tin liên hệ (Họ tên, Số điện thoại, Email).", "error");
        return;
@@ -358,7 +356,7 @@ function BookingPageInner() {
      ];
 
     const requestData: BookingRequest = {
-      userId: authUser.userId,
+      userId: authUser?.userId,
       departureId: Number(id),
       passengers: passengerList,
       note: [contactNotes, contact.address ? `Địa chỉ: ${contact.address}` : ""].filter(Boolean).join(" | ") || undefined,

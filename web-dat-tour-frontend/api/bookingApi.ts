@@ -33,7 +33,7 @@ export interface CancellationDTO {
 
 /** Khớp BookingRequest.java */
 export interface BookingRequest {
-  userId: number;
+  userId?: number;
   departureId: number;
   passengers: PassengerDTO[];
   note?: string;
@@ -145,12 +145,12 @@ const wrap = (res: ApiEnvelope): ApiResponse<any> => {
 /* ─── API Functions ─── */
 
 /**
- * POST /api/v1/bookings/create
+ * POST  /bookings/create
  * Tạo booking mới
  */
 export const createBooking = async (bookingData: BookingRequest): Promise<ApiResponse<BookingResponse>> => {
   try {
-    const res = await client.post("/api/v1/bookings/create", bookingData);
+    const res = await client.post(" /bookings/create", bookingData);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -158,12 +158,12 @@ export const createBooking = async (bookingData: BookingRequest): Promise<ApiRes
 };
 
 /**
- * GET /api/v1/bookings/{bookingCode}
+ * GET  /bookings/{bookingCode}
  * Lấy chi tiết booking theo mã (với passengers, notes, cancellation)
  */
 export const getBookingByCode = async (bookingCode: string): Promise<ApiResponse<BookingDetailResponse>> => {
   try {
-    const res = await client.get(`/api/v1/bookings/${encodeURIComponent(bookingCode)}`);
+    const res = await client.get(`/bookings/${encodeURIComponent(bookingCode)}`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -171,12 +171,12 @@ export const getBookingByCode = async (bookingCode: string): Promise<ApiResponse
 };
 
 /**
- * GET /api/v1/bookings/id/{bookingId}
+ * GET /bookings/id/{bookingId}
  * Lấy chi tiết booking theo ID
  */
 export const getBookingById = async (bookingId: number): Promise<ApiResponse<BookingDetailResponse>> => {
   try {
-    const res = await client.get(`/api/v1/bookings/id/${bookingId}`);
+    const res = await client.get(`/bookings/id/${bookingId}`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -184,7 +184,7 @@ export const getBookingById = async (bookingId: number): Promise<ApiResponse<Boo
 };
 
 /**
- * GET /api/v1/bookings/user/{userId}
+ * GET /bookings/user/{userId}
  * Lấy danh sách booking của user (có phân trang)
  * Query params: status, page (0-indexed), limit
  */
@@ -200,7 +200,7 @@ export const getBookingsByUserId = async (
     params.append("page", page.toString());
     params.append("limit", limit.toString());
 
-    const res = await client.get(`/api/v1/bookings/user/${userId}?${params.toString()}`);
+    const res = await client.get(`/bookings/user/${userId}?${params.toString()}`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -208,7 +208,7 @@ export const getBookingsByUserId = async (
 };
 
 /**
- * GET /api/v1/bookings
+ * GET /bookings
  * Lấy tất cả booking (admin endpoint) với filter
  * Query params: status, paymentMethod, page, limit
  */
@@ -225,7 +225,7 @@ export const getAllBookings = async (
     params.append("page", page.toString());
     params.append("limit", limit.toString());
 
-    const res = await client.get(`/api/v1/bookings?${params.toString()}`);
+    const res = await client.get(`/bookings?${params.toString()}`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -233,12 +233,12 @@ export const getAllBookings = async (
 };
 
 /**
- * GET /api/v1/bookings/{bookingCode}/passengers
+ * GET /bookings/{bookingCode}/passengers
  * Lấy danh sách hành khách của booking
  */
 export const getPassengersByBookingCode = async (bookingCode: string): Promise<ApiResponse<PassengerDTO[]>> => {
   try {
-    const res = await client.get(`/api/v1/bookings/${encodeURIComponent(bookingCode)}/passengers`);
+    const res = await client.get(`/bookings/${encodeURIComponent(bookingCode)}/passengers`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -246,12 +246,12 @@ export const getPassengersByBookingCode = async (bookingCode: string): Promise<A
 };
 
 /**
- * GET /api/v1/bookings/{bookingCode}/notes
+ * GET /bookings/{bookingCode}/notes
  * Lấy danh sách ghi chú của booking
  */
 export const getBookingNotesByBookingCode = async (bookingCode: string): Promise<ApiResponse<BookingNoteDTO[]>> => {
   try {
-    const res = await client.get(`/api/v1/bookings/${encodeURIComponent(bookingCode)}/notes`);
+    const res = await client.get(`/bookings/${encodeURIComponent(bookingCode)}/notes`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -259,12 +259,12 @@ export const getBookingNotesByBookingCode = async (bookingCode: string): Promise
 };
 
 /**
- * GET /api/v1/bookings/{bookingCode}/cancellation
+ * GET /bookings/{bookingCode}/cancellation
  * Lấy thông tin hủy booking
  */
 export const getCancellationByBookingCode = async (bookingCode: string): Promise<ApiResponse<CancellationDTO>> => {
   try {
-    const res = await client.get(`/api/v1/bookings/${encodeURIComponent(bookingCode)}/cancellation`);
+    const res = await client.get(`/bookings/${encodeURIComponent(bookingCode)}/cancellation`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -272,12 +272,12 @@ export const getCancellationByBookingCode = async (bookingCode: string): Promise
 };
 
 /**
- * POST /api/v1/bookings/batch
+ * POST /bookings/batch
  * Lấy nhiều booking từ danh sách ID
  */
 export const getBookingsByIds = async (bookingIds: number[]): Promise<ApiResponse<Record<number, BookingDetailResponse>>> => {
   try {
-    const res = await client.post("/api/v1/bookings/batch", { bookingIds });
+    const res = await client.post("/bookings/batch", { bookingIds });
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -285,12 +285,12 @@ export const getBookingsByIds = async (bookingIds: number[]): Promise<ApiRespons
 };
 
 /**
- * GET /api/v1/bookings/user/{userId}/summary
+ * GET /bookings/user/{userId}/summary
  * Lấy thống kê booking của user
  */
 export const getUserBookingSummary = async (userId: number): Promise<ApiResponse<BookingSummaryDTO>> => {
   try {
-    const res = await client.get(`/api/v1/bookings/user/${userId}/summary`);
+    const res = await client.get(`/bookings/user/${userId}/summary`);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
@@ -298,12 +298,12 @@ export const getUserBookingSummary = async (userId: number): Promise<ApiResponse
 };
 
 /**
- * POST /api/v1/bookings/cancel
+ * POST /bookings/cancel
  * Hủy booking
  */
 export const cancelBooking = async (cancelData: CancelBookingRequest) => {
   try {
-    const res = await client.post("/api/v1/bookings/cancel", cancelData);
+    const res = await client.post("/bookings/cancel", cancelData);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };

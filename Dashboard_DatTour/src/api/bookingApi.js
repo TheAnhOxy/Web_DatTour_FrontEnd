@@ -28,7 +28,7 @@ export const getAllBookings = async () => {
 
 export const getBookingsByUser = async (userId) => {
   try {
-    const res = await client.get(`/bookings/user/${userId}`);
+    const res = await client.get(`/bookings/users/${userId}`);
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);

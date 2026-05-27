@@ -1123,9 +1123,6 @@ export default function BookingCheckoutPage() {
                     </h4>
                     <p style={{ fontSize:13,color:"#888",margin:"0 0 18px",lineHeight:1.65 }}>
                       Visa, Mastercard, JCB được hỗ trợ.<br />
-                      Bảo mật bởi <strong style={{ color:"#635BFF" }}>Stripe</strong>.
-                      <br />
-                      <span style={{ fontSize:12,color:"#b45309" }}>Tối thiểu 20.000đ / giao dịch (quy định Stripe).</span>
                     </p>
                     <div style={{
                       display:"flex",flexWrap:"wrap",justifyContent:"center",gap:8,
@@ -1171,10 +1168,6 @@ export default function BookingCheckoutPage() {
                       </button>
                     )}
 
-                    <p style={{ fontSize:11,color:"#bbb",marginTop:10 }}>
-                      <i className="fas fa-shield-alt" style={{ marginRight:4 }} />
-                      Thông tin thẻ được mã hóa SSL 256-bit &nbsp;·&nbsp; Không lưu trên HTravel
-                    </p>
                   </div>
                 )}
 

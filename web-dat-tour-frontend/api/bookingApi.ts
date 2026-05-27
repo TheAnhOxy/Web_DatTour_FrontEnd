@@ -150,7 +150,7 @@ const wrap = (res: ApiEnvelope): ApiResponse<any> => {
  */
 export const createBooking = async (bookingData: BookingRequest): Promise<ApiResponse<BookingResponse>> => {
   try {
-    const res = await client.post(" /bookings/create", bookingData);
+    const res = await client.post("/bookings/create", bookingData);
     return wrap(res);
   } catch (err: unknown) {
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };

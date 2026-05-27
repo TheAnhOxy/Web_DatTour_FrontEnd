@@ -172,6 +172,16 @@ export const getDestinationById = async (id: number) => {
     }
 };
 
+export const validatePromotionCode = async (code: string) => {
+    try {
+        const safeCode = encodeURIComponent(code);
+        const res = await client.get(`/core/promotions/validate?code=${safeCode}`);
+        return wrap(res);
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: null };
+    }
+};
+
 export default {
     getDepartureDetails,
     getTourSchedules,
@@ -182,5 +192,6 @@ export default {
     getDestinations,
     getDestinationById,
     getCategories,
-    getTours
+    getTours,
+    validatePromotionCode,
 };

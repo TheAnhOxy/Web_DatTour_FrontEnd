@@ -18,7 +18,7 @@ const wrap = (res) => {
 
 export const getAllBookings = async () => {
   try {
-    const res = await client.get("/bookings/all");
+    const res = await client.get("/bookings/admin/all");
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);
@@ -28,7 +28,7 @@ export const getAllBookings = async () => {
 
 export const getBookingsByUser = async (userId) => {
   try {
-    const res = await client.get(`/bookings/users/${userId}`);
+    const res = await client.get(`/bookings/admin/users/${userId}`);
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);
@@ -38,7 +38,7 @@ export const getBookingsByUser = async (userId) => {
 
 export const getBookingByCode = async (code) => {
   try {
-    const res = await client.get(`/bookings/${encodeURIComponent(code)}`);
+    const res = await client.get(`/bookings/admin/${encodeURIComponent(code)}`);
     return wrap(res);
   } catch (err) {
     if (err.response) return wrap(err.response);
@@ -91,6 +91,16 @@ export const getBookingsByUsers = async (userIds) => {
   }
 };
 
+export const getGuestBookingsForAdmin = async () => {
+  try {
+    const res = await client.get("/bookings/admin/guests");
+    return wrap(res);
+  } catch (err) {
+    if (err.response) return wrap(err.response);
+    return { status: 500, message: err.message, data: null };
+  }
+};
+
 export default {
   getAllBookings,
   getBookingsByUser,
@@ -99,4 +109,5 @@ export default {
   getPassengerHistoryByIdCard,
   getAllPassengers,
   getBookingsByUsers,
+  getGuestBookingsForAdmin,
 };

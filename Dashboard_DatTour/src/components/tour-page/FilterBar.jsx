@@ -33,7 +33,7 @@ export const FilterBar = ({
         </svg>
         <input
           type="text"
-          placeholder="Tìm kiếm tour, mã đặt chỗ..."
+          placeholder="Tìm kiếm tour..."
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);

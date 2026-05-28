@@ -391,29 +391,34 @@ export const TourDetailPage = () => {
             <TourImageSection tourId={id} />
           </Card>
 
-          <div className="rounded-xl bg-[#0B1837] p-4 text-white">
+          <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 text-white shadow-lg">
             <h4 className="mb-4 text-lg font-semibold">Thông tin nhanh</h4>
             <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                <span className="text-white/70">Trạng thái</span>
-                <select value={formData.status} onChange={e => set("status", e.target.value)}
-                  className={`rounded-lg px-3 py-1 text-xs font-semibold text-white outline-none border-none cursor-pointer transition ${
-                    formData.status === "ACTIVE" ? "bg-emerald-600" : "bg-red-500"
-                  }`}>
-                  <option value="ACTIVE">✅ ACTIVE</option>
-                  <option value="INACTIVE">🔴 INACTIVE</option>
-                </select>
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <span className="text-white/80">Trạng thái</span>
+                <div className="flex items-center gap-3">
+                  <select value={formData.status} onChange={e => set("status", e.target.value)}
+                    className={`rounded-md px-3 py-1 text-sm font-semibold bg-white text-slate-800 outline-none border border-white/10 shadow-sm transition ${
+                      formData.status === "ACTIVE" ? "ring-2 ring-emerald-500" : "ring-2 ring-red-500"
+                    }`}>
+                    <option value="ACTIVE" style={{ color: '#0f172a' }}>ACTIVE</option>
+                    <option value="INACTIVE" style={{ color: '#0f172a' }}>INACTIVE</option>
+                  </select>
+                </div>
               </div>
-              <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                <span className="text-white/70">Số ngày</span>
+
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <span className="text-white/80">Số ngày</span>
                 <input type="number" min={1} value={formData.durationDays}
                   onChange={e => set("durationDays", e.target.value)}
-                  className="w-16 rounded-lg bg-white/10 px-2 py-1 text-center text-sm font-bold text-white outline-none" />
+                  className="w-20 rounded-md bg-white/6 px-2 py-1 text-center text-sm font-semibold text-white outline-none border border-white/6" />
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-white/70">Tour nổi bật</span>
+                <span className="text-white/80">Tour nổi bật</span>
                 <button onClick={() => set("isHot", !formData.isHot)}
-                  className={`relative h-6 w-11 rounded-full transition ${formData.isHot ? "bg-blue-500" : "bg-white/25"}`}>
+                  aria-label="Toggle hot"
+                  className={`relative h-6 w-11 rounded-full transition ${formData.isHot ? "bg-amber-400/90" : "bg-white/12"}`}>
                   <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${formData.isHot ? "left-5" : "left-0.5"}`} />
                 </button>
               </div>

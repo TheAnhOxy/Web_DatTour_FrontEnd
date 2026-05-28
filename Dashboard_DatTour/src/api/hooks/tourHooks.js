@@ -133,3 +133,59 @@ export const useToggleHotMutation = (options = {}) => {
   });
 };
 
+export const useToggleTourStatusMutation = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tour) => {
+      if (!tour?.id) {
+        throw new Error("Thiếu thông tin tour");
+      }
+
+      const isActive = tour.status === "ACTIVE";
+
+      if (isActive) {
+        return tourApi.deleteTour(tour.id);
+      }
+
+      const detailResponse = await tourApi.getTourById(tour.id);
+      const detail = detailResponse?.data ?? detailResponse;
+
+      const payload = {
+        title: detail.title,
+        description: detail.description,
+        durationDays: detail.durationDays,
+        status: "ACTIVE",
+        isHot: detail.isHot ?? false,
+        basePrice: detail.basePrice,
+        categoryId: detail.categoryId,
+        transportationId: detail.transportationId,
+        overview: detail.overview,
+        itinerary: detail.itinerary,
+        inclusions: detail.inclusions,
+        exclusions: detail.exclusions,
+        policies: detail.policies,
+        destinationIds: null,
+        departures: null,
+        images: null,
+      };
+
+      return tourApi.updateTour(tour.id, payload);
+    },
+    onSuccess: (response, tour, ...rest) => {
+      queryClient.invalidateQueries({ queryKey: TOUR_KEYS.lists() });
+      queryClient.invalidateQueries({ queryKey: TOUR_KEYS.searches() });
+      queryClient.invalidateQueries({ queryKey: TOUR_KEYS.detail(tour?.id) });
+
+      const isActive = tour?.status === "ACTIVE";
+      toast.success(isActive ? "Đã tạm dừng tour" : "Đã kích hoạt tour");
+
+      options.onSuccess?.(response, tour, ...rest);
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || error?.message || "Thao tác thất bại");
+      options.onError?.(error);
+    },
+  });
+};
+

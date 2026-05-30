@@ -572,7 +572,7 @@ export const LoginPage = () => {
               <button
                 type="button"
                 onClick={() =>
-                  handleQuickLogin({ username: "admin", password: "admin123" })
+                  handleQuickLogin({ username: "admin@gotour.com", password: "password123" })
                 }
                 style={{
                   ...quickButtonStyle("#2563eb"),
@@ -586,7 +586,7 @@ export const LoginPage = () => {
               <button
                 type="button"
                 onClick={() =>
-                  handleQuickLogin({ username: "test", password: "test" })
+                  handleQuickLogin({ username: "khachhang@gmail.com", password: "password123" })
                 }
                 style={{
                   ...quickButtonStyle("#7c3aed"),

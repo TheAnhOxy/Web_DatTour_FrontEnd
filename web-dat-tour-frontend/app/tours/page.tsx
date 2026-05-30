@@ -4,7 +4,7 @@
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { searchTours, getCategories, getDestinations } from "@/api/coreApi_new";
+import { searchTours, getTours, getCategories, getDestinations } from "@/api/coreApi_new";
 
 type TourItem = {
   id: number;
@@ -167,8 +167,25 @@ function ToursPageContent() {
           region: destObj && destObj.region ? destObj.region.toLowerCase() : null,
         };
 
-        // Lấy lên tối đa 100 phần tử để hiển thị đầy đủ danh sách tour du lịch trên client-side pagination
-        const res = await searchTours(payload, 0, 100);
+        // Kiểm tra xem có bộ lọc nào được áp dụng hay không
+        const hasFilters = 
+          debouncedSearchTerm.trim() !== "" ||
+          filterCategory !== "all" ||
+          filterDestination !== "all" ||
+          transportationType !== "all" ||
+          debouncedPriceFrom !== "" ||
+          debouncedPriceTo !== "" ||
+          startDateFrom !== "" ||
+          startDateTo !== "";
+
+        let res;
+        if (hasFilters) {
+          // Lấy từ Elasticsearch (search-service) khi có tìm kiếm/lọc
+          res = await searchTours(payload, 0, 100);
+        } else {
+          // Lấy trực tiếp từ database SQL (core-service) khi tải mặc định không lọc
+          res = await getTours(undefined, undefined, undefined, 0, 100);
+        }
         if (res.status === 200 && res.data) {
           const fetchedTours = Array.isArray(res.data) ? res.data : (res.data.content || []);
           

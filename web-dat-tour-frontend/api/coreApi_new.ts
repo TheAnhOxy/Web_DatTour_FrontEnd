@@ -4,17 +4,17 @@ import client from "../utils/apiClient";
 const API_GATEWAY = process.env.NEXT_PUBLIC_API_GATEWAY || "http://localhost:8080";
 
 const wrap = (res: any) => {
-  if (
-    res &&
-    res.data &&
-    typeof res.data === "object" &&
-    (res.data.status !== undefined ||
-      res.data.message !== undefined ||
-      res.data.data !== undefined)
-  ) {
-    return res.data;
-  }
-  return { status: res?.status || 200, message: null, data: res?.data ?? null };
+    if (
+        res &&
+        res.data &&
+        typeof res.data === "object" &&
+        (res.data.status !== undefined ||
+            res.data.message !== undefined ||
+            res.data.data !== undefined)
+    ) {
+        return res.data;
+    }
+    return { status: res?.status || 200, message: null, data: res?.data ?? null };
 };
 
 const optionalGet = async (endpoint: string) => {
@@ -72,18 +72,18 @@ const optionalPost = async (endpoint: string, payload: unknown) => {
 };
 
 export const getDepartureDetails = async (id: string | number) => {
-  try {
-    const res = await client.get(`/core/departures/${id}`);
-    const apiData = wrap(res);
-    
-    if (apiData.status !== 200 || !apiData.data) {
-        console.warn("Không lấy được dữ liệu Departure từ backend:", apiData.message);
+    try {
+        const res = await client.get(`/core/departures/${id}`);
+        const apiData = wrap(res);
+
+        if (apiData.status !== 200 || !apiData.data) {
+            console.warn("Không lấy được dữ liệu Departure từ backend:", apiData.message);
+        }
+
+        return apiData;
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: null };
     }
-    
-    return apiData;
-  } catch (err: any) {
-    return { status: 500, message: err.message, data: null };
-  }
 };
 
 export const getTourSchedules = async (tourId: string | number) => {
@@ -172,6 +172,15 @@ export const getDestinationById = async (id: number) => {
     }
 };
 
+export const searchTours = async (payload: any, page = 0, size = 100) => {
+    try {
+        const res = await client.post(`/search?page=${page}&size=${size}`, payload);
+        return wrap(res);
+    } catch (err: any) {
+        return { status: 500, message: err.message, data: [] };
+    }
+};
+
 export default {
     getDepartureDetails,
     getTourSchedules,
@@ -182,5 +191,6 @@ export default {
     getDestinations,
     getDestinationById,
     getCategories,
-    getTours
+    getTours,
+    searchTours
 };

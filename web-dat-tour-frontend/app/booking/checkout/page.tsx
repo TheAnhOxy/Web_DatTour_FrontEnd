@@ -94,26 +94,36 @@ function getExpiresAtMs(
   method: PaymentMethod,
   cashPaymentReady: boolean,
 ): number {
-  const createdMs = payload?.createdAt
-    ? new Date(payload.createdAt).getTime()
-    : Date.now();
-  const tenMinHold = createdMs + PAYMENT_HOLD_MS;
-
-  if (method === "bank" || method === "stripe") {
-    return tenMinHold;
+  if (cashPaymentReady && payload?.officeExpiresAt) {
+    return payload.officeExpiresAt;
   }
-  if (cashPaymentReady) {
-    return payload?.officeExpiresAt ?? payload?.expiresAt ?? tenMinHold;
+  if (payload?.expiresAt) {
+    return payload.expiresAt;
   }
-  return tenMinHold;
+  
+  let createdMs = Date.now();
+  if (payload?.createdAt) {
+    const d = payload.createdAt.endsWith("Z") ? payload.createdAt : payload.createdAt + "Z";
+    const t = new Date(d).getTime();
+    if (!isNaN(t)) createdMs = t;
+  }
+  
+  return createdMs + PAYMENT_HOLD_MS;
 }
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
     case "INIT": {
       const m = a.payload.paymentMethod === "cash" ? "cash" : a.payload.paymentMethod === "stripe" ? "stripe" : "bank";
-      const createdMs = a.payload.createdAt ? new Date(a.payload.createdAt).getTime() : Date.now();
-      const longHold = (a.payload.expiresAt ?? 0) > createdMs + 20 * 60 * 1000;
+      
+      let createdMs = Date.now();
+      if (a.payload.createdAt) {
+        const d = a.payload.createdAt.endsWith("Z") ? a.payload.createdAt : a.payload.createdAt + "Z";
+        const t = new Date(d).getTime();
+        if (!isNaN(t)) createdMs = t;
+      }
+      
+      const longHold = (a.payload.expiresAt ?? 0) > Date.now() + 20 * 60 * 1000;
       const cashReady = m === "cash" && longHold;
       const payload: CheckoutPayload = {
         ...a.payload,

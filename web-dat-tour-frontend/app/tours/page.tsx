@@ -60,6 +60,7 @@ const formatDepartureDate = (dateString?: string) => {
 function ToursPageContent() {
   const searchParams = useSearchParams();
 
+  const [isMounted, setIsMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [allTours, setAllTours] = useState<TourItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -85,6 +86,11 @@ function ToursPageContent() {
   // Debounced states cho các input số (giá cả) để tránh gọi API liên tục
   const [debouncedPriceFrom, setDebouncedPriceFrom] = useState<number | "">("");
   const [debouncedPriceTo, setDebouncedPriceTo] = useState<number | "">("");
+
+  // Chặn hydration mismatch: chỉ render nội dung sau khi đã mount trên Client
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Đồng bộ searchParams từ URL (nếu có, ví dụ khi tìm kiếm từ trang chủ chuyển qua)
   useEffect(() => {
@@ -245,6 +251,12 @@ function ToursPageContent() {
   const totalTours = sortedTours.length;
   const totalPages = Math.ceil(totalTours / pageSize) || 1;
   const paginatedTours = sortedTours.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Trả về null (không render gì) cho đến khi component đã mount trên Client
+  // Đây là cách chuẩn để tránh lỗi Hydration Mismatch trong Next.js
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <>

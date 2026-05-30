@@ -551,7 +551,6 @@ export default function Home() {
           100% { transform: rotate(5deg); }
         }
 
-        /* Thiết kế cho Nice Select */
         .search-filter-inner .filter-item .nice-select {
           font-size: 15px !important;
           color: #334155 !important;
@@ -562,6 +561,20 @@ export default function Home() {
           padding-left: 8px;
           border: 1px solid transparent !important;
           transition: all 0.2s ease;
+          display: flex !important;
+          align-items: center !important;
+        }
+
+        /* Căn giữa dọc mũi tên dropdown của nice-select */
+        .search-filter-inner .filter-item .nice-select::after {
+          top: 50% !important;
+          transform: translateY(-50%) rotate(45deg) !important;
+          margin-top: 0 !important;
+        }
+
+        .search-filter-inner .filter-item .nice-select.open::after {
+          top: 50% !important;
+          transform: translateY(-75%) rotate(-135deg) !important;
         }
         
         .search-filter-inner .filter-item .nice-select:hover {
@@ -877,12 +890,24 @@ export default function Home() {
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       </div>
-                      <div className="content">
-                        <h6 className="tour-title">
-                          <a href={`/destination/${dest.id}`}>{dest.cityName}</a>
-                        </h6>
-                        <span className="time">{dest.region}</span>
-                        <a href={`/destination/${dest.id}`} className="more">
+                      <div className="content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h6 className="tour-title" style={{ margin: 0 }}>
+                            <a href={`/destination/${dest.id}`}>{dest.cityName}</a>
+                          </h6>
+                          <span className="time">{dest.region}</span>
+                        </div>
+                        <a
+                          href={`/destination/${dest.id}`}
+                          className="more"
+                          style={{
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            alignSelf: 'center'
+                          }}
+                        >
                           <i className="fas fa-chevron-right"></i>
                         </a>
                       </div>

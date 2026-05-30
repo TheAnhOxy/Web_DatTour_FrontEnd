@@ -8,7 +8,7 @@ export const ToursGrid = ({
   columns,
   navigate,
   onView,
-  onToggleHot,
+  onToggleStatus,
   onDelete,
   togglePending,
   size = 9,
@@ -38,7 +38,7 @@ export const ToursGrid = ({
           key={tour.id}
           tour={tour}
           onView={onView}
-          onToggleHot={onToggleHot}
+          onToggleStatus={onToggleStatus}
           onDelete={onDelete}
           togglePending={togglePending}
         />

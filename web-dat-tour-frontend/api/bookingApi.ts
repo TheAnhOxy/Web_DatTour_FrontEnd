@@ -37,6 +37,7 @@ export interface BookingRequest {
   departureId: number;
   passengers: PassengerDTO[];
   note?: string;
+  promotionCode?: string;
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;

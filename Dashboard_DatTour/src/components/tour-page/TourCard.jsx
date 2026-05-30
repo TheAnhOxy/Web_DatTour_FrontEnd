@@ -1,7 +1,7 @@
 import React from 'react';
 import { FiMapPin, FiClock, FiCalendar, FiEye, FiToggleLeft, FiToggleRight, FiStar, FiZap } from 'react-icons/fi';
 
-export const TourCard = ({ tour, onView, onToggleHot, onDelete, togglePending }) => {
+export const TourCard = ({ tour, onView, onToggleStatus, onDelete, togglePending }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
     try {
@@ -136,7 +136,7 @@ export const TourCard = ({ tour, onView, onToggleHot, onDelete, togglePending })
               <FiEye className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => onToggleHot?.(tour)}
+              onClick={() => onToggleStatus?.(tour)}
               title={isActive ? 'Tạm dừng tour' : 'Kích hoạt tour'}
               className={`cursor-pointer inline-flex h-8 w-8 items-center justify-center rounded-xl border transition active:scale-95 ${
                 isActive

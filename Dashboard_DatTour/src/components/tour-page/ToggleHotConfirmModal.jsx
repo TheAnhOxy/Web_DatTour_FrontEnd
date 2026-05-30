@@ -19,7 +19,7 @@ export const ToggleHotConfirmModal = ({ tour, onCancel, onConfirm, isPending }) 
             </div>
             <div>
               <h4 className="text-base font-bold text-slate-900">{actionLabel} tour</h4>
-              <p className="text-sm text-slate-500">Xác nhận trạng thái hiển thị của tour này.</p>
+              <p className="text-sm text-slate-500">Xác nhận đổi trạng thái hoạt động của tour này.</p>
             </div>
           </div>
         </div>

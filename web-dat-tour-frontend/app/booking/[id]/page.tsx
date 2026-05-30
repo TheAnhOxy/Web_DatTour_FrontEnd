@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect, useReducer, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { getDepartureDetails, getTourDetails } from "../../../api/coreApi_new";
+import { getDepartureDetails, getTourDetails, validatePromotionCode } from "../../../api/coreApi_new";
 import {
   createBooking, getBookingByCode,
   type BookingRequest, type PassengerDTO, type PassengerGender,
@@ -273,14 +273,45 @@ function BookingPageInner() {
     };
  
    // ── Apply voucher ──
-   const applyVoucher = () => {
-     if (!voucherCode) return;
-     const code = voucherCode.toUpperCase();
-     const discount = code === "GIAM50K" ? 50000 : code === "GIAM100K" ? 100000 : 0;
-     if (!discount) { showToast("Mã giảm giá không hợp lệ!", "error"); return; }
-     if (appliedVouchers.some((v) => v.code === code)) { showToast("Mã này đã được áp dụng!", "error"); return; }
-     setAppliedVouchers([...appliedVouchers, { code, value: discount }]);
-     setVoucherCode("");
+   const applyVoucher = async () => {
+     const rawCode = voucherCode.trim();
+     if (!rawCode) return;
+     const code = rawCode.toUpperCase();
+
+     if (appliedVouchers.length > 0 && appliedVouchers[0]?.code === code) {
+       showToast("Mã này đã được áp dụng!", "error");
+       return;
+     }
+
+     try {
+       const res = await validatePromotionCode(code);
+       const data = (res as any)?.data;
+
+       if (!data || data.isValid !== true) {
+         showToast(data?.message || "Mã giảm giá không hợp lệ!", "error");
+         return;
+       }
+
+       const discountPercent = toNum(data.discountPercent);
+       if (discountPercent <= 0) {
+         showToast("Mã giảm giá không hợp lệ!", "error");
+         return;
+       }
+
+       const maxDiscount = toNum(data.maxDiscount);
+       let discountValue = (totalAmount * discountPercent) / 100;
+       if (maxDiscount > 0) discountValue = Math.min(discountValue, maxDiscount);
+       if (discountValue <= 0) {
+         showToast("Mã giảm giá không hợp lệ!", "error");
+         return;
+       }
+
+       setAppliedVouchers([{ code, value: Math.round(discountValue) }]);
+       setVoucherCode("");
+       showToast("Áp dụng mã giảm giá thành công!", "success");
+     } catch {
+       showToast("Không thể kiểm tra mã giảm giá. Vui lòng thử lại!", "error");
+     }
    };
  
    // ── Handle Booking ──
@@ -321,6 +352,7 @@ function BookingPageInner() {
       departureId: Number(id),
       passengers: passengerList,
       note: [contactNotes, contact.address ? `Địa chỉ: ${contact.address}` : ""].filter(Boolean).join(" | ") || undefined,
+      promotionCode: appliedVouchers[0]?.code,
       contactName: contact.name || undefined,
       contactEmail: contact.email || undefined,
       contactPhone: contact.phone || undefined,
@@ -333,6 +365,7 @@ function BookingPageInner() {
         const br = (res as any).data ?? res;
         const createdAt = br.createdAt ? new Date(br.createdAt).getTime() : 0;
         setBookingResult({
+          bookingId: br.bookingId,
           bookingCode: br.bookingCode,
           status: br.status,
           message: br.message,
@@ -589,7 +622,7 @@ function BookingPageInner() {
 
             {holdRemainingMs !== null && holdRemainingMs > 0 && (
               <div style={{ background: "#E8F5E9", borderRadius: 12, padding: "10px 16px", marginBottom: 16, color: "#1B5E20", fontWeight: 700 }}>
-                Giữ chỗ còn: {Math.ceil(holdRemainingMs / 60000)} phút {Math.floor((holdRemainingMs % 60000) / 1000)} giây
+                Giữ chỗ còn: {Math.floor(holdRemainingMs / 60000)} phút {Math.floor((holdRemainingMs % 60000) / 1000)} giây
               </div>
             )}
 
@@ -792,7 +825,7 @@ function BookingPageInner() {
               <div className="bk-card">
                 <div className="bk-section-title">Mã giảm giá</div>
                 <div className="bk-voucher-row mb-3">
-                  <input className="bk-input" type="text" placeholder="Nhập mã (GIAM50K, GIAM100K...)" value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && applyVoucher()} style={{ flex: 1 }} />
+                  <input className="bk-input" type="text" placeholder="Nhập mã" value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && applyVoucher()} style={{ flex: 1 }} />
                   <button onClick={applyVoucher} style={{ padding: "11px 20px", background: "#FF6B00", color: "white", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                     Áp dụng
                   </button>
@@ -809,40 +842,9 @@ function BookingPageInner() {
                 )}
               </div>
 
-              {/* Payment method */}
+              {/* Terms checkbox */}
               <div className="bk-card">
-                <div className="bk-section-title">Hình thức thanh toán</div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13, color: "#555", display: "block", marginBottom: 10 }}>Tỷ lệ thanh toán</label>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    {[{ value: 100, label: "Thanh toán đủ 100%" }, { value: 50, label: "Đặt cọc 50%" }].map((opt) => (
-                      <div key={opt.value} onClick={() => setPaymentRatio(opt.value)} style={{ flex: 1, border: `1.5px solid ${paymentRatio === opt.value ? "#FF6B00" : "#E0E0E0"}`, borderRadius: 10, padding: "12px 14px", cursor: "pointer", background: paymentRatio === opt.value ? "#FFF8F0" : "white", textAlign: "center", fontWeight: 600, fontSize: 13, color: paymentRatio === opt.value ? "#FF6B00" : "#555" }}>
-                        {opt.label}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {[
-                  { id: "bank", icon: "fa-university", label: "Chuyển khoản ngân hàng", desc: "Xác nhận thanh toán để giữ chỗ trong 10 phút." },
-                  { id: "cash", icon: "fa-money-bill-wave", label: "Tiền mặt tại văn phòng", desc: "Thanh toán trong 48 giờ sau khi xác nhận đặt chỗ." },
-                ].map((method) => (
-                  <div key={method.id} className={`bk-payment-card ${paymentMethod === method.id ? "active" : ""}`} onClick={() => setPaymentMethod(method.id)}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <i className={`fas ${method.icon}`} style={{ fontSize: 20, color: method.id === "bank" ? "#1565C0" : "#2E7D32" }} />
-                      <span style={{ fontWeight: 700, fontSize: 14 }}>{method.label}</span>
-                    </div>
-                    {paymentMethod === method.id && (
-                      <div style={{ marginTop: 10, padding: "10px 14px", background: "#F8F9FA", borderRadius: 8, fontSize: 13, color: "#666", borderLeft: "3px solid #FF6B00" }}>
-                        {method.desc}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Terms checkbox */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 20, padding: "14px 16px", background: "#F7F8FA", borderRadius: 10 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", background: "#F7F8FA", borderRadius: 10 }}>
                   <input
                     type="checkbox" id="terms-check" checked={agreedToTerms}
                     onChange={(e) => setAgreedToTerms(e.target.checked)}

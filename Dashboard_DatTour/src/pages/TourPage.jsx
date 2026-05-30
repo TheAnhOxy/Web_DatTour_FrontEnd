@@ -5,7 +5,7 @@ import FilterBar from "../components/tour-page/FilterBar";
 import ToursGrid from "../components/tour-page/ToursGrid";
 import DeleteConfirmModal from "../components/tour-page/DeleteConfirmModal";
 import ToggleHotConfirmModal from "../components/tour-page/ToggleHotConfirmModal";
-import { useTourListQuery, useSearchToursQuery, useTourCategoriesQuery, useDeleteTourMutation, useToggleHotMutation } from "../api/hooks/tourHooks";
+import { useTourListQuery, useSearchToursQuery, useTourCategoriesQuery, useDeleteTourMutation, useToggleTourStatusMutation } from "../api/hooks/tourHooks";
 
 const useDebounce = (value, delay = 500) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -43,7 +43,7 @@ export const TourPage = () => {
   const [page, setPage] = useState(0);
   const [tourToDelete, setTourToDelete] = useState(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
-  const [tourToToggle, setTourToToggle] = useState(null);
+  const [tourToToggleStatus, setTourToToggleStatus] = useState(null);
 
   const SIZE = 9;
   const debouncedSearchTerm = useDebounce(searchTerm);
@@ -96,7 +96,14 @@ export const TourPage = () => {
       setDeleteConfirmInput("");
     },
   });
-  const toggleHotMutation = useToggleHotMutation();
+  const toggleStatusMutation = useToggleTourStatusMutation({
+    onSuccess: () => {
+      setTourToToggleStatus(null);
+    },
+    onError: () => {
+      setTourToToggleStatus(null);
+    },
+  });
 
   const tours = data?.content ?? [];
   const totalElements = data?.totalElements ?? 0;
@@ -138,17 +145,14 @@ export const TourPage = () => {
     }
   };
 
-  const handleToggleHot = (tour) => {
+  const handleToggleStatus = (tour) => {
     if (!tour) return;
-    setTourToToggle(tour);
+    setTourToToggleStatus(tour);
   };
 
-  const handleConfirmToggleHot = () => {
-    if (!tourToToggle) return;
-    toggleHotMutation.mutate(tourToToggle.id, {
-      onSuccess: () => setTourToToggle(null),
-      onError: () => setTourToToggle(null),
-    });
+  const handleConfirmToggleStatus = () => {
+    if (!tourToToggleStatus) return;
+    toggleStatusMutation.mutate(tourToToggleStatus);
   };
 
   return (
@@ -156,10 +160,10 @@ export const TourPage = () => {
       {/* Stats */}
       <MiniStatSquares
         items={[
-          { label: "Tổng Tour", value: totalElements, badge: "Live" },
-          { label: "Đang hoạt động", value: activeCount, badge: "Active" },
-          { label: "Dừng hoạt động", value: inactiveCount, badge: "Inactive" },
-          { label: "Tour nổi bật", value: hotCount, badge: "Hot" },
+          { label: "Tổng Tour", value: totalElements, badge: "Total", color: "from-indigo-50 to-indigo-100", textColor: "text-indigo-800", badgeColor: "bg-indigo-600", accent: "linear-gradient(135deg, rgba(79,70,229,0.9), rgba(99,102,241,0.9))" },
+          { label: "Đang hoạt động", value: activeCount, badge: "Active", color: "from-emerald-50 to-emerald-100", textColor: "text-emerald-800", badgeColor: "bg-emerald-600", accent: "linear-gradient(135deg, rgba(16,185,129,0.9), rgba(34,197,94,0.9))" },
+          { label: "Dừng hoạt động", value: inactiveCount, badge: "Inactive", color: "from-slate-50 to-slate-100", textColor: "text-slate-800", badgeColor: "bg-slate-500", accent: "linear-gradient(135deg, rgba(100,116,139,0.9), rgba(71,85,105,0.9))" },
+          { label: "Tour nổi bật", value: hotCount, badge: "Hot", color: "from-orange-50 to-orange-100", textColor: "text-orange-800", badgeColor: "bg-orange-500", accent: "linear-gradient(135deg, rgba(249,115,22,0.9), rgba(245,158,11,0.9))" },
         ]}
       />
 
@@ -200,9 +204,9 @@ export const TourPage = () => {
         columns={columns}
         navigate={navigate}
         onView={handleViewDetail}
-        onToggleHot={handleToggleHot}
+        onToggleStatus={handleToggleStatus}
         onDelete={handleDeleteClick}
-        togglePending={toggleHotMutation.isPending}
+        togglePending={toggleStatusMutation.isPending}
       />
 
       {/* Pagination */}
@@ -272,10 +276,10 @@ export const TourPage = () => {
       />
 
       <ToggleHotConfirmModal
-        tour={tourToToggle}
-        onCancel={() => setTourToToggle(null)}
-        onConfirm={handleConfirmToggleHot}
-        isPending={toggleHotMutation.isPending}
+        tour={tourToToggleStatus}
+        onCancel={() => setTourToToggleStatus(null)}
+        onConfirm={handleConfirmToggleStatus}
+        isPending={toggleStatusMutation.isPending}
       />
     </div>
   );

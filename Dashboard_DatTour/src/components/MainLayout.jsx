@@ -353,15 +353,7 @@ export const MainLayout = ({ children }) => {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden w-65 items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 xl:flex">
-                <span className="text-slate-500">⌕</span>
-                <input
-                  type="text"
-                  placeholder="Tìm tour, booking, người dùng..."
-                  className="w-full border-none bg-transparent text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400"
-                />
-              </div>
-
+              
               <button className="relative rounded-2xl border border-slate-200 bg-white px-3 py-2 text-slate-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600">
                 🔔
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-blue-500" />

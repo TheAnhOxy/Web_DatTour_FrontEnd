@@ -28,7 +28,10 @@ class ApiClient {
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseURL}${endpoint}`;
+    const base = endpoint.startsWith("/auth")
+      ? (process.env.NEXT_PUBLIC_API_AUTH || "http://localhost:8080/api/v1")
+      : this.baseURL;
+    const url = `${base}${endpoint}`;
 
     try {
       let response = await this.rawFetch(url, options);
@@ -87,7 +90,8 @@ class ApiClient {
     if (!refreshToken) return null;
 
     try {
-      const res = await fetch(`${this.baseURL}/auth/refresh-token`, {
+      const authBase = process.env.NEXT_PUBLIC_API_AUTH || "http://localhost:8080/api/v1";
+      const res = await fetch(`${authBase}/auth/refresh-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),

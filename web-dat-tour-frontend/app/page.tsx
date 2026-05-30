@@ -203,6 +203,447 @@ export default function Home() {
           0% { opacity: 0.6; transform: scale(0.9); }
           100% { opacity: 1; transform: scale(1.15); }
         }
+
+        .tour-card-premium {
+          background: #1c1d22;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          overflow: hidden;
+          box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.1);
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          flex-grow: 1;
+          width: 100%;
+        }
+
+        .tour-card-premium:hover {
+          transform: translateY(-8px) scale(1.015);
+          box-shadow: 0 25px 50px -12px rgba(253, 76, 92, 0.25), 0 0 20px rgba(253, 76, 92, 0.05);
+          border-color: rgba(253, 76, 92, 0.4);
+        }
+
+        /* Nổi bật tour HOT */
+        .tour-card-premium.hot-tour-card {
+          border: 1.5px solid rgba(253, 76, 92, 0.3);
+          box-shadow: 0 10px 30px -10px rgba(253, 76, 92, 0.15), 0 1px 3px rgba(253, 76, 92, 0.05);
+        }
+
+        .tour-card-premium.hot-tour-card::after {
+          content: '';
+          position: absolute;
+          top: -2px; left: -2px; right: -2px; bottom: -2px;
+          border-radius: 22px;
+          background: linear-gradient(135deg, #fd4c5c, #f97316);
+          z-index: -1;
+          opacity: 0.2;
+          pointer-events: none;
+        }
+
+        .tour-card-premium.hot-tour-card:hover {
+          transform: translateY(-10px) scale(1.02);
+          box-shadow: 0 25px 50px -12px rgba(253, 76, 92, 0.25), 0 0 30px rgba(253, 76, 92, 0.15);
+          border-color: rgba(253, 76, 92, 0.7);
+        }
+
+        /* Hình ảnh Card */
+        .tour-card-media {
+          position: relative;
+          height: 200px;
+          overflow: hidden;
+          background: #1c1d22;
+        }
+
+        .tour-card-media::after {
+          content: '';
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 45%;
+          background: linear-gradient(to top, #1c1d22 0%, rgba(28, 29, 34, 0) 100%);
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        .tour-card-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .tour-card-premium:hover .tour-card-img {
+          transform: scale(1.08) rotate(0.5deg);
+        }
+
+        /* Badges nổi bật */
+        .tour-badge-hot {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          background: linear-gradient(135deg, #fd4c5c 0%, #f97316 100%);
+          color: white;
+          padding: 5px 12px;
+          border-radius: 30px;
+          font-size: 11px;
+          font-weight: 800;
+          z-index: 10;
+          box-shadow: 0 4px 12px rgba(253, 76, 92, 0.4);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          animation: badge-pulse 1.5s infinite alternate;
+        }
+
+        @keyframes badge-pulse {
+          0% { transform: scale(0.95); box-shadow: 0 4px 10px rgba(253, 76, 92, 0.3); }
+          100% { transform: scale(1.05); box-shadow: 0 4px 15px rgba(253, 76, 92, 0.5); }
+        }
+
+        /* Phần thân Card */
+        .tour-card-body {
+          padding: 20px 22px;
+          display: flex;
+          flex-direction: column;
+          flex-grow: 1;
+          background: #1c1d22;
+        }
+
+        .tour-card-meta {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+        }
+
+        .tour-card-dest {
+          background: rgba(253, 76, 92, 0.15);
+          color: #ff6b7a;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 20px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .tour-card-code {
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+        }
+
+        .tour-card-title {
+          font-size: 16px;
+          font-weight: 750;
+          line-height: 1.45;
+          margin-top: 6px;
+          margin-bottom: 10px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          height: 46px;
+        }
+
+        .tour-card-title a {
+          color: #ffffff;
+          text-decoration: none;
+          transition: color 0.25s ease;
+        }
+
+        .tour-card-title a:hover {
+          color: #ff6b7a;
+        }
+
+        .tour-card-rating {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          color: #ffb800;
+          font-size: 11px;
+          margin-bottom: 14px;
+        }
+
+        .tour-card-rating i {
+          text-shadow: 0 0 6px rgba(255, 184, 0, 0.3);
+        }
+
+        .tour-card-rating-text {
+          color: #94a3b8;
+          font-weight: 700;
+          margin-left: 4px;
+          font-size: 12px;
+        }
+
+        .tour-card-details {
+          border-top: 1px dashed rgba(255, 255, 255, 0.08);
+          padding-top: 12px;
+          margin-top: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .tour-card-detail-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: #cbd5e1;
+        }
+
+        .tour-card-detail-item i {
+          color: #fd4c5c;
+          width: 16px;
+          font-size: 14px;
+        }
+
+        /* Footer của Card */
+        .tour-card-footer {
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          padding: 16px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #16171c;
+        }
+
+        .tour-card-price-label {
+          font-size: 11px;
+          color: #8a99ad;
+          display: block;
+          margin-bottom: 2px;
+          font-weight: 500;
+        }
+
+        .tour-card-price {
+          color: #fd4c5c;
+          background: linear-gradient(135deg, #fd4c5c 0%, #f97316 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          font-size: 20px;
+          font-weight: 850;
+          display: inline-block;
+        }
+
+        .tour-card-btn {
+          background: linear-gradient(135deg, #fd4c5c 0%, #f97316 100%);
+          color: white !important;
+          border: none;
+          padding: 8px 18px;
+          border-radius: 30px;
+          font-size: 13px;
+          font-weight: 700;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          box-shadow: 0 4px 12px rgba(253, 76, 92, 0.15);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .tour-card-btn i {
+          font-size: 11px;
+          transition: transform 0.2s ease;
+          display: inline-block !important;
+        }
+
+        .tour-card-premium:hover .tour-card-btn {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(253, 76, 92, 0.3);
+          filter: brightness(1.08);
+        }
+
+        .tour-card-btn:hover i {
+          transform: translateX(3px);
+        }
+        
+        /* Lớp nền phát sáng Aurora cho thanh tìm kiếm trang chủ */
+        #search_form {
+          position: relative;
+          z-index: 10;
+        }
+        
+        .search-filter-inner {
+          position: relative;
+          border-radius: 20px !important;
+          border: 1px solid #f1f5f9;
+          box-shadow: 0 15px 45px rgba(0, 0, 0, 0.05) !important;
+          padding: 24px 40px 10px !important;
+          transition: all 0.3s ease;
+          background: #ffffff;
+        }
+
+        .search-filter-inner::before {
+          content: '';
+          position: absolute;
+          top: -2px; left: -2px; right: -2px; bottom: -2px;
+          /* Sunset red (#ff4b5c), Beach sand orange (#ff9036), Ocean blue (#1e56a0) */
+          background: linear-gradient(90deg, #ff4b5c, #ff9036, #1e56a0, #ff4b5c);
+          background-size: 300%;
+          z-index: -1;
+          filter: blur(12px);
+          opacity: 0.12;
+          border-radius: 22px;
+          animation: aurora-glow 10s ease infinite;
+          pointer-events: none;
+          transition: opacity 0.3s ease;
+        }
+
+        .search-filter-inner:hover::before {
+          opacity: 0.22;
+        }
+
+        @keyframes aurora-glow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        /* Tinh chỉnh các filter-item trên trang chủ */
+        .search-filter-inner .filter-item {
+          border-right: 1px solid #e2e8f0 !important;
+          padding-left: 35px !important;
+          transition: all 0.25s ease;
+        }
+
+        .search-filter-inner .filter-item:hover {
+          transform: translateY(-2px);
+        }
+
+        .search-filter-inner .filter-item .icon {
+          color: #fd4c5c !important;
+          font-size: 18px;
+          top: 6px !important;
+          transition: transform 0.3s ease;
+        }
+        
+        .search-filter-inner .filter-item .icon i {
+          display: inline-block !important;
+          transition: all 0.3s ease;
+        }
+        
+        .search-filter-inner .filter-item:hover .icon {
+          transform: scale(1.2);
+        }
+
+        /* Chuyển động xe bus, plane cho biểu tượng điểm đến/ngày tháng khi hover */
+        .search-filter-inner .filter-item:nth-child(1):hover .icon i {
+          animation: plane-fly-bio 1.2s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+        }
+        
+        .search-filter-inner .filter-item:nth-child(2):hover .icon i,
+        .search-filter-inner .filter-item:nth-child(3):hover .icon i {
+          animation: calendar-wobble 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes plane-fly-bio {
+          0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+          30% { transform: translate(10px, -10px) scale(1.25) rotate(15deg); }
+          75% { transform: translate(12px, -12px) scale(1.15) rotate(10deg); }
+          100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+        }
+
+        @keyframes calendar-wobble {
+          0% { transform: rotate(-5deg); }
+          100% { transform: rotate(5deg); }
+        }
+
+        /* Thiết kế cho Nice Select */
+        .search-filter-inner .filter-item .nice-select {
+          font-size: 15px !important;
+          color: #334155 !important;
+          font-weight: 500 !important;
+          height: 38px;
+          line-height: 38px;
+          border-radius: 8px;
+          padding-left: 8px;
+          border: 1px solid transparent !important;
+          transition: all 0.2s ease;
+        }
+        
+        .search-filter-inner .filter-item .nice-select:hover {
+          border-color: #fd4c5c !important;
+          background: #fdf2f2 !important;
+        }
+
+        .search-filter-inner .filter-item .nice-select .list {
+          border-radius: 12px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+          border: 1px solid #e2e8f0;
+          padding: 6px 0;
+          margin-top: 8px;
+          max-height: 250px;
+          overflow-y: auto !important;
+        }
+
+        .search-filter-inner .filter-item .nice-select .option {
+          padding: 10px 18px !important;
+          font-size: 14px;
+          color: #475569;
+          transition: all 0.2s ease;
+        }
+
+        .search-filter-inner .filter-item .nice-select .option:hover,
+        .search-filter-inner .filter-item .nice-select .option.focus,
+        .search-filter-inner .filter-item .nice-select .option.selected.focus {
+          background-color: #fdf2f2 !important;
+          color: #fd4c5c !important;
+          font-weight: 600;
+        }
+
+        /* Thiết kế các input date picker */
+        .search-filter-inner .filter-item input.datetimepicker-custom {
+          border: 1px solid transparent !important;
+          background: transparent !important;
+          font-size: 15px !important;
+          font-weight: 500 !important;
+          color: #334155 !important;
+          padding: 6px 8px !important;
+          width: 100%;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          height: 38px;
+          outline: none;
+        }
+        
+        .search-filter-inner .filter-item input.datetimepicker-custom:hover,
+        .search-filter-inner .filter-item input.datetimepicker-custom:focus {
+          border-color: #fd4c5c !important;
+          background: #fdf2f2 !important;
+        }
+
+        /* Nút Tìm kiếm */
+        .search-filter-inner .search-button button {
+          border-radius: 14px !important;
+          padding: 14px 32px !important;
+          background: linear-gradient(135deg, #fd4c5c 0%, #f97316 100%) !important;
+          color: #ffffff !important;
+          border: none !important;
+          box-shadow: 0 4px 15px rgba(253, 76, 92, 0.25) !important;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+          font-weight: 600 !important;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .search-filter-inner .search-button button:hover {
+          transform: translateY(-2px) scale(1.03);
+          box-shadow: 0 6px 20px rgba(253, 76, 92, 0.4) !important;
+        }
+        
+        .search-filter-inner .search-button button:hover i {
+          animation: search-bounce 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes search-bounce {
+          0% { transform: translate(0, 0); }
+          100% { transform: translate(2px, -2px); }
+        }
       `}</style>
       <section className="hero-area bgc-black pt-200 rpt-120 rel z-2">
         <div className="container-fluid">
@@ -284,64 +725,68 @@ export default function Home() {
           ) : (
             <div className="row justify-content-center">
               {tours.map((tour) => (
-                <div className="col-xxl-3 col-xl-4 col-md-6" style={{ marginBottom: 30 }} key={tour.id}>
-                  <div
-                    className="destination-item block_tours"
-                  >
-                    <div className="image" style={{ position: "relative", overflow: "hidden", height: 220 }}>
-                      {getRating(tour) && (
-                        <div className="ratting">
-                          <i className="fas fa-star"></i> {getRating(tour)}
+                <div className="col-xl-3 col-lg-3 col-md-6 col-sm-12 mb-30 d-flex flex-column" key={tour.id}>
+                  <div className={`tour-card-premium ${tour.isHot ? 'hot-tour-card' : ''}`}>
+                    {/* Media / Image Area */}
+                    <div className="tour-card-media">
+                      {tour.isHot && (
+                        <div className="tour-badge-hot">
+                          <i className="fas fa-fire"></i> HOT
                         </div>
                       )}
-                      <a href="#" className="heart"><i className="fas fa-heart"></i></a>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={getTourImage(tour)}
-                        alt={getTourName(tour)}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      <img 
+                        src={getTourImage(tour)} 
+                        alt={getTourName(tour)} 
+                        loading="lazy"
+                        className="tour-card-img"
                       />
                     </div>
-                    <div className="content">
-                      <span className="location">
-                        <i className="fal fa-map-marker-alt"></i>
-                        {getDestName(tour)}
-                      </span>
-                      <h5 style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <a href={`/tours/${tour.id}`}>{getTourName(tour)}</a>
-                        {tour.isHot && (
-                          <span style={{
-                            background: '#FFF0F0',
-                            color: '#fd4c5c',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid #FFD4D7',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            height: '20px',
-                            lineHeight: '16px'
-                          }}>
-                            <i className="fas fa-fire" style={{ animation: 'flicker-hot 1s infinite alternate' }}></i>
-                            HOT
-                          </span>
-                        )}
+
+                    {/* Body Content */}
+                    <div className="tour-card-body">
+                      <div className="tour-card-meta">
+                        <span className="tour-card-dest">
+                          <i className="fal fa-map-marker-alt me-1"></i>
+                          {getDestName(tour)}
+                        </span>
+                        <span className="tour-card-code">
+                          Mã: T-{tour.id}
+                        </span>
+                      </div>
+
+                      <h5 className="tour-card-title">
+                        <Link href={`/tours/${tour.id}`}>
+                          {getTourName(tour)}
+                        </Link>
                       </h5>
-                      <span className="time">{getDuration(tour)}</span>
+
+                      <div className="tour-card-rating">
+                        {[...Array(5)].map((_, i) => (
+                          <i key={i} className="fas fa-star"></i>
+                        ))}
+                        <span className="tour-card-rating-text">
+                          5.0/5
+                        </span>
+                      </div>
+
+                      <div className="tour-card-details">
+                        <div className="tour-card-detail-item">
+                          <i className="fal fa-clock"></i>
+                          <span>Thời gian: <strong>{getDuration(tour)}</strong></span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="destination-footer">
-                      <span className="price">
-                        {(() => {
-                          const p = getPrice(tour);
-                          return p === "Liên hệ"
-                            ? <span style={{ fontSize: "0.95em", color: "#f97316" }}>{p}</span>
-                            : <><span>{p}</span> VND / người</>;
-                        })()}
-                      </span>
-                      <Link href={`/tours/${tour.id}`} className="read-more">
-                        Đặt ngay <i className="fal fa-angle-right"></i>
+
+                    {/* Footer / Pricing */}
+                    <div className="tour-card-footer">
+                      <div>
+                        <span className="tour-card-price-label">Giá chỉ từ</span>
+                        <span className="tour-card-price">
+                          {getPrice(tour) === "Liên hệ" ? "Liên hệ" : `${getPrice(tour)} đ`}
+                        </span>
+                      </div>
+                      <Link href={`/tours/${tour.id}`} className="btn tour-card-btn">
+                        Đặt Tour <i className="fal fa-arrow-right"></i>
                       </Link>
                     </div>
                   </div>

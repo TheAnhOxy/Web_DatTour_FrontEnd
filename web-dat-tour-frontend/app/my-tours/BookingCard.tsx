@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { BookingResponse, BookingStatus } from '@/api/bookingApi';
+import { formatUtcDateOnly as formatDate } from '@/utils/dateUtils';
 
 interface BookingCardProps {
   booking: BookingResponse;
@@ -17,16 +18,6 @@ const statusConfig: Record<BookingStatus, { label: string; color: string; bgColo
 function formatCurrency(value: number | undefined) {
   if (!value) return '0 VND';
   return new Intl.NumberFormat('vi-VN').format(value) + ' VND';
-}
-
-function formatDate(dateString: string | undefined) {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN');
-  } catch {
-    return dateString;
-  }
 }
 
 export default function BookingCard({ booking }: BookingCardProps) {

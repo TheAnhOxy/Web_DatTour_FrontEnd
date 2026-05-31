@@ -121,7 +121,8 @@ export const confirmOfficeReservation = async (
 export const confirmStripeSession = async (sessionId: string): Promise<PaymentInfo | null> => {
   try {
     const res = await client.post(
-      `/payments/stripe/confirm-session?session_id=${encodeURIComponent(sessionId)}`
+      `/payments/stripe/confirm-session?session_id=${encodeURIComponent(sessionId)}`,
+      {}
     );
     return unwrap(res);
   } catch {

@@ -45,8 +45,9 @@ export interface BookingRequest {
 
 /** Khớp CancelBookingRequest.java */
 export interface CancelBookingRequest {
-  bookingCode: string;
-  reason?: string;
+  bookingId: number;
+  cancellationReason: string;
+  bookingCode?: string;
 }
 
 /** Khớp BatchBookingRequest.java */
@@ -159,15 +160,27 @@ export const createBooking = async (bookingData: BookingRequest): Promise<ApiRes
 };
 
 /**
- * GET  /bookings/{bookingCode}
- * Lấy chi tiết booking theo mã (với passengers, notes, cancellation)
+ * GET  /bookings/my-booking/{bookingCode}
+ * Tìm kiếm đơn hàng theo mã bookingCode (có fallback sang /bookings/{bookingCode})
  */
-export const getBookingByCode = async (bookingCode: string): Promise<ApiResponse<BookingDetailResponse>> => {
+export const getBookingByCode = async (bookingCode: string): Promise<ApiResponse<any>> => {
   try {
-    const res = await client.get(`/bookings/${encodeURIComponent(bookingCode)}`);
-    return wrap(res);
+    const res = await client.get(`/bookings/my-booking/${encodeURIComponent(bookingCode)}`);
+    const wrapped = wrap(res);
+    
+    // Nếu endpoint mới chưa được định nghĩa (trả về 404 hoặc lỗi static resource)
+    if (wrapped.status === 404 || (wrapped.message && (wrapped.message.includes("static resource") || wrapped.message.includes("Not Found")))) {
+      const oldRes = await client.get(`/bookings/${encodeURIComponent(bookingCode)}`);
+      return wrap(oldRes);
+    }
+    return wrapped;
   } catch (err: unknown) {
-    return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
+    try {
+      const oldRes = await client.get(`/bookings/${encodeURIComponent(bookingCode)}`);
+      return wrap(oldRes);
+    } catch {
+      return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
+    }
   }
 };
 
@@ -300,13 +313,73 @@ export const getUserBookingSummary = async (userId: number): Promise<ApiResponse
 
 /**
  * POST /bookings/cancel
- * Hủy booking
+ * Hủy booking (tương thích cả payload cũ bookingCode/reason và mới bookingId/cancellationReason)
  */
 export const cancelBooking = async (cancelData: CancelBookingRequest) => {
   try {
-    const res = await client.post("/bookings/cancel", cancelData);
+    const payload = {
+      bookingId: cancelData.bookingId,
+      cancellationReason: cancelData.cancellationReason,
+      bookingCode: cancelData.bookingCode,
+      reason: cancelData.cancellationReason, // mapping cho old backend
+    };
+    const res = await client.post("/bookings/cancel", payload);
     return wrap(res);
   } catch (err: unknown) {
+    return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
+  }
+};
+
+/**
+ * GET /bookings/my-history
+ * Lấy lịch sử đặt tour của user (có fallback sang /bookings/user/{userId})
+ */
+export const getMyHistory = async (
+  status?: string,
+  page: number = 0,
+  limit: number = 10,
+  userId?: number
+): Promise<ApiResponse<any>> => {
+  try {
+    const params = new URLSearchParams();
+    if (status) params.append("status", status);
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+
+    // Thêm header X-User-Id theo đặc tả của backend
+    const headers: Record<string, string> = {};
+    if (userId) {
+      headers["X-User-Id"] = userId.toString();
+    }
+
+    const res = await client.get(`/bookings/my-history?${params.toString()}`, { headers });
+    const wrapped = wrap(res);
+
+    // Nếu endpoint mới chưa được định nghĩa hoặc bị match nhầm vào /{bookingCode} do thiếu mapping
+    if (
+      wrapped.status === 404 || 
+      wrapped.status === 400 || 
+      (wrapped.message && (wrapped.message.includes("my-history") || wrapped.message.includes("static resource")))
+    ) {
+      if (userId) {
+        const oldRes = await client.get(`/bookings/user/${userId}?${params.toString()}`);
+        return wrap(oldRes);
+      }
+    }
+    return wrapped;
+  } catch (err: unknown) {
+    if (userId) {
+      try {
+        const params = new URLSearchParams();
+        if (status) params.append("status", status);
+        params.append("page", page.toString());
+        params.append("limit", limit.toString());
+        const oldRes = await client.get(`/bookings/user/${userId}?${params.toString()}`);
+        return wrap(oldRes);
+      } catch {
+        return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
+      }
+    }
     return { status: 500, message: err instanceof Error ? err.message : "Unknown error", data: null };
   }
 };
@@ -323,6 +396,7 @@ const bookingApi = {
   getBookingsByIds,
   getUserBookingSummary,
   cancelBooking,
+  getMyHistory,
 };
 
 export default bookingApi;

@@ -23,7 +23,7 @@ interface UseBookingDetailResult {
   error: string | null;
   fetchBookingByCode: (code: string) => Promise<void>;
   fetchBookingById: (id: number) => Promise<void>;
-  cancelBooking: (bookingCode: string, reason?: string) => Promise<boolean>;
+  cancelBooking: (bookingId: number, cancellationReason: string) => Promise<boolean>;
 }
 
 interface UseBookingSummaryResult {
@@ -114,15 +114,13 @@ export const useBookingDetail = (): UseBookingDetailResult => {
     }
   }, []);
 
-  const cancelBooking = useCallback(async (bookingCode: string, reason?: string): Promise<boolean> => {
+  const cancelBooking = useCallback(async (bookingId: number, cancellationReason: string): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
-      const response = await bookingApi.cancelBooking({ bookingCode, reason });
+      const response = await bookingApi.cancelBooking({ bookingId, cancellationReason });
       
       if (response.status === 200) {
-        // Refresh booking data
-        await fetchBookingByCode(bookingCode);
         return true;
       } else {
         setError(response.message || 'Failed to cancel booking');
@@ -135,7 +133,7 @@ export const useBookingDetail = (): UseBookingDetailResult => {
     } finally {
       setLoading(false);
     }
-  }, [fetchBookingByCode]);
+  }, []);
 
   return { booking, loading, error, fetchBookingByCode, fetchBookingById, cancelBooking };
 };

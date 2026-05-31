@@ -13,7 +13,7 @@ const pageVariants = {
 const pageTransition = {
   duration: 0.35,
   ease: "easeInOut",
-};
+} as const;
 
 /**
  * Wraps page content with Framer Motion page-transition animation.

@@ -9,6 +9,7 @@ import {
   type BookingRequest, type PassengerDTO, type PassengerGender,
 } from "../../../api/bookingApi";
 import { useAuthStore } from "../../../store/authStore";
+import { parseUtcDate } from "../../../utils/dateUtils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toNum = (val: any): number => {
@@ -96,6 +97,14 @@ function BookingPageInner() {
   const authUser      = useAuthStore((s) => s.user);
   const authHydrated  = useAuthStore((s) => s._hasHydrated);
   const fetchProfile  = useAuthStore((s) => s.fetchProfile);
+
+  // Bắt buộc đăng nhập ngay khi vào trang đặt tour mới (chưa có bookingData)
+  useEffect(() => {
+    if (authHydrated && !authUser && !loading && !bookingData) {
+      const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+      router.push(`/login?returnUrl=${returnUrl}`);
+    }
+  }, [authHydrated, authUser, loading, bookingData, router]);
 
   const showToast = (msg: string, type: "error" | "success") => {
     setToast({ msg, type });
@@ -363,7 +372,8 @@ function BookingPageInner() {
       const res = await createBooking(requestData);
       if (res.status === 201 || res.status === 200) {
         const br = (res as any).data ?? res;
-        const createdAt = br.createdAt ? new Date(br.createdAt).getTime() : 0;
+        const parsedCreatedAt = parseUtcDate(br.createdAt);
+        const createdAt = parsedCreatedAt ? parsedCreatedAt.getTime() : 0;
         setBookingResult({
           bookingId: br.bookingId,
           bookingCode: br.bookingCode,

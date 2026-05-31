@@ -12,6 +12,7 @@ import {
   getTourSchedules,
 } from "../../../api/coreApi_new";
 import ReviewsSection from "../../components/ReviewsSection";
+import { useAuthStore } from "../../../store/authStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toNum = (val: any): number => {
@@ -266,6 +267,16 @@ export default function TourDetailPage({ params }: { params: Promise<{ id: strin
       babies: String(numBabies),
       package: selectedPackageId,
     });
+
+    // Bắt buộc đăng nhập ngay khi nhấn "Đặt tour ngay"
+    const isLoggedIn = useAuthStore.getState().isLoggedIn || !!(typeof window !== "undefined" && localStorage.getItem("token"));
+    if (!isLoggedIn) {
+      const targetUrl = `/booking/${selectedDepId}?${params.toString()}`;
+      const returnUrl = encodeURIComponent(targetUrl);
+      router.push(`/login?returnUrl=${returnUrl}`);
+      return;
+    }
+
     router.push(`/booking/${selectedDepId}?${params.toString()}`);
   };
 

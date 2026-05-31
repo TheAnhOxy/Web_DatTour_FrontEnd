@@ -10,6 +10,7 @@ import {
   formatDueMs,
   officePaymentDueMs,
 } from "../../../lib/officePaymentSchedule";
+import { parseUtcDate } from "../../../utils/dateUtils";
 
 const PAYMENT_HOLD_MINUTES = 10;
 const PAYMENT_HOLD_MS = PAYMENT_HOLD_MINUTES * 60 * 1000;
@@ -103,8 +104,8 @@ function getExpiresAtMs(
   
   let createdMs = Date.now();
   if (payload?.createdAt) {
-    const d = payload.createdAt.endsWith("Z") ? payload.createdAt : payload.createdAt + "Z";
-    const t = new Date(d).getTime();
+    const parsed = parseUtcDate(payload.createdAt);
+    const t = parsed ? parsed.getTime() : NaN;
     if (!isNaN(t)) createdMs = t;
   }
   
@@ -118,8 +119,8 @@ function reducer(s: State, a: Action): State {
       
       let createdMs = Date.now();
       if (a.payload.createdAt) {
-        const d = a.payload.createdAt.endsWith("Z") ? a.payload.createdAt : a.payload.createdAt + "Z";
-        const t = new Date(d).getTime();
+        const parsed = parseUtcDate(a.payload.createdAt);
+        const t = parsed ? parsed.getTime() : NaN;
         if (!isNaN(t)) createdMs = t;
       }
       
@@ -163,7 +164,8 @@ function reducer(s: State, a: Action): State {
     case "CASH_PAYMENT_RETRY":
       return { ...s, cashPaymentReady: false, cashInitError: "" };
     case "OFFICE_RESERVED": {
-      const dueMs = new Date(a.paymentDueAt).getTime();
+      const parsedDue = parseUtcDate(a.paymentDueAt);
+      const dueMs = parsedDue ? parsedDue.getTime() : Date.now();
       const secsLeft = Math.max(0, Math.round((dueMs - Date.now()) / 1000));
       return {
         ...s,
@@ -199,8 +201,8 @@ const fmt = (n: number) => new Intl.NumberFormat("vi-VN").format(Math.max(0, Mat
 
 const fmtDate = (s?: string) => {
   if (!s) return "—";
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return "—";
+  const d = parseUtcDate(s);
+  if (!d || isNaN(d.getTime())) return "—";
   const dn = ["CN","T2","T3","T4","T5","T6","T7"][d.getDay()];
   return `${dn}, ${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
 };
@@ -271,11 +273,11 @@ export default function BookingCheckoutPage() {
           return;
         }
 
-        const createdMs = booking.createdAt ? new Date(booking.createdAt).getTime() : Date.now();
+        const parsedCreated = parseUtcDate(booking.createdAt);
+        const createdMs = parsedCreated ? parsedCreated.getTime() : Date.now();
         const isOffice = booking.paymentMethod === "CASH_OFFICE";
-        const officeDueMs = isOffice && booking.paymentDueAt
-          ? new Date(booking.paymentDueAt).getTime()
-          : null;
+        const parsedOfficeDue = isOffice ? parseUtcDate(booking.paymentDueAt) : null;
+        const officeDueMs = parsedOfficeDue ? parsedOfficeDue.getTime() : null;
         const expiresAt = officeDueMs != null && officeDueMs > Date.now()
           ? officeDueMs
           : createdMs + PAYMENT_HOLD_MS;
@@ -339,17 +341,17 @@ export default function BookingCheckoutPage() {
 
   // ── Hết giờ: dừng poll + yêu cầu hủy booking (best-effort, BE scheduler vẫn chạy) ──
   useEffect(() => {
-    if (s.flow !== "expired" || !s.payload?.bookingCode) return;
+    if (s.flow !== "expired" || !s.payload?.bookingId) return;
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
     cancelBooking({
-      bookingCode: s.payload.bookingCode,
-      reason: `Quá thời gian thanh toán ${PAYMENT_HOLD_MINUTES} phút`,
+      bookingId: s.payload.bookingId,
+      cancellationReason: `Quá thời gian thanh toán ${PAYMENT_HOLD_MINUTES} phút`,
     }).catch(() => { /* BE scheduler có thể đã hủy */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.flow, s.payload?.bookingCode]);
+  }, [s.flow, s.payload?.bookingId]);
 
   // ── Auto-poll CHỈ cho chuyển khoản (SePay webhook tự xác nhận) ───────────
 
@@ -522,7 +524,8 @@ export default function BookingCheckoutPage() {
     if (result?.paymentDueAt) {
       dispatch({ type: "OFFICE_RESERVED", paymentDueAt: result.paymentDueAt });
       try {
-        const dueMs = new Date(result.paymentDueAt).getTime();
+        const parsedDue = parseUtcDate(result.paymentDueAt);
+        const dueMs = parsedDue ? parsedDue.getTime() : Date.now();
         const updated = {
           ...s.payload,
           expiresAt: dueMs,
@@ -563,13 +566,18 @@ export default function BookingCheckoutPage() {
 
   const officeDueLabel = useMemo(() => {
     if (p?.expiresAt && s.cashPaymentReady) return formatDueMs(p.expiresAt);
-    if (p?.createdAt) return formatDueMs(officePaymentDueMs(new Date(p.createdAt).getTime()));
+    if (p?.createdAt) {
+      const parsedCreated = parseUtcDate(p.createdAt);
+      if (parsedCreated) return formatDueMs(officePaymentDueMs(parsedCreated.getTime()));
+    }
     return null;
   }, [p?.expiresAt, p?.createdAt, s.cashPaymentReady]);
 
   const officeWindowExpired = useMemo(() => {
     if (!p?.createdAt || s.cashPaymentReady) return false;
-    return officePaymentDueMs(new Date(p.createdAt).getTime()) <= Date.now();
+    const parsedCreated = parseUtcDate(p.createdAt);
+    if (!parsedCreated) return false;
+    return officePaymentDueMs(parsedCreated.getTime()) <= Date.now();
   }, [p?.createdAt, s.cashPaymentReady]);
 
   // ────────────────────────────────────────────────────────────────────────
